@@ -1,9 +1,9 @@
 {
   "activation_function": "gelu_new",
   "attn_pdrop": 0.1,
-  "bos_token_id": 50256,
+  "bos_token_id": 6,
   "embd_pdrop": 0.1,
-  "eos_token_id": 50256,
+  "eos_token_id": 7,
   "initializer_range": 0.02,
   "layer_norm_epsilon": 1e-05,
   "model_type": "gpt2",
