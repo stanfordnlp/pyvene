@@ -1,3 +1,5 @@
+results_notebook/
+logic_data/*.pkl
 wandb/
 
 # Byte-compiled / optimized / DLL files
