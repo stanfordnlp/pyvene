@@ -129,7 +129,92 @@ def sample_constituent_values(
         data[0]["VAL"] = final_value
         
     return data[0]["VAL"], data[1]["VAL"]
+
+
+def sample_demonstrations_for_clauses_forward(
+    clauses,
+    n,
+    partial_value_assignment=None
+):
+
+    value_assignments = []
+    for _ in range(n):
+        value_assignment = {}
         
+        if partial_value_assignment is not None:
+            for var, val in partial_value_assignment.items():
+                value_assignment[var] = val
+            unassigned = {'a', 'b', 'c'} - set(list(value_assignment.keys()))
+            while len(unassigned) > 0:
+                # assigning values.
+                unassigned = list(unassigned)
+                assigning_var = random.choice(unassigned)
+                assigned = list(value_assignment.keys())
+                assigned_val = list(value_assignment.values())
+                matching_var = random.choice(assigned)
+                _equal = True if random.random() < 0.5 else False
+                assigning_val = value_assignment[matching_var] if _equal else sample_var(exclude=assigned_val)
+                value_assignment[assigning_var] = assigning_val
+                unassigned = {'a', 'b', 'c'} - set(list(value_assignment.keys()))
+        else:
+            rotary_index = random.choice([1,2,3])
+            if rotary_index == 1:
+                #abc
+                ab_equal = True if random.random() < 0.5 else False
+                bc_equal = True if random.random() < 0.5 else False
+                a = sample_var(exclude=[])
+                b = a if ab_equal else sample_var(exclude=[a])
+                c = b if bc_equal else sample_var(exclude=[b])
+            elif rotary_index == 2:
+                #bca
+                bc_equal = True if random.random() < 0.5 else False
+                ca_equal = True if random.random() < 0.5 else False
+                b = sample_var(exclude=[])
+                c = b if bc_equal else sample_var(exclude=[b])
+                a = c if ca_equal else sample_var(exclude=[c])
+            elif rotary_index == 3:
+                #cab
+                ca_equal = True if random.random() < 0.5 else False
+                ab_equal = True if random.random() < 0.5 else False
+                c = sample_var(exclude=[])
+                a = c if ca_equal else sample_var(exclude=[c])
+                b = a if ab_equal else sample_var(exclude=[a])  
+
+            value_assignment['a'] = a
+            value_assignment['b'] = b
+            value_assignment['c'] = c
+        
+        conjs = re.split(r"\s*(?:and|or)\s*", clauses)
+        left_args = re.split(r"\s*(?:!=|==)\s*", conjs[0])
+        right_args = re.split(r"\s*(?:!=|==)\s*", conjs[1])
+        if "!=" in conjs[0]:
+            value_assignment["LEFT_EQ"] = "!="
+            LEFT_VAL = value_assignment[left_args[0].strip(" (")] != value_assignment[left_args[1].strip(" )")]
+        elif "==" in conjs[0]:
+            value_assignment["LEFT_EQ"] = "=="
+            LEFT_VAL = value_assignment[left_args[0].strip(" (")] == value_assignment[left_args[1].strip(" )")]
+        if "!=" in conjs[1]:
+            value_assignment["RIGHT_EQ"] = "!="
+            RIGHT_VAL = value_assignment[right_args[0].strip(" (")] != value_assignment[right_args[1].strip(" )")]
+        elif "==" in conjs[1]:
+            value_assignment["RIGHT_EQ"] = "=="
+            RIGHT_VAL = value_assignment[right_args[0].strip(" (")] == value_assignment[right_args[1].strip(" )")]
+        if "and" in clauses:
+            value_assignment["LOGIC"] = "and"
+            output = LEFT_VAL and RIGHT_VAL
+        elif "or" in clauses:
+            value_assignment["LOGIC"] = "or"
+            output = LEFT_VAL or RIGHT_VAL
+        value_assignment["LEFT_VAL"] = LEFT_VAL
+        value_assignment["RIGHT_VAL"] = RIGHT_VAL
+        value_assignment['output'] = output
+        value_assignment['clause'] = clauses
+
+        value_assignments += [value_assignment]
+        # print(value_assignment)
+    return value_assignments
+
+
 def sample_demonstration_for_clauses(
     clauses,
     final_value_in=None,
@@ -275,9 +360,9 @@ def left_aligment_sampler(
     all_ctf_output_ids = [] # this one does not have input ids, etc..
     
     if shared_train:
-        shared_demostrations = sample_demonstrations_for_clauses(
+        shared_demostrations = sample_demonstrations_for_clauses_forward(
             clauses,
-            final_values=[random.choice([True, False]) for i in range(n_examples-1)]
+            n_examples-1
         )
     if source_clauses is None:
         source_clauses = clauses
@@ -290,22 +375,22 @@ def left_aligment_sampler(
             
             source_train_demostrations = shared_demostrations
         else:
-            base_train_demostrations = sample_demonstrations_for_clauses(
+            base_train_demostrations = sample_demonstrations_for_clauses_forward(
                 clauses,
-                final_values=[random.choice([True, False]) for i in range(n_examples-1)]
+                n_examples-1
             )
-            source_train_demostrations = sample_demonstrations_for_clauses(
+            source_train_demostrations = sample_demonstrations_for_clauses_forward(
                 source_clauses,
-                final_values=[random.choice([True, False]) for i in range(n_examples-1)]
+                n_examples-1
             )
         
-        base_test_demostrations = sample_demonstrations_for_clauses(
+        base_test_demostrations = sample_demonstrations_for_clauses_forward(
             clauses,
-            final_values=[random.choice([True, False])]
+            1
         )
-        source_test_demostrations = sample_demonstrations_for_clauses(
+        source_test_demostrations = sample_demonstrations_for_clauses_forward(
             source_clauses,
-            final_values=[random.choice([True, False])]
+            1
         )
         if "and" in clauses:
             ctf_val = source_test_demostrations[0]['LEFT_VAL'] and base_test_demostrations[0]['RIGHT_VAL']
@@ -370,9 +455,9 @@ def left_identity_alignment_sampler(
     diff_probe = 0
     
     if shared_train:
-        shared_demostrations = sample_demonstrations_for_clauses(
+        shared_demostrations = sample_demonstrations_for_clauses_forward(
             clauses,
-            final_values=[random.choice([True, False]) for i in range(n_examples-1)]
+            n_examples-1
         )
     if source_clauses is None:
         source_clauses = clauses
@@ -385,28 +470,28 @@ def left_identity_alignment_sampler(
             
             source_train_demostrations = shared_demostrations
         else:
-            base_train_demostrations = sample_demonstrations_for_clauses(
+            base_train_demostrations = sample_demonstrations_for_clauses_forward(
                 clauses,
-                final_values=[random.choice([True, False]) for i in range(n_examples-1)]
+                n_examples-1
             )
-            source_train_demostrations = sample_demonstrations_for_clauses(
+            source_train_demostrations = sample_demonstrations_for_clauses_forward(
                 source_clauses,
-                final_values=[random.choice([True, False]) for i in range(n_examples-1)]
+                n_examples-1
             )
         
-        base_test_demostrations = sample_demonstrations_for_clauses(
+        base_test_demostrations = sample_demonstrations_for_clauses_forward(
             clauses,
-            final_values=[random.choice([True, False])]
+            1
         )
         left_clause = base_test_demostrations[0]['clause'].split(f" {base_test_demostrations[0]['LOGIC']} ")[0]
-        left_first_arg = left_clause.strip("()").split(f" {base_test_demostrations[0]['LEFT_EQ']} ")[0].strip()
-        left_second_arg = left_clause.strip("()").split(f" {base_test_demostrations[0]['LEFT_EQ']} ")[-1].strip()
+        left_first_arg = left_clause.strip("() ").split(f" {base_test_demostrations[0]['LEFT_EQ']} ")[0].strip()
+        left_second_arg = left_clause.strip("() ").split(f" {base_test_demostrations[0]['LEFT_EQ']} ")[-1].strip()
         base_left_first_var = base_test_demostrations[0][left_first_arg]
         base_left_second_var = base_test_demostrations[0][left_second_arg]
         
         right_clause = base_test_demostrations[0]['clause'].split(f" {base_test_demostrations[0]['LOGIC']} ")[1]
-        right_first_arg = right_clause.strip("()").split(f" {base_test_demostrations[0]['RIGHT_EQ']} ")[0].strip()
-        right_second_arg = right_clause.strip("()").split(f" {base_test_demostrations[0]['RIGHT_EQ']} ")[-1].strip()
+        right_first_arg = right_clause.strip("() ").split(f" {base_test_demostrations[0]['RIGHT_EQ']} ")[0].strip()
+        right_second_arg = right_clause.strip("() ").split(f" {base_test_demostrations[0]['RIGHT_EQ']} ")[-1].strip()
         base_right_first_var = base_test_demostrations[0][right_first_arg]
         base_right_second_var = base_test_demostrations[0][right_second_arg]
         
@@ -414,18 +499,19 @@ def left_identity_alignment_sampler(
         value_assignment = {}
         for arg in fixed_args:
             value_assignment[arg] = base_test_demostrations[0][arg]
-        ctf_value_assignment = sample_demonstration_for_clauses(
+        ctf_value_assignment = sample_demonstrations_for_clauses_forward(
             clauses,
+            1,
             partial_value_assignment=value_assignment,
-        )
+        )[0]
         ctf_val = ctf_value_assignment['output']
         ctf_arg_val = ctf_value_assignment[left_first_arg]
         source_value_assignment = {
             left_first_arg: ctf_arg_val,
         }
-        source_test_demostrations = sample_demonstrations_for_clauses(
+        source_test_demostrations = sample_demonstrations_for_clauses_forward(
             source_clauses,
-            final_values=[random.choice([True, False])],
+            1,
             partial_value_assignment=source_value_assignment,
         )
         
@@ -473,4 +559,3 @@ def left_identity_alignment_sampler(
     return all_base_input_ids, all_base_output_ids, all_base_clauses, \
         all_source_input_ids, all_source_output_ids, all_source_clauses, \
         all_ctf_output_ids
-        
