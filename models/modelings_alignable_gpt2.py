@@ -233,7 +233,7 @@ class AlignableGPT2Model(GPT2Model):
                 end = self.alignment_config["token_range"][1]*self.n_embd
                 aligning_hidden_states = hidden_states[:,start:end]
                 prefix_hidden_states = hidden_states[:,:start]
-                suffix_hidden_states = hidden_states[:,end:]
+                postfix_hidden_states = hidden_states[:,end:]
                 rotated_hidden_states = self.rotate_layer(aligning_hidden_states)
                 # intervene
                 if source_hidden_states != None:
@@ -244,7 +244,7 @@ class AlignableGPT2Model(GPT2Model):
                 hidden_states = torch.cat([
                     prefix_hidden_states,
                     self.inverse_rotate_layer(rotated_hidden_states),
-                    suffix_hidden_states
+                    postfix_hidden_states
                 ], dim=1).reshape(original_shape)
                 
             if use_cache is True:

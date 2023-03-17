@@ -105,7 +105,6 @@ class LogicSolverAligner(object):
                 actual_test_labels = inputs['counterfactual_labels'][:, -3]
                 pred_test_labels = torch.argmax(outputs.logits[:, -4], dim=-1)
                 correct_labels = (actual_test_labels==pred_test_labels)
-                
                 step_accuracy = correct_labels.sum() / correct_labels.shape[0]
                 step_accuracy = step_accuracy.tolist()
 

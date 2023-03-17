@@ -346,6 +346,162 @@ def _eval(
     eval_clauses= eval_clauses.replace('c ', str(assignments['c']))
     return eval(eval_clauses)
 
+def function_aligment_sampler(
+    clauses, n_training_examples, n_examples = 7, shared_train = True, source_clauses=None
+):
+    all_base_input_ids = []
+    all_base_output_ids = []
+    all_base_clauses = []
+
+    all_source_input_ids = []
+    all_source_output_ids = []
+    all_source_clauses = []
+
+    all_ctf_output_ids = [] # this one does not have input ids, etc..
+        
+    for i in tqdm(range(n_training_examples)):
+        base_train_demostrations = sample_demonstrations_for_clauses_forward(
+            clauses,
+            n_examples-1
+        )
+        source_train_demostrations = sample_demonstrations_for_clauses_forward(
+            source_clauses,
+            n_examples-1
+        )
+        
+        base_test_demostrations = sample_demonstrations_for_clauses_forward(
+            clauses,
+            1
+        )
+        source_test_demostrations = sample_demonstrations_for_clauses_forward(
+            source_clauses,
+            1
+        )
+        ctf_val = _eval(
+            source_clauses,
+            { 
+                'a': base_test_demostrations[0]['a'],
+                'b': base_test_demostrations[0]['b'],
+                'c': base_test_demostrations[0]['c'],
+            }
+        )
+
+        # listify
+        base_input_ids = [BOS_TOKEN_ID]
+        base_output_ids = [BOS_TOKEN_ID]
+        for d in base_train_demostrations+base_test_demostrations:
+            output = FALSE_TOKEN_ID if d['output'] == False else TRUE_TOKEN_ID
+            base_input_ids += [INPUT_PREFIX_TOKEN_ID, d['a'], d['b'], d['c'], OUTPUT_PREFIX_TOKEN_ID, output, SEPARATOR_TOKEN_ID]
+            base_output_ids += [-100, -100, -100, -100, -100, output, -100] # no label to predict!
+            assert len(base_input_ids) == len(base_output_ids)
+        base_input_ids += [EOS_TOKEN_ID]
+        base_output_ids += [EOS_TOKEN_ID]
+        all_base_input_ids += [base_input_ids]
+        all_base_output_ids += [base_output_ids]
+        all_base_clauses += [clauses]   
+
+        # listify
+        source_input_ids = [BOS_TOKEN_ID]
+        source_output_ids = [BOS_TOKEN_ID]
+        for d in source_train_demostrations+source_test_demostrations:
+            output = FALSE_TOKEN_ID if d['output'] == False else TRUE_TOKEN_ID
+            source_input_ids += [INPUT_PREFIX_TOKEN_ID, d['a'], d['b'], d['c'], OUTPUT_PREFIX_TOKEN_ID, output, SEPARATOR_TOKEN_ID]
+            source_output_ids += [-100, -100, -100, -100, -100, output, -100] # no label to predict!
+            assert len(source_input_ids) == len(source_output_ids)
+        source_input_ids += [EOS_TOKEN_ID]
+        source_output_ids += [EOS_TOKEN_ID]
+        all_source_input_ids += [source_input_ids]
+        all_source_output_ids += [source_output_ids]
+        all_source_clauses += [clauses]
+        
+        # counterfactuals, we ONLY need one single label.
+        ctf_output_ids = [-100]
+        for d in base_train_demostrations:
+            ctf_output_ids += [-100, -100, -100, -100, -100, -100, -100] # no label to predict!
+        ctf_output = FALSE_TOKEN_ID if ctf_val == False else TRUE_TOKEN_ID
+        ctf_output_ids += [-100, -100, -100, -100, -100, ctf_output, -100]
+        ctf_output_ids += [-100]
+        all_ctf_output_ids += [ctf_output_ids]
+
+    return all_base_input_ids, all_base_output_ids, all_base_clauses, \
+        all_source_input_ids, all_source_output_ids, all_source_clauses, \
+        all_ctf_output_ids
+
+
+def whole_aligment_sampler(
+    clauses, n_training_examples, n_examples = 7, shared_train = True, source_clauses=None
+):
+    all_base_input_ids = []
+    all_base_output_ids = []
+    all_base_clauses = []
+
+    all_source_input_ids = []
+    all_source_output_ids = []
+    all_source_clauses = []
+
+    all_ctf_output_ids = [] # this one does not have input ids, etc..
+        
+    for i in tqdm(range(n_training_examples)):
+        base_train_demostrations = sample_demonstrations_for_clauses_forward(
+            clauses,
+            n_examples-1
+        )
+        source_train_demostrations = sample_demonstrations_for_clauses_forward(
+            source_clauses,
+            n_examples-1
+        )
+        
+        base_test_demostrations = sample_demonstrations_for_clauses_forward(
+            clauses,
+            1
+        )
+        source_test_demostrations = sample_demonstrations_for_clauses_forward(
+            source_clauses,
+            1
+        )
+        ctf_val = source_test_demostrations[0]['output']
+
+        # listify
+        base_input_ids = [BOS_TOKEN_ID]
+        base_output_ids = [BOS_TOKEN_ID]
+        for d in base_train_demostrations+base_test_demostrations:
+            output = FALSE_TOKEN_ID if d['output'] == False else TRUE_TOKEN_ID
+            base_input_ids += [INPUT_PREFIX_TOKEN_ID, d['a'], d['b'], d['c'], OUTPUT_PREFIX_TOKEN_ID, output, SEPARATOR_TOKEN_ID]
+            base_output_ids += [-100, -100, -100, -100, -100, output, -100] # no label to predict!
+            assert len(base_input_ids) == len(base_output_ids)
+        base_input_ids += [EOS_TOKEN_ID]
+        base_output_ids += [EOS_TOKEN_ID]
+        all_base_input_ids += [base_input_ids]
+        all_base_output_ids += [base_output_ids]
+        all_base_clauses += [clauses]   
+
+        # listify
+        source_input_ids = [BOS_TOKEN_ID]
+        source_output_ids = [BOS_TOKEN_ID]
+        for d in source_train_demostrations+source_test_demostrations:
+            output = FALSE_TOKEN_ID if d['output'] == False else TRUE_TOKEN_ID
+            source_input_ids += [INPUT_PREFIX_TOKEN_ID, d['a'], d['b'], d['c'], OUTPUT_PREFIX_TOKEN_ID, output, SEPARATOR_TOKEN_ID]
+            source_output_ids += [-100, -100, -100, -100, -100, output, -100] # no label to predict!
+            assert len(source_input_ids) == len(source_output_ids)
+        source_input_ids += [EOS_TOKEN_ID]
+        source_output_ids += [EOS_TOKEN_ID]
+        all_source_input_ids += [source_input_ids]
+        all_source_output_ids += [source_output_ids]
+        all_source_clauses += [clauses]
+        
+        # counterfactuals, we ONLY need one single label.
+        ctf_output_ids = [-100]
+        for d in base_train_demostrations:
+            ctf_output_ids += [-100, -100, -100, -100, -100, -100, -100] # no label to predict!
+        ctf_output = FALSE_TOKEN_ID if ctf_val == False else TRUE_TOKEN_ID
+        ctf_output_ids += [-100, -100, -100, -100, -100, ctf_output, -100]
+        ctf_output_ids += [-100]
+        all_ctf_output_ids += [ctf_output_ids]
+
+    return all_base_input_ids, all_base_output_ids, all_base_clauses, \
+        all_source_input_ids, all_source_output_ids, all_source_clauses, \
+        all_ctf_output_ids
+
 def left_aligment_sampler(
     clauses, n_training_examples, n_examples = 7, shared_train = True, source_clauses=None
 ):
@@ -424,13 +580,14 @@ def left_aligment_sampler(
         all_source_input_ids += [source_input_ids]
         all_source_output_ids += [source_output_ids]
         all_source_clauses += [clauses]
-                 
-        ctf_output_ids = [BOS_TOKEN_ID]
+        
+        # counterfactuals, we ONLY need one single label.
+        ctf_output_ids = [-100]
         for d in base_train_demostrations:
             ctf_output_ids += [-100, -100, -100, -100, -100, -100, -100] # no label to predict!
         ctf_output = FALSE_TOKEN_ID if ctf_val == False else TRUE_TOKEN_ID
         ctf_output_ids += [-100, -100, -100, -100, -100, ctf_output, -100]
-        ctf_output_ids += [EOS_TOKEN_ID]
+        ctf_output_ids += [-100]
         all_ctf_output_ids += [ctf_output_ids]
 
     return all_base_input_ids, all_base_output_ids, all_base_clauses, \
@@ -542,13 +699,14 @@ def left_identity_alignment_sampler(
         all_source_input_ids += [source_input_ids]
         all_source_output_ids += [source_output_ids]
         all_source_clauses += [clauses]
-                 
-        ctf_output_ids = [BOS_TOKEN_ID]
+        
+        # counterfactuals, we ONLY need one single label.
+        ctf_output_ids = [-100]
         for d in base_train_demostrations:
             ctf_output_ids += [-100, -100, -100, -100, -100, -100, -100] # no label to predict!
         ctf_output = FALSE_TOKEN_ID if ctf_val == False else TRUE_TOKEN_ID
         ctf_output_ids += [-100, -100, -100, -100, -100, ctf_output, -100]
-        ctf_output_ids += [EOS_TOKEN_ID]
+        ctf_output_ids += [-100]
         all_ctf_output_ids += [ctf_output_ids]
         
         assert _eval(
