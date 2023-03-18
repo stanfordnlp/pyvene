@@ -7,7 +7,6 @@ from tqdm import tqdm
 import copy
 import numpy as np
 import torch
-import seaborn as sns
 
 FALSE_TOKEN_ID = 0
 TRUE_TOKEN_ID = 1
