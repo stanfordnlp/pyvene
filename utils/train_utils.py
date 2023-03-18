@@ -13,6 +13,7 @@ from logic_data.constants import *
 from datasets import Dataset 
 from torch.utils.data import DataLoader
 import gc
+import wandb
 
 def set_seed(seed: int):
     random.seed(seed)
@@ -98,7 +99,7 @@ class LogicSolverTrainer(object):
                             for k, v in inputs.items():
                                 if v is not None and isinstance(v, torch.Tensor):
                                     inputs[k] = v.to(self.device)
-                            outputs = model(**inputs)
+                            outputs = self.model(**inputs)
 
                             actual_test_labels = inputs['labels'][:, -3]
                             pred_test_labels = torch.argmax(outputs.logits[:, -4], dim=-1)

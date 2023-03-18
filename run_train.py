@@ -52,7 +52,7 @@ if __name__ == '__main__':
         assert False # NEVER!
 
 set_seed(args.seed)
-model_name = "gpt2"
+model_name = args.hf_model_path if args.hf_model_path else "gpt2"
 run_name = f"logic_pipeline.model.{model_name}.n_rule.{args.n_training_program}.n_shot.{args.n_fewshot}.seed.{args.seed}"
 logger = logging.getLogger()
 
@@ -144,7 +144,6 @@ os.environ["WANDB_PROJECT"] = f"ToM-DAS"
 
 output_dir = os.path.join(args.output_dir, run_name)
 if args.do_train and args.is_wandb:
-    import wandb
     run = wandb.init(
         project="ToM-DAS-GPT2", 
         entity="wuzhengx",
