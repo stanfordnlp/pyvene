@@ -346,6 +346,33 @@ def _eval(
     eval_clauses= eval_clauses.replace('c ', str(assignments['c']))
     return eval(eval_clauses)
 
+def sample_factual_demonstrations(clauses_pool, n_samples, n_examples, tokenizer):
+    all_input_ids = []
+    all_output_ids = []
+    all_clauses = []
+
+    for i in tqdm(range(n_samples)):
+        clauses = random.choice(clauses_pool)
+        demostrations = sample_demonstrations_for_clauses_forward(
+            clauses,
+            n_examples
+        )
+        # listify
+        input_ids = [tokenizer.bos_token_id]
+        output_ids = [tokenizer.bos_token_id]
+        for d in demostrations:
+            output = tokenizer.false_token_id if d['output'] == False else tokenizer.true_token_id
+            input_ids += [tokenizer.input_token_id, d['a'], d['b'], d['c'], tokenizer.output_token_id, output, tokenizer.sep_token_id]
+            output_ids += [-100, -100, -100, -100, -100, output, -100]
+            assert len(input_ids) == len(output_ids)
+        input_ids += [tokenizer.eos_token_id]
+        output_ids += [tokenizer.eos_token_id]
+        all_input_ids += [input_ids]
+        all_output_ids += [output_ids]
+        all_clauses += [clauses]
+    
+    return all_input_ids, all_output_ids, all_clauses
+
 def function_aligment_sampler(
     clauses, n_training_examples, n_examples = 7, shared_train = True, source_clauses=None
 ):
