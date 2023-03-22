@@ -216,6 +216,7 @@ class LogicSolverAligner(object):
                 source_hidden_states = self.model(
                    input_ids=inputs['source_input_ids']
                 ).rotated_hidden_states
+                
                 outputs = self.model(
                     input_ids=inputs['input_ids'],
                     source_hidden_states=source_hidden_states,
