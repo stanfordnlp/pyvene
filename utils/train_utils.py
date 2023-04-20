@@ -647,7 +647,7 @@ def factual_sampler(
     min_lower_bound=0.00, max_upper_bound=10.00,
 ):
     instruction = f"Please say yes only if it costs between {lower_bound} and {upper_bound} dollars, otherwise no."
-
+    
     all_input_ids = []
     all_output_ids = [] # this one does not have input ids, etc..
     
@@ -773,7 +773,7 @@ def prepare_dataloader(args, tokenizer):
         sampler_func = lower_bound_alignment_sampler
     elif args.task_name == "cost_no_type_higher":
         sampler_func = higher_bound_alignment_sampler
-    elif args.task_name == "cost_no_type":
+    elif args.task_name == "cost_no_type_both":
         sampler_func = both_bound_alignment_sampler
     else:
         assert False
@@ -820,7 +820,7 @@ def prepare_dataloader(args, tokenizer):
         eval_dataset, batch_size=args.eval_batch_size,
     )
     
-    return train_dataloader, eval_dataloader
+    return prealign_dataloader, train_dataloader, eval_dataloader
 
 class AlpacaAligner(object):
     def __init__(
@@ -835,7 +835,6 @@ class AlpacaAligner(object):
         early_stopping=5,
         do_statistic=False,
         model_name="",
-        intervention_config=None,
         device="cuda"
     ):
         self.model = model
@@ -851,18 +850,17 @@ class AlpacaAligner(object):
         self.device = device
         
         self.early_stopping = early_stopping
-        self.intervention_config = intervention_config
         
         if args.is_wandb and is_master:
             import wandb
             run = wandb.init(
-                project="ToM-DAS-Alpaca-7B", 
+                project="ToM-DAS-Alpaca-7B-Clean", 
                 entity="wuzhengx",
                 name=model_name,
             )
             wandb.config.update(args)
     
-    def save_model(self, model_name):
+    def save_model(self, output_dir, model_name):
         if self.n_gpu > 1:
             torch.save({
                 'rotate_layer': self.model.module.model.rotate_layer.state_dict(),
@@ -877,6 +875,47 @@ class AlpacaAligner(object):
                 
             }, os.path.join(output_dir, model_name))
     
+    def prealign_eval(self, prealign_dataloader, output_dir):
+        total_count = 0
+        correct_count = 0
+        self.model.eval()
+        with torch.no_grad():
+            for step, inputs in enumerate(prealign_dataloader):
+                for k, v in inputs.items():
+                    if v is not None and isinstance(v, torch.Tensor):
+                        inputs[k] = v.to(self.device)
+
+                # aligning forward!
+                outputs = self.model(
+                    input_ids=inputs['input_ids'],
+                    labels=inputs['labels']
+                )
+
+                actual_test_labels = inputs['labels'][:, -1]
+                pred_test_labels = torch.argmax(outputs.logits[:, -1], dim=-1)
+                correct_labels = (actual_test_labels==pred_test_labels)
+                
+                total_count += len(correct_labels)
+                correct_count += correct_labels.sum().tolist()
+        current_acc = round(correct_count/total_count, 2)
+        logger.info(f"[WARNING: THIS NEEDS TO BE GOOD!] prealign task accuracy: {current_acc}")
+        assert current_acc >= 0.50 # we raise error if behavioral test is a random guess...
+                                   # in this case, you don't need to align whatsoever, you model
+                                   # is really bad, why aligning anything? :)
+                                   # ideally, this should be close to 100% for non-stochastic DAS.
+        
+        if self.is_master and not self.is_wandb:
+            log_prealign = open(os.path.join(output_dir, 'prealign_log.txt'), 'w', buffering=1)
+            print(f'prealign_accuracy,{current_acc}', file=log_prealign)
+            log_prealign.close()
+        elif self.is_wandb:
+            wandb.log(
+                {
+                    "eval/prealign_accuracy": current_acc
+                },
+                step=0
+            )
+            
     def train(
         self, train_dataloader, dev_dataloader,
         optimizer, scheduler, output_dir,
@@ -890,7 +929,7 @@ class AlpacaAligner(object):
             print('step,accuracy', file=log_eval)
             log_train.close()
             log_eval.close()
-        
+
         # okay, have to honest, not sure whether we do train mode align or eval align;
         # i guess it is good to try both, but ... only trying train here and move on.
         self.model.train()
@@ -903,7 +942,7 @@ class AlpacaAligner(object):
         target_total_step = len(train_dataloader) * int(epochs)
         temperature_start = 50.0
         temperature_end = 0.1
-        temperature_schedule = torch.linspace(temperature_start, temperature_end, target_total_step)
+        temperature_schedule = torch.linspace(temperature_start, temperature_end, target_total_step).to(torch.bfloat16)
         self.model.model.temperature.data = temperature_schedule[total_step]
         
         for epoch in train_iterator:
@@ -938,10 +977,14 @@ class AlpacaAligner(object):
 
                 if self.is_master and total_step % log_step == 0:
                     if self.is_wandb:
+                        intervention_boundaries = torch.clamp(self.model.model.intervention_boundaries, 1e-3, 1)
                         wandb.log(
                             {
                                 "train/loss": loss.item(),
-                                "train/step_accuracy": step_accuracy
+                                "train/step_accuracy": step_accuracy,
+                                "train/temperature": self.model.model.temperature.data,
+                                "train/boundary_1": intervention_boundaries.data[0],
+                                "train/boundary_2": intervention_boundaries.data[1],
                             },
                             step=total_step
                         )
@@ -954,7 +997,7 @@ class AlpacaAligner(object):
                         )
                         log_train.close()
                         
-                    if total_step % valid_steps == 0:
+                    if total_step != 0 and total_step % valid_steps == 0:
                         total_count = 0
                         correct_count = 0
                         self.model.eval()
@@ -999,7 +1042,7 @@ class AlpacaAligner(object):
                         if current_acc > best_eval_acc:
                             best_eval_acc = current_acc
                             if self.is_master:
-                                self.save_model('pytorch-rotate-best.bin')
+                                self.save_model(output_dir, 'pytorch-rotate-best.bin')
                         self.model.train()
 
                     total_log_step += 1
@@ -1068,6 +1111,6 @@ class AlpacaAligner(object):
         ###############################
         
         if self.is_master:
-            self.save_model('pytorch-rotate-last.bin')
+            self.save_model(output_dir, 'pytorch-rotate-last.bin')
 
         

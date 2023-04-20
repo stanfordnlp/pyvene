@@ -66,7 +66,7 @@ class InverseRotateLayer(torch.nn.Module):
 
 class RotateLayer(torch.nn.Module):
     """A linear transformation with orthogonal initialization."""
-    def __init__(self, n, init_orth=False):
+    def __init__(self, n, init_orth=True):
         super().__init__()
         self.weight = torch.nn.Parameter(torch.empty(n,n), requires_grad=True)
         if init_orth:
@@ -93,9 +93,11 @@ class AlignableLlamaModel(LlamaModel):
             rotate_layer = RotateLayer(searchable_n_embd)
             self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
             self.inverse_rotate_layer = InverseRotateLayer(self.rotate_layer)
-        
+
             # this will be replaced by a learnable parameters
-            self.intervention_boundaries = torch.rand((2), requires_grad=True) * 2038 + 10
+            self.intervention_boundaries = torch.rand((2), requires_grad=True)
+            self.intervention_boundaries = torch.clamp(self.intervention_boundaries, 1e-3, 1)
+            # 1 maps to half of the whole population!
             self.intervention_boundaries = torch.nn.Parameter(self.intervention_boundaries)
             self.temperature = nn.Parameter(torch.tensor(50.0)) # Define temperature as a parameter
             self.intervention_population = nn.Parameter(torch.arange(0, self.searchable_n_embd), requires_grad=False)
@@ -224,36 +226,37 @@ class AlignableLlamaModel(LlamaModel):
                 prefix_hidden_states = hidden_states[:,:start]
                 postfix_hidden_states = hidden_states[:,end:]
                 rotated_hidden_states = self.rotate_layer(aligning_hidden_states)
-
+                
                 # intervene
                 if source_hidden_states != None:
                     # boundary learning
-                    intervention_boundaries = torch.cumsum(self.intervention_boundaries, dim=0)
+                    intervention_boundaries = torch.clamp(self.intervention_boundaries, 1e-3, 1)
+                    intervention_boundaries = torch.cumsum(intervention_boundaries, dim=0)
                     first_boundary_mask = sigmoid_boundary_sigmoid(
                         self.intervention_population.repeat(batch_size, 1), 
                         0.,
-                        self.intervention_boundaries[0],
+                        intervention_boundaries[0] * int(self.searchable_n_embd//2),
                         self.temperature
                     )
                     second_boundary_mask = sigmoid_boundary_sigmoid(
                         self.intervention_population.repeat(batch_size, 1), 
-                        self.intervention_boundaries[0],
-                        self.intervention_boundaries[1],
+                        intervention_boundaries[0] * int(self.searchable_n_embd//2),
+                        intervention_boundaries[1] * int(self.searchable_n_embd//2),
                         self.temperature
                     )
                     boundary_mask = (intervention_ids==0).unsqueeze(dim=-1)*first_boundary_mask + \
                         (intervention_ids==1).unsqueeze(dim=-1)*second_boundary_mask
+                    boundary_mask = boundary_mask.to(rotated_hidden_states.dtype)
+                    
                     rotated_hidden_states = (1. - boundary_mask)*rotated_hidden_states + \
                         boundary_mask*source_hidden_states
-                    # for batch_idx in range(batch_size):
-                    #     start_idx = self.intervention_config[intervention_ids[batch_idx].tolist()][0][0]
-                    #     end_idx = self.intervention_config[intervention_ids[batch_idx].tolist()][0][1]
-                    #     rotated_hidden_states[batch_idx,start_idx:end_idx] = \
-                    #         source_hidden_states[batch_idx,start_idx:end_idx]
+                    
                 # rotate back + suture
+                reversed_hidden_states = self.inverse_rotate_layer(rotated_hidden_states)
+                
                 hidden_states = torch.cat([
                     prefix_hidden_states,
-                    self.inverse_rotate_layer(rotated_hidden_states),
+                    reversed_hidden_states,
                     postfix_hidden_states
                 ], dim=1).reshape(original_shape)
                 if output_rotated_hidden_states_only:
@@ -294,6 +297,11 @@ class AlignableLlamaForCausalLM(LlamaForCausalLM):
     def __init__(self, config, alignment_config=None):
         super().__init__(config)
         self.model = AlignableLlamaModel(config, alignment_config)
+        if alignment_config != None:
+            searchable_n_embd = (
+                alignment_config["token_range"][1] - alignment_config["token_range"][0]
+            ) * config.hidden_size
+            self.searchable_n_embd = searchable_n_embd
         
     def forward(
         self,
@@ -386,8 +394,9 @@ class AlignableLlamaForCausalLM(LlamaForCausalLM):
             loss = loss_fct(shift_logits, shift_labels)
             
             # boundary loss - make it smaller
-            boundary_loss = 0.01 * self.model.intervention_boundaries.sum()
-            loss += boundary_loss
+            if self.model.alignment_config != None:
+                boundary_loss = 1. * self.model.intervention_boundaries.sum()
+                loss += boundary_loss
             
         if not return_dict:
             output = (logits,) + outputs[1:]

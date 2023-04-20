@@ -1,4 +1,6 @@
 results*/
+*.tsv
+*.csv
 results_notebook/
 logic_data/*.pkl
 wandb/

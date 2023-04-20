@@ -26,6 +26,7 @@ if __name__ == '__main__':
         cmd.add_argument('--model_path', type=str, required=False, default=None)
         cmd.add_argument('--warm_up', type=float, default=0.1)
         cmd.add_argument('--is_wandb', default=False, action='store_true')
+        cmd.add_argument('--bf16', default=False, action='store_true')
         cmd.add_argument('--log_step', default=10, type=int)
         cmd.add_argument('--valid_steps', default=500, type=int)
         cmd.add_argument('--early_stopping', default=5, type=int)
@@ -71,7 +72,6 @@ if __name__ == '__main__':
         args.aligning_layer_n = 16
         args.aligning_tokens = "79;80"
         
-        args.aligning_basis_n_per_variable = 128
         args.aligning_var_n = 2
         args.task_config = "3.50;8.50;0.00;9.99"
         args.n_training_examples = 1000
@@ -89,7 +89,7 @@ tokenizer = AutoTokenizer.from_pretrained(
     pretrained_model_name_or_path="../alpaca_7b/",
     cache_dir=CACHE_DIR
 )
-train_dataloader, eval_dataloader = prepare_dataloader(args, tokenizer)
+prealign_dataloader, train_dataloader, eval_dataloader = prepare_dataloader(args, tokenizer)
 
 ###################
 # model object loading
@@ -101,48 +101,38 @@ alignment_config = {
         int(args.aligning_tokens.split(";")[1]), 
     ]
 }
-
-if args.aligning_var_n == 1:
-    intervention_config = {
-        0: [[0, args.aligning_basis_n_per_variable]]
-    }
-elif args.aligning_var_n == 2:
-    intervention_config = {
-        0: [[0, args.aligning_basis_n_per_variable]],
-        1: [[args.aligning_basis_n_per_variable, 2*args.aligning_basis_n_per_variable]],
-    }
-logger.info(f"intervention_config = {intervention_config}")
 logger.info(f"alignment_config = {alignment_config}")
 
 if args.unit_test_mode:
     logger.info("Loading Dummy Model for Testing ...")
     # Testing code.
-    config = AutoConfig.from_pretrained(
-        "../alpaca_7b/",
-    )
-    config.intermediate_size = 512
-    config.hidden_size = 512
-    config.num_attention_heads = 2
-    config.num_hidden_layers = 32
-    model = AlignableLlamaForCausalLM(
-        config=config,
-        alignment_config=alignment_config
+    model = AlignableLlamaForCausalLM.from_pretrained(
+        "../alpaca_test/",
+        alignment_config=alignment_config,
+        torch_dtype=torch.bfloat16 if args.bf16 else None
     )
 else:
     logger.info("Loading Alpaca 7B, Takes 2 Mins ...")
     model = AlignableLlamaForCausalLM.from_pretrained(
         "../alpaca_7b/",
-        alignment_config=alignment_config
+        alignment_config=alignment_config,
+        torch_dtype=torch.bfloat16 if args.bf16 else None
     )
 
 # set off the gradients among all other layers.
 for name, param in model.named_parameters():
-    if "rotate_layer" not in name:
+    if "rotate_layer" not in name and "intervention_boundaries" not in name:
         param.requires_grad = False
-
+    else:
+        logger.info(f"Requiring gradients on layer: {name}")
+        
 t_total = int(len(train_dataloader) * args.epochs)
 warm_up_steps = args.warm_up * t_total
-optimizer = torch.optim.Adam(model.model.rotate_layer.parameters(), lr=args.lr)
+optimizer = torch.optim.Adam(
+    [{'params': model.model.rotate_layer.parameters()},
+    {'params': model.model.intervention_boundaries, 'lr': 1e-2}],
+    lr=args.lr
+)
 scheduler = get_linear_schedule_with_warmup(
     optimizer, num_warmup_steps=warm_up_steps,
     num_training_steps=t_total
@@ -173,9 +163,13 @@ aligner = AlpacaAligner(
     is_master=is_master,
     n_gpu=torch.cuda.device_count(),
     model_name=run_name,
-    intervention_config=intervention_config,
     device=device
 )
+
+# Prealign Eval is a must
+aligner.prealign_eval(prealign_dataloader, output_dir)
+
+FAIL()
 
 # Train
 if args.do_align:
