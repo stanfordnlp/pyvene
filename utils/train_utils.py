@@ -370,394 +370,315 @@ alpaca_prompt_template = f"""Below is an instruction that describes a task, pair
 ### Response:
 """
 
-def sample_number_by_region(
-    region, lower_bound, upper_bound,
-    min_lower_bound, max_upper_bound,
-    excludes=[]
+def pricing_tag_game_config_sampler(
+    amount,
+    lower_bound,
+    bound_width
 ):
-    number = None
-    while number is None or number in excludes:
-        if region == 1:
-            number = round(random.uniform(min_lower_bound, lower_bound), 2)
-        elif region == 2:
-            number = round(random.uniform(lower_bound, upper_bound), 2)
-        elif region == 3:
-            number = round(random.uniform(upper_bound, max_upper_bound), 2)
-    return number
-    
-    
-def lower_bound_alignment_sampler(
-    lower_bound, upper_bound,
-    max_n_training_examples,
+    if bound_width == None:
+        bound_width_sample = round(random.uniform(2.50, 7.50), 2)
+    else:
+        bound_width_sample = bound_width
+    if lower_bound == None:
+        lower_bound_sample = round(random.uniform(0.01, 9.99-bound_width_sample), 2)
+    else:
+        lower_bound_sample = lower_bound
+    upper_bound_sample = bound_width_sample + lower_bound_sample
+    if amount == None:
+        amount_sample = round(random.uniform(0.01, 9.99), 2)
+    else:
+        amount_sample = amount
+        
+    return lower_bound_sample, upper_bound_sample, amount_sample
+
+def pricing_tag_game_example_sampler(
     tokenizer,
-    min_lower_bound=0.00, max_upper_bound=10.00,
-    source_lower_bound=None, source_upper_bound=None,
+    amount,
+    lower_bound,
+    bound_width,
 ):
-    instruction = f"Please say yes only if it costs between {lower_bound} and {upper_bound} dollars, otherwise no."
+    lower_bound_sample, upper_bound_sample, amount_sample = pricing_tag_game_config_sampler(
+        amount,
+        lower_bound,
+        bound_width
+    )
+    lower_bound_str = "%.2f" % lower_bound_sample
+    upper_bound_str = "%.2f" % upper_bound_sample
+    if amount_sample >= float(lower_bound_str) and amount_sample <= float(upper_bound_str):
+        label = tokenizer.convert_tokens_to_ids("Yes")
+    else:
+        label = tokenizer.convert_tokens_to_ids("No")
 
-    all_base_input_ids = []
-    all_source_input_ids = []
-    all_ctf_output_ids = [] # this one does not have input ids, etc..
-    all_intervention_ids = []
-    dedup_set = set([])
+    amount_str = "%.2f dollars" % amount_sample
+    instruction = f"Please say yes only if it costs between {lower_bound_str} and {upper_bound_str} dollars, otherwise no."
+    alpaca_prompt = alpaca_prompt_template % (instruction, amount_str)
+    input_ids = tokenizer(alpaca_prompt, return_tensors="pt").input_ids[0]
+    output_ids = (torch.ones(input_ids.shape[0])*-100).long().tolist()
+    output_ids[-1] = label
+    input_ids = input_ids.tolist()
+    assert len(input_ids) == 82
     
-    while len(all_base_input_ids) < max_n_training_examples:
+    return input_ids, output_ids
         
-        base_region = random.choice([1,2,3])
-        source_region = random.choice([1,2,3])
-        
-        ctf_label = None
-        if base_region == 1 and source_region >= 2:
-            ctf_label = tokenizer.convert_tokens_to_ids("Yes")
-        elif base_region == 2 and source_region == 2:
-            ctf_label = tokenizer.convert_tokens_to_ids("Yes")
-        else:
-            ctf_label = tokenizer.convert_tokens_to_ids("No")
-        
-        base = sample_number_by_region(
-            base_region, lower_bound, upper_bound,
-            min_lower_bound, max_upper_bound,
-            excludes=[]
-        )
-        
-        source = sample_number_by_region(
-            source_region, lower_bound, upper_bound,
-            min_lower_bound, max_upper_bound,
-            excludes=[base]
-        )
-        
-        if (base, source) in dedup_set:
-            continue
-        dedup_set.add((base, source))
-        
-        base = "%.2f dollars" % base
-        source = "%.2f dollars" % source
-        
-        # print(base, source, ctf_label)
-        
-        base_alpaca_prompt = alpaca_prompt_template % (instruction, base)
-        source_alpaca_prompt = alpaca_prompt_template % (instruction, source)
-        
-        base_input_ids = tokenizer(base_alpaca_prompt, return_tensors="pt").input_ids[0]
-        source_input_ids = tokenizer(source_alpaca_prompt, return_tensors="pt").input_ids[0]
-        
-        ctf_output_ids = (torch.ones(base_input_ids.shape[0])*-100).long().tolist()
-        ctf_output_ids[-1] = ctf_label
-        base_input_ids = base_input_ids.tolist()
-        source_input_ids = source_input_ids.tolist()
-            
-        all_base_input_ids += [base_input_ids]
-        all_source_input_ids += [source_input_ids]
-        all_ctf_output_ids += [ctf_output_ids]
-        all_intervention_ids += [0]
-    
-    return all_base_input_ids, all_source_input_ids, all_ctf_output_ids, all_intervention_ids
-
-def higher_bound_alignment_sampler(
-    lower_bound, upper_bound,
-    max_n_training_examples,
-    tokenizer,
-    min_lower_bound=0.00, max_upper_bound=10.00,
-    source_lower_bound=None, source_upper_bound=None,
-):
-    instruction = f"Please say yes only if it costs between {lower_bound} and {upper_bound} dollars, otherwise no."
-
-    all_base_input_ids = []
-    all_source_input_ids = []
-    all_ctf_output_ids = [] # this one does not have input ids, etc..
-    all_intervention_ids = []
-    dedup_set = set([])
-    
-    while len(all_base_input_ids) < max_n_training_examples:
-        
-        base_region = random.choice([1,2,3])
-        source_region = random.choice([1,2,3])
-        
-        ctf_label = None
-        if base_region == 3 and source_region <= 2:
-            ctf_label = tokenizer.convert_tokens_to_ids("Yes")
-        elif base_region == 2 and source_region == 2:
-            ctf_label = tokenizer.convert_tokens_to_ids("Yes")
-        else:
-            ctf_label = tokenizer.convert_tokens_to_ids("No")
-        
-        base = sample_number_by_region(
-            base_region, lower_bound, upper_bound,
-            min_lower_bound, max_upper_bound,
-            excludes=[]
-        )
-        
-        source = sample_number_by_region(
-            source_region, lower_bound, upper_bound,
-            min_lower_bound, max_upper_bound,
-            excludes=[base]
-        )
-        
-        if (base, source) in dedup_set:
-            continue
-        dedup_set.add((base, source))
-        
-        base = "%.2f dollars" % base
-        source = "%.2f dollars" % source
-        
-        # print(base, source, ctf_label)
-        
-        base_alpaca_prompt = alpaca_prompt_template % (instruction, base)
-        source_alpaca_prompt = alpaca_prompt_template % (instruction, source)
-        
-        base_input_ids = tokenizer(base_alpaca_prompt, return_tensors="pt").input_ids[0]
-        source_input_ids = tokenizer(source_alpaca_prompt, return_tensors="pt").input_ids[0]
-        
-        ctf_output_ids = (torch.ones(base_input_ids.shape[0])*-100).long().tolist()
-        ctf_output_ids[-1] = ctf_label
-        base_input_ids = base_input_ids.tolist()
-        source_input_ids = source_input_ids.tolist()
-            
-        all_base_input_ids += [base_input_ids]
-        all_source_input_ids += [source_input_ids]
-        all_ctf_output_ids += [ctf_output_ids]
-        all_intervention_ids += [0]
-    
-    return all_base_input_ids, all_source_input_ids, all_ctf_output_ids, all_intervention_ids
-
-def both_bound_alignment_sampler(
-    lower_bound, upper_bound,
-    max_n_training_examples,
-    tokenizer,
-    min_lower_bound=0.00, max_upper_bound=10.00,
-    source_lower_bound=None, source_upper_bound=None,
-):
-    instruction = f"Please say yes only if it costs between {lower_bound} and {upper_bound} dollars, otherwise no."
-
-    all_base_input_ids = []
-    all_source_input_ids = []
-    all_ctf_output_ids = [] # this one does not have input ids, etc..
-    all_intervention_ids = []
-    dedup_set = set([])
-    
-    while len(all_base_input_ids) < max_n_training_examples:
-        
-        if random.choice([0,1]) == 0:
-        
-            base_region = random.choice([1,2,3])
-            source_region = random.choice([1,2,3])
-
-            ctf_label = None
-            if base_region == 1 and source_region >= 2:
-                ctf_label = tokenizer.convert_tokens_to_ids("Yes")
-            elif base_region == 2 and source_region == 2:
-                ctf_label = tokenizer.convert_tokens_to_ids("Yes")
-            else:
-                ctf_label = tokenizer.convert_tokens_to_ids("No")
-            
-            base = sample_number_by_region(
-                base_region, lower_bound, upper_bound,
-                min_lower_bound, max_upper_bound,
-                excludes=[]
-            )
-
-            source = sample_number_by_region(
-                source_region, lower_bound, upper_bound,
-                min_lower_bound, max_upper_bound,
-                excludes=[base]
-            )
-
-            if (base, source) in dedup_set:
-                continue
-            dedup_set.add((base, source))
-
-            base = "%.2f dollars" % base
-            source = "%.2f dollars" % source
-
-            # print(base, source, ctf_label)
-
-            base_alpaca_prompt = alpaca_prompt_template % (instruction, base)
-            source_alpaca_prompt = alpaca_prompt_template % (instruction, source)
-
-            base_input_ids = tokenizer(base_alpaca_prompt, return_tensors="pt").input_ids[0]
-            source_input_ids = tokenizer(source_alpaca_prompt, return_tensors="pt").input_ids[0]
-
-            ctf_output_ids = (torch.ones(base_input_ids.shape[0])*-100).long().tolist()
-            ctf_output_ids[-1] = ctf_label
-            base_input_ids = base_input_ids.tolist()
-            source_input_ids = source_input_ids.tolist()
-
-            all_base_input_ids += [base_input_ids]
-            all_source_input_ids += [source_input_ids]
-            all_ctf_output_ids += [ctf_output_ids]
-            all_intervention_ids += [0]
-            
-        else:
-            
-            base_region = random.choice([1,2,3])
-            source_region = random.choice([1,2,3])
-            
-            ctf_label = None
-            if base_region == 3 and source_region <= 2:
-                ctf_label = tokenizer.convert_tokens_to_ids("Yes")
-            elif base_region == 2 and source_region == 2:
-                ctf_label = tokenizer.convert_tokens_to_ids("Yes")
-            else:
-                ctf_label = tokenizer.convert_tokens_to_ids("No")
-            
-            
-            base = sample_number_by_region(
-                base_region, lower_bound, upper_bound,
-                min_lower_bound, max_upper_bound,
-                excludes=[]
-            )
-
-            source = sample_number_by_region(
-                source_region, lower_bound, upper_bound,
-                min_lower_bound, max_upper_bound,
-                excludes=[base]
-            )
-
-            if (base, source) in dedup_set:
-                continue
-            dedup_set.add((base, source))
-
-            base = "%.2f dollars" % base
-            source = "%.2f dollars" % source
-
-            # print(base, source, ctf_label)
-
-            base_alpaca_prompt = alpaca_prompt_template % (instruction, base)
-            source_alpaca_prompt = alpaca_prompt_template % (instruction, source)
-
-            base_input_ids = tokenizer(base_alpaca_prompt, return_tensors="pt").input_ids[0]
-            source_input_ids = tokenizer(source_alpaca_prompt, return_tensors="pt").input_ids[0]
-
-            ctf_output_ids = (torch.ones(base_input_ids.shape[0])*-100).long().tolist()
-            ctf_output_ids[-1] = ctf_label
-            base_input_ids = base_input_ids.tolist()
-            source_input_ids = source_input_ids.tolist()
-
-            all_base_input_ids += [base_input_ids]
-            all_source_input_ids += [source_input_ids]
-            all_ctf_output_ids += [ctf_output_ids]
-            all_intervention_ids += [1]
-
-    return all_base_input_ids, all_source_input_ids, all_ctf_output_ids, all_intervention_ids
-
-
 def factual_sampler(
-    lower_bound, upper_bound,
     tokenizer,
-    min_lower_bound=0.00, max_upper_bound=10.00,
+    max_n_training_examples,
+    game="pricing_tag",
+    amount=None,
+    lower_bound=None,
+    bound_width=None,
 ):
-    instruction = f"Please say yes only if it costs between {lower_bound} and {upper_bound} dollars, otherwise no."
     
     all_input_ids = []
     all_output_ids = [] # this one does not have input ids, etc..
-    
-    result = []
-    current = min_lower_bound
-    step = 0.01
-    raw_amounts = []
-    while current <= max_upper_bound:
-        amount = round(current, 2)
-        if amount >= lower_bound and amount <= upper_bound:
-            label = tokenizer.convert_tokens_to_ids("Yes")
-        else:
-            label = tokenizer.convert_tokens_to_ids("No")
-            
-        amount = "%.2f dollars" % amount
-        
-        alpaca_prompt = alpaca_prompt_template % (instruction, amount)
-        input_ids = tokenizer(alpaca_prompt, return_tensors="pt").input_ids[0]
-        output_ids = (torch.ones(input_ids.shape[0])*-100).long().tolist()
-        output_ids[-1] = label
-        input_ids = input_ids.tolist()
-        
+    for _ in range(max_n_training_examples):
+        if "pricing_tag" in game:
+            input_ids, output_ids = pricing_tag_game_example_sampler(
+                tokenizer,
+                amount,
+                lower_bound,
+                bound_width
+            )
+        elif game == "continent_retrieval":
+            pass
         all_input_ids += [input_ids]
         all_output_ids += [output_ids]
-        raw_amounts += [current]
         
-        current += step
+    return all_input_ids, all_output_ids
 
-    return all_input_ids, all_output_ids, raw_amounts
+def lower_bound_alignment_example_sampler(
+    tokenizer,
+    amount=None,
+    lower_bound=None,
+    bound_width=None
+):
+    base_lower_bound_sample, base_upper_bound_sample, base_amount_sample = \
+        pricing_tag_game_config_sampler(
+            amount,
+            lower_bound,
+            bound_width
+        )
+    source_lower_bound_sample, source_upper_bound_sample, source_amount_sample = \
+        pricing_tag_game_config_sampler(
+            amount,
+            lower_bound,
+            bound_width
+        )
+    if base_amount_sample < base_lower_bound_sample:
+        base_region = 1
+    elif base_amount_sample > base_upper_bound_sample:
+        base_region = 3
+    else:
+        base_region = 2
+    if source_amount_sample < source_lower_bound_sample:
+        source_region = 1
+    elif source_amount_sample > source_upper_bound_sample:
+        source_region = 3
+    else:
+        source_region = 2
 
-def prepare_dataset(data_args, tokenizer):
-    lower_bound = float(data_args.task_config.split(";")[0])
-    upper_bound = float(data_args.task_config.split(";")[1])
-    min_lower_bound = float(data_args.task_config.split(";")[2])
-    max_upper_bound = float(data_args.task_config.split(";")[3])
-    step_size = 0.01
+    ctf_label = None
+    ctf_label_str = None
+    if base_region == 1 and source_region >= 2:
+        ctf_label = tokenizer.convert_tokens_to_ids("Yes")
+        ctf_label_str = "Yes"
+    elif base_region == 2 and source_region == 2:
+        ctf_label = tokenizer.convert_tokens_to_ids("Yes")
+        ctf_label_str = "Yes"
+    else:
+        ctf_label = tokenizer.convert_tokens_to_ids("No")
+        ctf_label_str = "No"
 
-    logger.info(
-        f"""
-        Task Info:
-        name = {data_args.task_name}
-        lower_bound = {lower_bound}
-        upper_bound = {upper_bound}
-        min_lower_bound = {min_lower_bound}
-        max_upper_bound = {max_upper_bound}
-        """
-    )
-
-    raw_data = both_bound_alignment_sampler(
-        lower_bound, upper_bound,
-        data_args.max_train_samples+data_args.max_eval_samples,
-        tokenizer,
-        min_lower_bound=min_lower_bound, 
-        max_upper_bound=max_upper_bound,
-    )
-    raw_train = (
-        raw_data[0][:data_args.max_train_samples], 
-        raw_data[1][:data_args.max_train_samples], 
-        raw_data[2][:data_args.max_train_samples],
-        raw_data[3][:data_args.max_train_samples]
-    )
-    raw_eval = (
-        raw_data[0][data_args.max_train_samples:], 
-        raw_data[1][data_args.max_train_samples:], 
-        raw_data[2][data_args.max_train_samples:],
-        raw_data[3][data_args.max_train_samples:]
-    )
-    train_dataset = Dataset.from_dict(
-        {
-            "input_ids": raw_train[0], 
-            "source_input_ids": raw_train[1],
-            "labels": raw_train[2],
-            "intervention_ids": raw_train[3],
-        }
-    ).with_format("torch")
-    eval_dataset = Dataset.from_dict(
-        {
-            "input_ids": raw_eval[0], 
-            "source_input_ids": raw_eval[1],
-            "labels": raw_eval[2],
-            "intervention_ids": raw_eval[3],
-        }
-    ).with_format("torch")
+    return base_lower_bound_sample, base_upper_bound_sample, \
+        source_lower_bound_sample, source_upper_bound_sample, \
+        base_amount_sample, source_amount_sample, ctf_label, ctf_label_str
     
-    return train_dataset, eval_dataset
+def higher_bound_alignment_example_sampler(
+    tokenizer,
+    amount=None,
+    lower_bound=None,
+    bound_width=None
+):
+    base_lower_bound_sample, base_upper_bound_sample, base_amount_sample = \
+        pricing_tag_game_config_sampler(
+            amount,
+            lower_bound,
+            bound_width
+        )
+    source_lower_bound_sample, source_upper_bound_sample, source_amount_sample = \
+        pricing_tag_game_config_sampler(
+            amount,
+            lower_bound,
+            bound_width
+        )
+    if base_amount_sample < base_lower_bound_sample:
+        base_region = 1
+    elif base_amount_sample > base_upper_bound_sample:
+        base_region = 3
+    else:
+        base_region = 2
+    if source_amount_sample < source_lower_bound_sample:
+        source_region = 1
+    elif source_amount_sample > source_upper_bound_sample:
+        source_region = 3
+    else:
+        source_region = 2
+
+    ctf_label = None
+    ctf_label_str = None
+    if base_region == 3 and source_region <= 2:
+        ctf_label = tokenizer.convert_tokens_to_ids("Yes")
+        ctf_label_str = "Yes"
+    elif base_region == 2 and source_region == 2:
+        ctf_label = tokenizer.convert_tokens_to_ids("Yes")
+        ctf_label_str = "Yes"
+    else:
+        ctf_label = tokenizer.convert_tokens_to_ids("No")
+        ctf_label_str = "No"
+    
+    return base_lower_bound_sample, base_upper_bound_sample, \
+        source_lower_bound_sample, source_upper_bound_sample, \
+        base_amount_sample, source_amount_sample, ctf_label, ctf_label_str
+
+def bound_alignment_sampler(
+    tokenizer,
+    max_n_training_examples,
+    bound_functors,
+    amount=None,
+    lower_bound=None,
+    bound_width=None,
+):
+    all_base_input_ids = []
+    all_source_input_ids = []
+    all_ctf_output_ids = [] # this one does not have input ids, etc..
+    all_intervention_ids = []
+    
+    for _ in range(max_n_training_examples):
+        bound_functor = random.choice(bound_functors)
+        base_lower_bound_sample, base_upper_bound_sample, \
+            source_lower_bound_sample, source_upper_bound_sample, \
+            base_amount_sample, source_amount_sample, \
+            ctf_label, ctf_label_str = bound_functor(
+                tokenizer,
+                amount,
+                lower_bound,
+                bound_width,
+            )
+
+        base_amount_str = "%.2f dollars" % base_amount_sample
+        source_amount_str = "%.2f dollars" % source_amount_sample
+        base_lower_bound_str = "%.2f" % base_lower_bound_sample
+        base_upper_bound_str = "%.2f" % base_upper_bound_sample
+        source_lower_bound_str = "%.2f" % source_lower_bound_sample
+        source_upper_bound_str = "%.2f" % source_upper_bound_sample
+        
+        # print(f"base: [{base_lower_bound_str}, {base_upper_bound_str}], {base_amount_str}")
+        # print(f"source: [{source_lower_bound_str}, {source_upper_bound_str}], {source_amount_str}")
+        # print(f"ctf label: {ctf_label_str}")
+        
+        base_instruction = f"Please say yes only if it costs between {base_lower_bound_str} and {base_upper_bound_str} dollars, otherwise no."
+        source_instruction = f"Please say yes only if it costs between {source_lower_bound_str} and {source_upper_bound_str} dollars, otherwise no."
+        
+        base_alpaca_prompt = alpaca_prompt_template % (base_instruction, base_amount_str)
+        source_alpaca_prompt = alpaca_prompt_template % (source_instruction, source_amount_str)
+        
+        base_input_ids = tokenizer(base_alpaca_prompt, return_tensors="pt").input_ids[0]
+        source_input_ids = tokenizer(source_alpaca_prompt, return_tensors="pt").input_ids[0]
+        base_input_ids = base_input_ids.tolist()
+        source_input_ids = source_input_ids.tolist()
+        ctf_output_ids = (torch.ones(len(base_input_ids))*-100).long().tolist()
+        ctf_output_ids[-1] = ctf_label
+        intervention_id = 0 if bound_functor == bound_functors[0] else 1
+        
+        all_base_input_ids += [base_input_ids]
+        all_source_input_ids += [source_input_ids]
+        all_ctf_output_ids += [ctf_output_ids]
+        all_intervention_ids += [intervention_id]
+    
+    return all_base_input_ids, all_source_input_ids, all_ctf_output_ids, all_intervention_ids
+
+def midpoint_alignment_sampler(
+    tokenizer,
+    max_n_training_examples,
+    amount=None,
+    lower_bound=None,
+    bound_width=None,
+):
+
+    all_base_input_ids = []
+    all_source_input_ids = []
+    all_ctf_output_ids = [] # this one does not have input ids, etc..
+    all_intervention_ids = []
+    
+    for _ in range(max_n_training_examples):
+        
+        base_lower_bound_sample, base_upper_bound_sample, base_amount_sample = \
+            pricing_tag_game_config_sampler(
+                amount,
+                lower_bound,
+                bound_width
+            )
+        source_lower_bound_sample, source_upper_bound_sample, source_amount_sample = \
+            pricing_tag_game_config_sampler(
+                amount,
+                lower_bound,
+                bound_width
+            )
+        ctf_label = None
+        ctf_label_str = None
+        source_mid_point = (source_lower_bound_sample+source_upper_bound_sample)/2.0
+        base_half = 0.5*abs(base_upper_bound_sample-base_lower_bound_sample)
+        ctf_mid_diff = abs(base_amount_sample-source_mid_point)
+        if ctf_mid_diff <= base_half:
+            ctf_label = tokenizer.convert_tokens_to_ids("Yes")
+            ctf_label_str = "Yes"
+        else:
+            ctf_label = tokenizer.convert_tokens_to_ids("No")
+            ctf_label_str = "No"
+            
+        base_amount_str = "%.2f dollars" % base_amount_sample
+        source_amount_str = "%.2f dollars" % source_amount_sample
+        base_lower_bound_str = "%.2f" % base_lower_bound_sample
+        base_upper_bound_str = "%.2f" % base_upper_bound_sample
+        source_lower_bound_str = "%.2f" % source_lower_bound_sample
+        source_upper_bound_str = "%.2f" % source_upper_bound_sample
+        
+        # print(f"base: [{base_lower_bound_str}, {base_upper_bound_str}], {base_amount_str}")
+        # print(f"source: [{source_lower_bound_str}, {source_upper_bound_str}], {source_amount_str}")
+        # print(f"ctf label: {ctf_label_str}")
+        
+        base_instruction = f"Please say yes only if it costs between {base_lower_bound_str} and {base_upper_bound_str} dollars, otherwise no."
+        source_instruction = f"Please say yes only if it costs between {source_lower_bound_str} and {source_upper_bound_str} dollars, otherwise no."
+        
+        base_alpaca_prompt = alpaca_prompt_template % (base_instruction, base_amount_str)
+        source_alpaca_prompt = alpaca_prompt_template % (source_instruction, source_amount_str)
+        
+        base_input_ids = tokenizer(base_alpaca_prompt, return_tensors="pt").input_ids[0]
+        source_input_ids = tokenizer(source_alpaca_prompt, return_tensors="pt").input_ids[0]
+        base_input_ids = base_input_ids.tolist()
+        source_input_ids = source_input_ids.tolist()
+        ctf_output_ids = (torch.ones(len(base_input_ids))*-100).long().tolist()
+        ctf_output_ids[-1] = ctf_label
+        
+        all_base_input_ids += [base_input_ids]
+        all_source_input_ids += [source_input_ids]
+        all_ctf_output_ids += [ctf_output_ids]
+        all_intervention_ids += [0]
+    
+    return all_base_input_ids, all_source_input_ids, all_ctf_output_ids, all_intervention_ids
 
 def prepare_dataloader(args, tokenizer):
-    lower_bound = float(args.task_config.split(";")[0])
-    upper_bound = float(args.task_config.split(";")[1])
-    min_lower_bound = float(args.task_config.split(";")[2])
-    max_upper_bound = float(args.task_config.split(";")[3])
-    step_size = 0.01
     prealign_batch_size = args.eval_batch_size
-
     logger.info(
         f"""
         Task Info:
         name = {args.task_name}
-        lower_bound = {lower_bound}
-        upper_bound = {upper_bound}
-        min_lower_bound = {min_lower_bound}
-        max_upper_bound = {max_upper_bound}
         """
     )
-
     raw_prealign = factual_sampler(
-        lower_bound, upper_bound,
         tokenizer,
-        min_lower_bound=min_lower_bound, 
-        max_upper_bound=max_upper_bound,
+        args.n_eval_examples,
+        game=args.task_name,
     )
     prealign_dataset = Dataset.from_dict(
         {
@@ -769,22 +690,30 @@ def prepare_dataloader(args, tokenizer):
         prealign_dataset, batch_size=prealign_batch_size
     )
     
-    if args.task_name == "cost_no_type_lower":
-        sampler_func = lower_bound_alignment_sampler
-    elif args.task_name == "cost_no_type_higher":
-        sampler_func = higher_bound_alignment_sampler
-    elif args.task_name == "cost_no_type_both":
-        sampler_func = both_bound_alignment_sampler
-    else:
-        assert False
-    
-    raw_data = sampler_func(
-        lower_bound, upper_bound,
-        args.n_training_examples+args.n_eval_examples,
-        tokenizer,
-        min_lower_bound=min_lower_bound, 
-        max_upper_bound=max_upper_bound,
-    )
+    if args.task_name == "pricing_tag_lb":
+        raw_data = bound_alignment_sampler(
+            tokenizer,
+            args.n_training_examples+args.n_eval_examples,
+            [lower_bound_alignment_example_sampler]
+        )
+    elif args.task_name == "pricing_tag_ub":
+        raw_data = bound_alignment_sampler(
+            tokenizer,
+            args.n_training_examples+args.n_eval_examples,
+            [higher_bound_alignment_example_sampler]
+        )
+    elif args.task_name == "pricing_tag_lub":
+        raw_data = bound_alignment_sampler(
+            tokenizer,
+            args.n_training_examples+args.n_eval_examples,
+            [lower_bound_alignment_example_sampler, higher_bound_alignment_example_sampler]
+        )
+    elif args.task_name == "pricing_tag_mid_diff":
+        raw_data = midpoint_alignment_sampler(
+            tokenizer,
+            args.n_training_examples+args.n_eval_examples,
+        )
+
     raw_train = (
         raw_data[0][:args.n_training_examples], 
         raw_data[1][:args.n_training_examples], 
@@ -854,7 +783,7 @@ class AlpacaAligner(object):
         if args.is_wandb and is_master:
             import wandb
             run = wandb.init(
-                project="ToM-DAS-Alpaca-7B-Clean", 
+                project=f"Alpaca-7B-NeurIPS-{args.task_name}", 
                 entity="wuzhengx",
                 name=model_name,
             )
@@ -899,10 +828,6 @@ class AlpacaAligner(object):
                 correct_count += correct_labels.sum().tolist()
         current_acc = round(correct_count/total_count, 2)
         logger.info(f"[WARNING: THIS NEEDS TO BE GOOD!] prealign task accuracy: {current_acc}")
-        assert current_acc >= 0.50 # we raise error if behavioral test is a random guess...
-                                   # in this case, you don't need to align whatsoever, you model
-                                   # is really bad, why aligning anything? :)
-                                   # ideally, this should be close to 100% for non-stochastic DAS.
         
         if self.is_master and not self.is_wandb:
             log_prealign = open(os.path.join(output_dir, 'prealign_log.txt'), 'w', buffering=1)

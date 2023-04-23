@@ -39,8 +39,7 @@ if __name__ == '__main__':
         cmd.add_argument('--aligning_tokens', default="", type=str, help='[START_TOKEN];[END_TOKEN]')
         cmd.add_argument('--n_training_examples', default=10000, type=int)
         cmd.add_argument('--n_eval_examples', default=1000, type=int)
-        cmd.add_argument('--task_name', default="cost_no_type", type=str, help='')
-        cmd.add_argument('--task_config', default="", type=str, help='')
+        cmd.add_argument('--task_name', default="pricing_tag_lb", type=str, help='')
         cmd.add_argument('--aligning_var_n', default=0, type=int)
         cmd.add_argument('--aligning_basis_n_per_variable', default=0, type=int)
         cmd.add_argument('--unit_test_mode', default=False, action='store_true')
@@ -73,10 +72,9 @@ if __name__ == '__main__':
         args.aligning_tokens = "79;80"
         
         args.aligning_var_n = 2
-        args.task_config = "3.50;8.50;0.00;9.99"
         args.n_training_examples = 1000
         args.n_eval_examples = 200
-        args.task_name = "cost_no_type"
+        args.task_name = "pricing_tag_lb"
         
         args.unit_test_mode = False
         
@@ -114,7 +112,7 @@ if args.unit_test_mode:
 else:
     logger.info("Loading Alpaca 7B, Takes 2 Mins ...")
     model = AlignableLlamaForCausalLM.from_pretrained(
-        "../alpaca_7b/",
+        "../alpaca_7b_bf16/",
         alignment_config=alignment_config,
         torch_dtype=torch.bfloat16 if args.bf16 else None
     )
@@ -144,7 +142,7 @@ model.to(device)
 ###################
 # trainer loading
 ###################
-run_name = f"alpaca-7B.task.{args.task_name}.config.{args.task_config}."\
+run_name = f"alpaca-7B.task.{args.task_name}."\
            f"seed.{args.seed}.intl.{args.aligning_layer_n}.intr.{alignment_config['token_range'][0]}."\
            f"{alignment_config['token_range'][1]}"
 
@@ -168,8 +166,6 @@ aligner = AlpacaAligner(
 
 # Prealign Eval is a must
 aligner.prealign_eval(prealign_dataloader, output_dir)
-
-FAIL()
 
 # Train
 if args.do_align:
