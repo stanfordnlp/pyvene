@@ -12,23 +12,32 @@ __all__ = ['orthogonal', 'spectral_norm']
 
 
 def _is_orthogonal(Q, eps=None):
+    if Q.dtype != torch.float32:
+        Q = Q.to(torch.float32)
     n, k = Q.size(-2), Q.size(-1)
     # Zhengxuan Mod: work-around to support bfloat16
-    Id = torch.eye(k, dtype=torch.float16, device=Q.device).to(Q.dtype)
+    Id = torch.eye(k, dtype=Q.dtype, device=Q.device)
     # A reasonable eps, but not too large
     eps = 10. * n * torch.finfo(Q.dtype).eps
-    return torch.allclose(Q.mH @ Q, Id, atol=eps)
+    allclose = torch.allclose(Q.mH @ Q, Id, atol=eps)
+    return allclose
 
 
 def _make_orthogonal(A):
     """ Assume that A is a tall matrix.
     Compute the Q factor s.t. A = QR (A may be complex) and diag(R) is real and non-negative
     """
-    X, tau = torch.geqrf(A.to(torch.float32))
+    orig_type = None
+    if A.dtype != torch.float32:
+        orig_type = A.dtype
+        A = A.to(torch.float32)
+    X, tau = torch.geqrf(A)
     Q = torch.linalg.householder_product(X, tau)
     # The diagonal of X is the diagonal of R (which is always real) so we normalise by its signs
     Q *= X.diagonal(dim1=-2, dim2=-1).sgn().unsqueeze(-2)
-    return Q.to(A.dtype)
+    if orig_type != None:
+        Q = Q.to(orig_type)
+    return Q
 
 
 class _OrthMaps(Enum):
@@ -61,13 +70,16 @@ class _Orthogonal(Module):
         # An equivalent reasoning holds for rectangular matrices
         if weight.is_complex() and orthogonal_map == _OrthMaps.householder:
             raise ValueError("The householder parametrization does not support complex tensors.")
-
         self.shape = weight.shape
         self.orthogonal_map = orthogonal_map
         if use_trivialization:
             self.register_buffer("base", None)
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
+        orig_type = None
+        if X.dtype != torch.float32:
+            orig_type = X.dtype
+            X = X.to(torch.float32)
         n, k = X.size(-2), X.size(-1)
         transposed = n < k
         if transposed:
@@ -76,10 +88,7 @@ class _Orthogonal(Module):
         # Here n > k and X is a tall matrix
         if self.orthogonal_map == _OrthMaps.matrix_exp or self.orthogonal_map == _OrthMaps.cayley:
             # We just need n x k - k(k-1)/2 parameters
-            if X.dtype == torch.bfloat16:
-                X = X.to(torch.float16).tril().to(torch.bfloat16)
-            else:
-                X = X.tril()
+            X = X.tril()
             if n != k:
                 # Embed into a square matrix
                 X = torch.cat([X, X.new_zeros(n, n - k).expand(*X.shape[:-2], -1, -1)], dim=-1)
@@ -105,9 +114,11 @@ class _Orthogonal(Module):
             Q = Q * X.diagonal(dim1=-2, dim2=-1).int().unsqueeze(-2)
 
         if hasattr(self, "base"):
-            Q = self.base @ Q
+            Q = self.base.to(Q.dtype) @ Q
         if transposed:
             Q = Q.mT
+        if orig_type != None:
+            Q = Q.to(orig_type)
         return Q
 
     @torch.autograd.no_grad()

@@ -87,7 +87,7 @@ tokenizer = AutoTokenizer.from_pretrained(
     pretrained_model_name_or_path="../alpaca_7b/",
     cache_dir=CACHE_DIR
 )
-prealign_dataloader, train_dataloader, eval_dataloader = prepare_dataloader(args, tokenizer)
+prealign_dataloader, train_dataloader, eval_dataloader, test_dataloader = prepare_dataloader(args, tokenizer)
 
 ###################
 # model object loading
@@ -128,7 +128,7 @@ t_total = int(len(train_dataloader) * args.epochs)
 warm_up_steps = args.warm_up * t_total
 optimizer = torch.optim.Adam(
     [{'params': model.model.rotate_layer.parameters()},
-    {'params': model.model.intervention_boundaries, 'lr': 1e-2}],
+    {'params': model.model.intervention_boundaries, 'lr': 5e-3}],
     lr=args.lr
 )
 scheduler = get_linear_schedule_with_warmup(
@@ -170,7 +170,7 @@ aligner.prealign_eval(prealign_dataloader, output_dir)
 # Train
 if args.do_align:
     aligner.train(
-        train_dataloader, eval_dataloader,
+        train_dataloader, eval_dataloader, test_dataloader,
         optimizer, scheduler, 
         log_step=args.log_step, valid_steps=args.valid_steps,
         output_dir=output_dir, epochs=args.epochs, 

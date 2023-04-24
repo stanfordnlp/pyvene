@@ -480,10 +480,11 @@ def orthogonal_(tensor, gain=1):
     if rows < cols:
         flattened.t_()
 
-    # Compute the qr factorization
-    original_dtype = flattened.dtype
-    if flattened.dtype != torch.float32:
+    orig_type = None
+    if tensor.dtype != torch.float32:
+        orig_type = flattened.dtype
         flattened = flattened.to(torch.float32)
+    # Compute the qr factorization
     q, r = torch.linalg.qr(flattened)
     # Make Q uniform according to https://arxiv.org/pdf/math-ph/0609050.pdf
     d = torch.diag(r, 0)
@@ -493,11 +494,11 @@ def orthogonal_(tensor, gain=1):
     if rows < cols:
         q.t_()
 
+    if orig_type != None:
+        q = q.to(orig_type)
     with torch.no_grad():
         tensor.view_as(q).copy_(q)
         tensor.mul_(gain)
-    if original_dtype != tensor.dtype:
-        tensor = tensor.to(original_dtype)
     return tensor
 
 

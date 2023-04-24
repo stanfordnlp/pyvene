@@ -380,7 +380,8 @@ def pricing_tag_game_config_sampler(
     else:
         bound_width_sample = bound_width
     if lower_bound == None:
-        lower_bound_sample = round(random.uniform(0.01, 9.99-bound_width_sample), 2)
+        lower_bound_sample = round(random.uniform(0.05, 9.95-bound_width_sample), 2)
+        # left a little room to cover corner cases.
     else:
         lower_bound_sample = lower_bound
     upper_bound_sample = bound_width_sample + lower_bound_sample
@@ -446,54 +447,70 @@ def factual_sampler(
         
     return all_input_ids, all_output_ids
 
+def sample_with_region(
+    region,
+    lower_bound_sample,
+    upper_bound_sample
+):
+    if region == 1:
+        amount_sample = round(random.uniform(0.01, lower_bound_sample - 0.01), 2)
+    elif region == 2:
+        amount_sample = round(random.uniform(lower_bound_sample, upper_bound_sample), 2)
+    elif region == 3:
+        amount_sample = round(random.uniform(upper_bound_sample + 0.01, 9.99), 2)
+    return amount_sample
+        
 def lower_bound_alignment_example_sampler(
     tokenizer,
     amount=None,
     lower_bound=None,
     bound_width=None
 ):
-    base_lower_bound_sample, base_upper_bound_sample, base_amount_sample = \
+    base_lower_bound_sample, base_upper_bound_sample, _ = \
         pricing_tag_game_config_sampler(
             amount,
             lower_bound,
             bound_width
         )
-    source_lower_bound_sample, source_upper_bound_sample, source_amount_sample = \
+    source_lower_bound_sample, source_upper_bound_sample, _ = \
         pricing_tag_game_config_sampler(
             amount,
             lower_bound,
             bound_width
         )
-    if base_amount_sample < base_lower_bound_sample:
-        base_region = 1
-    elif base_amount_sample > base_upper_bound_sample:
-        base_region = 3
-    else:
-        base_region = 2
-    if source_amount_sample < source_lower_bound_sample:
-        source_region = 1
-    elif source_amount_sample > source_upper_bound_sample:
-        source_region = 3
-    else:
-        source_region = 2
-
-    ctf_label = None
-    ctf_label_str = None
-    if base_region == 1 and source_region >= 2:
+    
+    ctf_label_str = random.choice(["Yes", "No"])
+    if ctf_label_str == "Yes":
         ctf_label = tokenizer.convert_tokens_to_ids("Yes")
-        ctf_label_str = "Yes"
-    elif base_region == 2 and source_region == 2:
-        ctf_label = tokenizer.convert_tokens_to_ids("Yes")
-        ctf_label_str = "Yes"
-    else:
+        base_source_regions = [
+            [1,2],
+            [1,3],
+            [2,2],
+        ]
+    elif ctf_label_str == "No":
         ctf_label = tokenizer.convert_tokens_to_ids("No")
-        ctf_label_str = "No"
+        base_source_regions = [
+            [1,1],
+            [2,1],
+            [2,3],
+            [3,1],
+            [3,2],
+            [3,3]
+        ]
+    base_source_region = random.choice(base_source_regions)
+    base_region = base_source_region[0]
+    source_region = base_source_region[1]
 
+    base_amount_sample = sample_with_region(
+        base_region, base_lower_bound_sample, base_upper_bound_sample)
+    source_amount_sample = sample_with_region(
+        source_region, source_lower_bound_sample, source_upper_bound_sample)
+        
     return base_lower_bound_sample, base_upper_bound_sample, \
         source_lower_bound_sample, source_upper_bound_sample, \
         base_amount_sample, source_amount_sample, ctf_label, ctf_label_str
     
-def higher_bound_alignment_example_sampler(
+def upper_bound_alignment_example_sampler(
     tokenizer,
     amount=None,
     lower_bound=None,
@@ -511,30 +528,33 @@ def higher_bound_alignment_example_sampler(
             lower_bound,
             bound_width
         )
-    if base_amount_sample < base_lower_bound_sample:
-        base_region = 1
-    elif base_amount_sample > base_upper_bound_sample:
-        base_region = 3
-    else:
-        base_region = 2
-    if source_amount_sample < source_lower_bound_sample:
-        source_region = 1
-    elif source_amount_sample > source_upper_bound_sample:
-        source_region = 3
-    else:
-        source_region = 2
-
-    ctf_label = None
-    ctf_label_str = None
-    if base_region == 3 and source_region <= 2:
+    
+    ctf_label_str = random.choice(["Yes", "No"])
+    if ctf_label_str == "Yes":
         ctf_label = tokenizer.convert_tokens_to_ids("Yes")
-        ctf_label_str = "Yes"
-    elif base_region == 2 and source_region == 2:
-        ctf_label = tokenizer.convert_tokens_to_ids("Yes")
-        ctf_label_str = "Yes"
-    else:
+        base_source_regions = [
+            [3,2],
+            [3,1],
+            [2,2],
+        ]
+    elif ctf_label_str == "No":
         ctf_label = tokenizer.convert_tokens_to_ids("No")
-        ctf_label_str = "No"
+        base_source_regions = [
+            [1,1],
+            [1,2],
+            [1,3],
+            [2,1],
+            [2,3],
+            [3,3]
+        ]
+    base_source_region = random.choice(base_source_regions)
+    base_region = base_source_region[0]
+    source_region = base_source_region[1]
+    
+    base_amount_sample = sample_with_region(
+        base_region, base_lower_bound_sample, base_upper_bound_sample)
+    source_amount_sample = sample_with_region(
+        source_region, source_lower_bound_sample, source_upper_bound_sample)
     
     return base_lower_bound_sample, base_upper_bound_sample, \
         source_lower_bound_sample, source_upper_bound_sample, \
@@ -592,9 +612,13 @@ def bound_alignment_sampler(
         
         all_base_input_ids += [base_input_ids]
         all_source_input_ids += [source_input_ids]
+        
         all_ctf_output_ids += [ctf_output_ids]
         all_intervention_ids += [intervention_id]
-    
+        
+        assert len(base_input_ids) == 82
+        assert len(source_input_ids) == 82
+        
     return all_base_input_ids, all_source_input_ids, all_ctf_output_ids, all_intervention_ids
 
 def midpoint_alignment_sampler(
@@ -664,7 +688,9 @@ def midpoint_alignment_sampler(
         all_source_input_ids += [source_input_ids]
         all_ctf_output_ids += [ctf_output_ids]
         all_intervention_ids += [0]
-    
+        assert len(base_input_ids) == 82
+        assert len(source_input_ids) == 82
+        
     return all_base_input_ids, all_source_input_ids, all_ctf_output_ids, all_intervention_ids
 
 def prepare_dataloader(args, tokenizer):
@@ -693,20 +719,20 @@ def prepare_dataloader(args, tokenizer):
     if args.task_name == "pricing_tag_lb":
         raw_data = bound_alignment_sampler(
             tokenizer,
-            args.n_training_examples+args.n_eval_examples,
+            args.n_training_examples+args.n_eval_examples+args.n_eval_examples,
             [lower_bound_alignment_example_sampler]
         )
     elif args.task_name == "pricing_tag_ub":
         raw_data = bound_alignment_sampler(
             tokenizer,
-            args.n_training_examples+args.n_eval_examples,
-            [higher_bound_alignment_example_sampler]
+            args.n_training_examples+args.n_eval_examples+args.n_eval_examples,
+            [upper_bound_alignment_example_sampler]
         )
     elif args.task_name == "pricing_tag_lub":
         raw_data = bound_alignment_sampler(
             tokenizer,
-            args.n_training_examples+args.n_eval_examples,
-            [lower_bound_alignment_example_sampler, higher_bound_alignment_example_sampler]
+            args.n_training_examples+args.n_eval_examples+args.n_eval_examples,
+            [lower_bound_alignment_example_sampler, upper_bound_alignment_example_sampler]
         )
     elif args.task_name == "pricing_tag_mid_diff":
         raw_data = midpoint_alignment_sampler(
@@ -721,10 +747,16 @@ def prepare_dataloader(args, tokenizer):
         raw_data[3][:args.n_training_examples]
     )
     raw_eval = (
-        raw_data[0][args.n_training_examples:], 
-        raw_data[1][args.n_training_examples:], 
-        raw_data[2][args.n_training_examples:],
-        raw_data[3][args.n_training_examples:]
+        raw_data[0][args.n_training_examples:args.n_training_examples+args.n_eval_examples], 
+        raw_data[1][args.n_training_examples:args.n_training_examples+args.n_eval_examples], 
+        raw_data[2][args.n_training_examples:args.n_training_examples+args.n_eval_examples],
+        raw_data[3][args.n_training_examples:args.n_training_examples+args.n_eval_examples]
+    )
+    raw_test = (
+        raw_data[0][args.n_training_examples+args.n_eval_examples:], 
+        raw_data[1][args.n_training_examples+args.n_eval_examples:], 
+        raw_data[2][args.n_training_examples+args.n_eval_examples:],
+        raw_data[3][args.n_training_examples+args.n_eval_examples:]
     )
     train_dataset = Dataset.from_dict(
         {
@@ -748,8 +780,18 @@ def prepare_dataloader(args, tokenizer):
     eval_dataloader = DataLoader(
         eval_dataset, batch_size=args.eval_batch_size,
     )
-    
-    return prealign_dataloader, train_dataloader, eval_dataloader
+    test_dataset = Dataset.from_dict(
+        {
+            "input_ids": raw_test[0], 
+            "source_input_ids": raw_test[1],
+            "labels": raw_test[2],
+            "intervention_ids": raw_test[3],
+        }
+    ).with_format("torch")
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=args.eval_batch_size,
+    )
+    return prealign_dataloader, train_dataloader, eval_dataloader, test_dataloader
 
 class AlpacaAligner(object):
     def __init__(
@@ -842,7 +884,7 @@ class AlpacaAligner(object):
             )
             
     def train(
-        self, train_dataloader, dev_dataloader,
+        self, train_dataloader, dev_dataloader, test_dataloader,
         optimizer, scheduler, output_dir,
         log_step, valid_steps, epochs, 
         gradient_accumulation_steps,
@@ -908,8 +950,7 @@ class AlpacaAligner(object):
                                 "train/loss": loss.item(),
                                 "train/step_accuracy": step_accuracy,
                                 "train/temperature": self.model.model.temperature.data,
-                                "train/boundary_1": intervention_boundaries.data[0],
-                                "train/boundary_2": intervention_boundaries.data[1],
+                                "train/unified_boundary": intervention_boundaries.data[0],
                             },
                             step=total_step
                         )
@@ -979,6 +1020,8 @@ class AlpacaAligner(object):
                 
                 if total_step % gradient_accumulation_steps == 0:
                     if not (gradient_accumulation_steps > 1 and total_step == 0):
+                        # print(self.model.model.rotate_layer.weight)
+                        
                         loss.backward()
                         optimizer.step()
                         scheduler.step()

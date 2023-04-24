@@ -68,10 +68,11 @@ class RotateLayer(torch.nn.Module):
     """A linear transformation with orthogonal initialization."""
     def __init__(self, n, init_orth=True):
         super().__init__()
-        self.weight = torch.nn.Parameter(torch.empty(n,n), requires_grad=True)
+        weight = torch.empty(n,n)
         if init_orth:
-            torch.nn.init.orthogonal_(self.weight)
-
+            torch.nn.init.orthogonal_(weight)
+        self.weight = torch.nn.Parameter(weight, requires_grad=True)
+        
     def forward(self, x):
         return torch.matmul(x, self.weight)
     
@@ -91,12 +92,11 @@ class AlignableLlamaModel(LlamaModel):
             ) * config.hidden_size
             self.searchable_n_embd = searchable_n_embd
             rotate_layer = RotateLayer(searchable_n_embd)
-            self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
+            self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer, use_trivialization=False)
             self.inverse_rotate_layer = InverseRotateLayer(self.rotate_layer)
 
             # this will be replaced by a learnable parameters
-            self.intervention_boundaries = torch.rand((2), requires_grad=True)
-            self.intervention_boundaries = torch.clamp(self.intervention_boundaries, 1e-3, 1)
+            self.intervention_boundaries = torch.tensor([1.00], requires_grad=True)
             # 1 maps to half of the whole population!
             self.intervention_boundaries = torch.nn.Parameter(self.intervention_boundaries)
             self.temperature = nn.Parameter(torch.tensor(50.0)) # Define temperature as a parameter
@@ -226,22 +226,21 @@ class AlignableLlamaModel(LlamaModel):
                 prefix_hidden_states = hidden_states[:,:start]
                 postfix_hidden_states = hidden_states[:,end:]
                 rotated_hidden_states = self.rotate_layer(aligning_hidden_states)
-                
+                                
                 # intervene
                 if source_hidden_states != None:
                     # boundary learning
                     intervention_boundaries = torch.clamp(self.intervention_boundaries, 1e-3, 1)
-                    intervention_boundaries = torch.cumsum(intervention_boundaries, dim=0)
                     first_boundary_mask = sigmoid_boundary_sigmoid(
                         self.intervention_population.repeat(batch_size, 1), 
                         0.,
-                        intervention_boundaries[0] * int(self.searchable_n_embd//2),
+                        intervention_boundaries[0] * int(self.searchable_n_embd//2) - 1,
                         self.temperature
                     )
                     second_boundary_mask = sigmoid_boundary_sigmoid(
                         self.intervention_population.repeat(batch_size, 1), 
                         intervention_boundaries[0] * int(self.searchable_n_embd//2),
-                        intervention_boundaries[1] * int(self.searchable_n_embd//2),
+                        intervention_boundaries[0] * int(self.searchable_n_embd) - 1.,
                         self.temperature
                     )
                     boundary_mask = (intervention_ids==0).unsqueeze(dim=-1)*first_boundary_mask + \
