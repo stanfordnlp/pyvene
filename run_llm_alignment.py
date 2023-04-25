@@ -112,7 +112,7 @@ if args.unit_test_mode:
 else:
     logger.info("Loading Alpaca 7B, Takes 2 Mins ...")
     model = AlignableLlamaForCausalLM.from_pretrained(
-        "../alpaca_7b_bf16/",
+        "../alpaca_7b/",
         alignment_config=alignment_config,
         torch_dtype=torch.bfloat16 if args.bf16 else None
     )
@@ -128,7 +128,7 @@ t_total = int(len(train_dataloader) * args.epochs)
 warm_up_steps = args.warm_up * t_total
 optimizer = torch.optim.Adam(
     [{'params': model.model.rotate_layer.parameters()},
-    {'params': model.model.intervention_boundaries, 'lr': 5e-3}],
+    {'params': model.model.intervention_boundaries, 'lr': 1e-2}],
     lr=args.lr
 )
 scheduler = get_linear_schedule_with_warmup(

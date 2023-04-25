@@ -693,6 +693,75 @@ def midpoint_alignment_sampler(
         
     return all_base_input_ids, all_source_input_ids, all_ctf_output_ids, all_intervention_ids
 
+def bracket_alignment_sampler(
+    tokenizer,
+    max_n_training_examples,
+    amount=None,
+    lower_bound=None,
+    bound_width=None,
+):
+
+    all_base_input_ids = []
+    all_source_input_ids = []
+    all_ctf_output_ids = [] # this one does not have input ids, etc..
+    all_intervention_ids = []
+    
+    for _ in range(max_n_training_examples):
+        
+        base_lower_bound_sample, base_upper_bound_sample, base_amount_sample = \
+            pricing_tag_game_config_sampler(
+                amount,
+                lower_bound,
+                bound_width
+            )
+        source_lower_bound_sample, source_upper_bound_sample, source_amount_sample = \
+            pricing_tag_game_config_sampler(
+                amount,
+                lower_bound,
+                bound_width
+            )
+        ctf_label = None
+        ctf_label_str = None
+        if base_amount_sample <= source_upper_bound_sample and base_amount_sample >= source_lower_bound_sample:
+            ctf_label = tokenizer.convert_tokens_to_ids("Yes")
+            ctf_label_str = "Yes"
+        else:
+            ctf_label = tokenizer.convert_tokens_to_ids("No")
+            ctf_label_str = "No"
+            
+        base_amount_str = "%.2f dollars" % base_amount_sample
+        source_amount_str = "%.2f dollars" % source_amount_sample
+        base_lower_bound_str = "%.2f" % base_lower_bound_sample
+        base_upper_bound_str = "%.2f" % base_upper_bound_sample
+        source_lower_bound_str = "%.2f" % source_lower_bound_sample
+        source_upper_bound_str = "%.2f" % source_upper_bound_sample
+        
+        # print(f"base: [{base_lower_bound_str}, {base_upper_bound_str}], {base_amount_str}")
+        # print(f"source: [{source_lower_bound_str}, {source_upper_bound_str}], {source_amount_str}")
+        # print(f"ctf label: {ctf_label_str}")
+        
+        base_instruction = f"Please say yes only if it costs between {base_lower_bound_str} and {base_upper_bound_str} dollars, otherwise no."
+        source_instruction = f"Please say yes only if it costs between {source_lower_bound_str} and {source_upper_bound_str} dollars, otherwise no."
+        
+        base_alpaca_prompt = alpaca_prompt_template % (base_instruction, base_amount_str)
+        source_alpaca_prompt = alpaca_prompt_template % (source_instruction, source_amount_str)
+        
+        base_input_ids = tokenizer(base_alpaca_prompt, return_tensors="pt").input_ids[0]
+        source_input_ids = tokenizer(source_alpaca_prompt, return_tensors="pt").input_ids[0]
+        base_input_ids = base_input_ids.tolist()
+        source_input_ids = source_input_ids.tolist()
+        ctf_output_ids = (torch.ones(len(base_input_ids))*-100).long().tolist()
+        ctf_output_ids[-1] = ctf_label
+        
+        all_base_input_ids += [base_input_ids]
+        all_source_input_ids += [source_input_ids]
+        all_ctf_output_ids += [ctf_output_ids]
+        all_intervention_ids += [0]
+        assert len(base_input_ids) == 82
+        assert len(source_input_ids) == 82
+        
+    return all_base_input_ids, all_source_input_ids, all_ctf_output_ids, all_intervention_ids
+
 def prepare_dataloader(args, tokenizer):
     prealign_batch_size = args.eval_batch_size
     logger.info(
@@ -737,7 +806,12 @@ def prepare_dataloader(args, tokenizer):
     elif args.task_name == "pricing_tag_mid_diff":
         raw_data = midpoint_alignment_sampler(
             tokenizer,
-            args.n_training_examples+args.n_eval_examples,
+            args.n_training_examples+args.n_eval_examples+args.n_eval_examples,
+        )
+    elif args.task_name == "pricing_tag_bracket":
+        raw_data = bracket_alignment_sampler(
+            tokenizer,
+            args.n_training_examples+args.n_eval_examples+args.n_eval_examples,
         )
 
     raw_train = (
@@ -951,6 +1025,7 @@ class AlpacaAligner(object):
                                 "train/step_accuracy": step_accuracy,
                                 "train/temperature": self.model.model.temperature.data,
                                 "train/unified_boundary": intervention_boundaries.data[0],
+                                "train/unified_boundary (dummy)": intervention_boundaries.data[1],                                       
                             },
                             step=total_step
                         )
@@ -1020,8 +1095,6 @@ class AlpacaAligner(object):
                 
                 if total_step % gradient_accumulation_steps == 0:
                     if not (gradient_accumulation_steps > 1 and total_step == 0):
-                        # print(self.model.model.rotate_layer.weight)
-                        
                         loss.backward()
                         optimizer.step()
                         scheduler.step()
@@ -1039,7 +1112,7 @@ class AlpacaAligner(object):
             correct_count = 0
             self.model.eval()
             with torch.no_grad():
-                for step, inputs in enumerate(dev_dataloader):
+                for step, inputs in enumerate(test_dataloader):
                     for k, v in inputs.items():
                         if v is not None and isinstance(v, torch.Tensor):
                             inputs[k] = v.to(self.device)
@@ -1067,7 +1140,7 @@ class AlpacaAligner(object):
             if self.is_wandb:
                 wandb.log(
                     {
-                        "eval/accuracy": current_acc
+                        "test/accuracy": current_acc
                     },
                     step=total_step
                 )

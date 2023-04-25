@@ -69,6 +69,9 @@ class RotateLayer(torch.nn.Module):
     def __init__(self, n, init_orth=True):
         super().__init__()
         weight = torch.empty(n,n)
+        # we don't need init if the saved checkpoint has a nice 
+        # starting point already.
+        # you can also study this if you want, but it is our focus.
         if init_orth:
             torch.nn.init.orthogonal_(weight)
         self.weight = torch.nn.Parameter(weight, requires_grad=True)
@@ -96,8 +99,7 @@ class AlignableLlamaModel(LlamaModel):
             self.inverse_rotate_layer = InverseRotateLayer(self.rotate_layer)
 
             # this will be replaced by a learnable parameters
-            self.intervention_boundaries = torch.tensor([1.00], requires_grad=True)
-            # 1 maps to half of the whole population!
+            self.intervention_boundaries = torch.tensor([1.0, 1.0], requires_grad=True)
             self.intervention_boundaries = torch.nn.Parameter(self.intervention_boundaries)
             self.temperature = nn.Parameter(torch.tensor(50.0)) # Define temperature as a parameter
             self.intervention_population = nn.Parameter(torch.arange(0, self.searchable_n_embd), requires_grad=False)
@@ -231,16 +233,17 @@ class AlignableLlamaModel(LlamaModel):
                 if source_hidden_states != None:
                     # boundary learning
                     intervention_boundaries = torch.clamp(self.intervention_boundaries, 1e-3, 1)
+                    intervention_boundaries = torch.cumsum(intervention_boundaries, dim=0)
                     first_boundary_mask = sigmoid_boundary_sigmoid(
                         self.intervention_population.repeat(batch_size, 1), 
                         0.,
-                        intervention_boundaries[0] * int(self.searchable_n_embd//2) - 1,
+                        intervention_boundaries[0] * int(self.searchable_n_embd//2),
                         self.temperature
                     )
                     second_boundary_mask = sigmoid_boundary_sigmoid(
                         self.intervention_population.repeat(batch_size, 1), 
                         intervention_boundaries[0] * int(self.searchable_n_embd//2),
-                        intervention_boundaries[0] * int(self.searchable_n_embd) - 1.,
+                        2 * intervention_boundaries[0] * int(self.searchable_n_embd//2),
                         self.temperature
                     )
                     boundary_mask = (intervention_ids==0).unsqueeze(dim=-1)*first_boundary_mask + \
