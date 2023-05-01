@@ -1,8 +1,10 @@
 results*/
+logs/
 *.tsv
 *.csv
 *.out
 *results/
+*.sh
 results_notebook/
 logic_data/*.pkl
 wandb/

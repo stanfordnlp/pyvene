@@ -80,6 +80,8 @@ if __name__ == '__main__':
         
         print("Using in a notebook env.")
 
+set_seed(args.seed)
+
 ###################
 # data loaders
 ###################
