@@ -117,8 +117,10 @@ if not os.path.exists(output_dir) and is_master:
     
 # now we check whether we can skip ...
 # if there is last, we need to skip!
-file_path = os.path.join(args.output_dir, run_name, "pytorch-rotate-last.bin")
-if not os.path.isfile(file_path):
+with open('./unfinished_runname.txt') as f:
+    unfinished_experiments = [line.rstrip('\n') for line in f]
+    
+if run_name in unfinished_runname:
     if args.unit_test_mode:
         logger.info("Loading Dummy Model for Testing ...")
         # Testing code.
