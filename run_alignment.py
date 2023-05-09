@@ -1,6 +1,21 @@
 #!/usr/bin/env python
 # coding: utf-8
-from utils.train_utils import *
+import os, random, argparse, sys, torch
+from models.llama.modelings_alignable_llama import AlignableLlamaForCausalLM
+from models.configuration_alignable_model import AlignableLlamaConfig
+from trainer import AlpacaAligner, CACHE_DIR
+from counterfacutal_datasets import prepare_dataloader
+from transformers import (
+    set_seed,
+    AutoTokenizer,
+    AutoConfig,
+    get_linear_schedule_with_warmup
+)
+from torch.utils.data import DataLoader, SequentialSampler
+
+from transformers.utils import logging
+logging.set_verbosity_info()
+logger = logging.get_logger("transformers")
 
 if __name__ == '__main__':
     is_notebook = False
@@ -23,9 +38,10 @@ if __name__ == '__main__':
         cmd.add_argument('--output_dir', required=True, type=str, help='save dir')
         cmd.add_argument('--local_rank', default=-1, type=int, help='multi gpu training')
         cmd.add_argument('--epochs', default=10, type=int, help='training epochs')
-        cmd.add_argument('--model_path', type=str, required=False, default=None)
+        cmd.add_argument('--model_path', type=str, required=False, default="../alpaca_7b/")
         cmd.add_argument('--warm_up', type=float, default=0.1)
         cmd.add_argument('--is_wandb', default=False, action='store_true')
+        cmd.add_argument('--wandb_username', type=str, default="")
         cmd.add_argument('--bf16', default=False, action='store_true')
         cmd.add_argument('--log_step', default=10, type=int)
         cmd.add_argument('--valid_steps', default=500, type=int)
@@ -34,51 +50,13 @@ if __name__ == '__main__':
         cmd.add_argument('--do_align', default=False, action='store_true')
         cmd.add_argument('--do_eval', default=False, action='store_true')
         cmd.add_argument('--do_test', default=False, action='store_true')
-        
-        cmd.add_argument('--aligning_layer_n', default=0, type=int)
-        cmd.add_argument('--aligning_tokens', default="", type=str, help='[START_TOKEN];[END_TOKEN]')
         cmd.add_argument('--n_training_examples', default=10000, type=int)
         cmd.add_argument('--n_eval_examples', default=1000, type=int)
         cmd.add_argument('--task_name', default="pricing_tag_lb", type=str, help='')
-        cmd.add_argument('--aligning_var_n', default=0, type=int)
-        cmd.add_argument('--aligning_basis_n_per_variable', default=0, type=int)
-        cmd.add_argument('--unit_test_mode', default=False, action='store_true')
         
         args = cmd.parse_args(sys.argv[1:])
     except:
         assert False
-        is_notebook = True
-        parser = argparse.ArgumentParser()
-        args = parser.parse_args([])
-        args.train_batch_size = 8
-        args.eval_batch_size = 8
-        args.gradient_accumulation_steps = 16
-        args.lr = 1e-4
-        args.seed = 42
-        args.output_dir = "./results_notebook/"
-        args.epochs = 1
-        args.warm_up = 0.1
-        args.is_wandb = False
-        args.log_step = 10
-        args.valid_steps = 100 # -1 not do training eval!
-        args.early_stopping = 999 # large == never early stop!
-        args.device = "cuda"
-        args.do_align = True
-        args.do_eval = True
-        args.n_gpu = 1
-        
-        # alignment search setting
-        args.aligning_layer_n = 16
-        args.aligning_tokens = "79;80"
-        
-        args.aligning_var_n = 2
-        args.n_training_examples = 1000
-        args.n_eval_examples = 200
-        args.task_name = "pricing_tag_lb"
-        
-        args.unit_test_mode = False
-        
-        print("Using in a notebook env.")
 
 set_seed(args.seed)
 
@@ -86,7 +64,7 @@ set_seed(args.seed)
 # data loaders
 ###################
 tokenizer = AutoTokenizer.from_pretrained(
-    pretrained_model_name_or_path="../alpaca_7b/",
+    pretrained_model_name_or_path=args.model_path,
     cache_dir=CACHE_DIR
 )
 prealign_dataloader, train_dataloader, eval_dataloader, test_dataloader = prepare_dataloader(args, tokenizer)
@@ -94,23 +72,26 @@ prealign_dataloader, train_dataloader, eval_dataloader, test_dataloader = prepar
 ###################
 # model object loading
 ###################
+das_config = AlignableLlamaConfig.from_pretrained(
+    os.path.join(args.model_path, "das_config")
+)
 alignment_config = {
-    'layer': args.aligning_layer_n,
+    'layer': das_config.das_layer,
     "token_range" : [
-        int(args.aligning_tokens.split(";")[0]), 
-        int(args.aligning_tokens.split(";")[1]), 
+        das_config.das_token_range[0], 
+        das_config.das_token_range[1], 
     ]
 }
 logger.info(f"alignment_config = {alignment_config}")
 
 run_name = f"alpaca-7B.task.{args.task_name}."\
-           f"seed.{args.seed}.intl.{args.aligning_layer_n}.intr.{alignment_config['token_range'][0]}."\
+           f"seed.{args.seed}.intl.{alignment_config['layer']}.intr.{alignment_config['token_range'][0]}."\
            f"{alignment_config['token_range'][1]}"
 
 is_master = True
 if not os.path.exists(args.output_dir) and is_master:
     os.mkdir(args.output_dir)
-os.environ["WANDB_PROJECT"] = f"ToM-DAS"
+os.environ["WANDB_PROJECT"] = f"Boundless-DAS"
 output_dir = os.path.join(args.output_dir, run_name)
 if not os.path.exists(output_dir) and is_master:
     os.mkdir(output_dir)
@@ -118,22 +99,14 @@ if not os.path.exists(output_dir) and is_master:
 # now we check whether we can skip ...
 # if there is last, we need to skip!
 file_path = os.path.join(args.output_dir, run_name, "pytorch-rotate-last.bin")
+das_config.save_pretrained(os.path.join(args.output_dir, run_name, "das_config"))
 if not os.path.isfile(file_path):
-    if args.unit_test_mode:
-        logger.info("Loading Dummy Model for Testing ...")
-        # Testing code.
-        model = AlignableLlamaForCausalLM.from_pretrained(
-            "../alpaca_test/",
-            alignment_config=alignment_config,
-            torch_dtype=torch.bfloat16 if args.bf16 else None
-        )
-    else:
-        logger.info("Loading Alpaca 7B, Takes 2 Mins ...")
-        model = AlignableLlamaForCausalLM.from_pretrained(
-            "../alpaca_7b/",
-            alignment_config=alignment_config,
-            torch_dtype=torch.bfloat16 if args.bf16 else None
-        )
+    logger.info(f"Loading Pretrained LLM with bf16 = {args.bf16}...")
+    model = AlignableLlamaForCausalLM.from_pretrained(
+        args.model_path,
+        alignment_config=alignment_config,
+        torch_dtype=torch.bfloat16 if args.bf16 else None
+    )
 
     # set off the gradients among all other layers.
     for name, param in model.named_parameters():
