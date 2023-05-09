@@ -3,7 +3,7 @@
 # This on a single A100/A6000 takes 24 hours to run for a single seed!
 # first argument is like "79:80" -> aligning on 79th token.
 # second argument is like "3.50;8.50;0.00;9.99"
-for seed in 77 # 42 66 77
+for seed in 66 # 42 66 77
 do
     for layer in 0 5 10 15 20 25 30
     do
