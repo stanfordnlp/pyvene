@@ -7,9 +7,9 @@
     <a href="https://arxiv.org/abs/xxxx.xxxxx"><strong>Read our preprint »</strong></a>
     <br />
     <br />
-    <a href="https://nlp.stanford.edu/~wuzhengx/blog/boundless_das/">Research Blog</a>
+    <a href="https://nlp.stanford.edu/~wuzhengx/boundless_das/">Research Blog</a>
     ·
-    <a href="https://nlp.stanford.edu/~wuzhengx/blog/boundless_das/cn_index.html">中文介绍</a>
+    <a href="https://nlp.stanford.edu/~wuzhengx/boundless_das/cn_index.html">中文介绍</a>
     ·
     <a href="https://github.com/frankaging/align-transformers/issues">Report Bug</a>
     ·
