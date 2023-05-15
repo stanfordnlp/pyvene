@@ -20,7 +20,7 @@
 ## <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **align-transformers**
 Obtaining robust, human-interpretable explanations of large, general-purpose language models is an urgent goal for AI. Building on the theory of causal abstraction, we release this generic  library encapsulated Boundless DAS introduced in our paper for find representations that play a given causal role in LLMs with billions of parameters.
 
-## End-to-end Alignment Workflow for Any Foundation Models
+## End-to-end Alignment Workflow for Any LLMs.
 - **Step 1** : Identify a reasoning task that can be solved by a symbolic causal model.
 - **Step 2** : Pick an off-the-shelf LLM.
 - **Step 3** : Make sure LLM passes the behavioral test (i.e., good task performance)
