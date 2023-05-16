@@ -74,7 +74,7 @@ If you use this repository, please consider to cite our relevant papers:
         title={Interpretability at Scale: Identifying Causal Mechanisms in Alpaca}, 
         author={Wu, Zhengxuan and Geiger, Atticus and Potts, Christopher and Goodman, Noah},
         year={2023},
-        eprint={xxxx.xxxxx},
+        eprint={2305.08809},
         archivePrefix={arXiv},
         primaryClass={cs.LG}
   }
