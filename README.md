@@ -4,7 +4,7 @@
   <p align="center">
     Zhengxuan Wu*, Atticus Geiger*, Christopher Potts, Noah Goodman
     <br />
-    <a href="https://arxiv.org/abs/xxxx.xxxxx"><strong>Read our preprint »</strong></a>
+    <a href="https://arxiv.org/abs/2305.08809"><strong>Read our preprint »</strong></a>
     <br />
     <br />
     <a href="https://nlp.stanford.edu/~wuzhengx/boundless_das/">Research Blog</a>
