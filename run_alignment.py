@@ -2,7 +2,8 @@
 # coding: utf-8
 import os, random, argparse, sys, torch
 from models.llama.modelings_alignable_llama import AlignableLlamaForCausalLM
-from models.configuration_alignable_model import AlignableLlamaConfig
+from models.t5.modeling_alignable_t5 import T5ForConditionalGeneration
+from models.configuration_alignable_model import AlignableLlamaConfig, AlignableT5Config
 from trainer import AlpacaAligner, CACHE_DIR
 from counterfacutal_datasets import prepare_dataloader
 from transformers import (
@@ -17,6 +18,14 @@ from transformers.utils import logging
 logging.set_verbosity_info()
 logger = logging.get_logger("transformers")
 
+def get_model_classes(model_type: str):
+    if model_type == 'llama':
+        return (AlignableLlamaConfig, AlignableLlamaForCausalLM)
+    elif model_type == 't5':
+        return (AlignableT5Config, T5ForConditionalGeneration)
+    else:
+        raise ValueError('Unsupported model_type: ' + model_type)
+
 if __name__ == '__main__':
     is_notebook = False
     try:
@@ -25,11 +34,11 @@ if __name__ == '__main__':
         cmd.add_argument('--eval_batch_size', default=128, type=int, help='training batch size')
         cmd.add_argument('--lr', default=0.01, type=float, help='learning rate')
         cmd.add_argument(
-            '--encoder_config_path', 
+            '--encoder_config_path',
             type=str, help='path to the encoder config'
         )
         cmd.add_argument(
-            '--decoder_config_path', 
+            '--decoder_config_path',
             type=str, help='path to the decoder config'
         )
         cmd.add_argument('--max_seq_len', default=512, type=int)
@@ -52,8 +61,9 @@ if __name__ == '__main__':
         cmd.add_argument('--do_test', default=False, action='store_true')
         cmd.add_argument('--n_training_examples', default=10000, type=int)
         cmd.add_argument('--n_eval_examples', default=1000, type=int)
-        cmd.add_argument('--task_name', default="pricing_tag_lb", type=str, help='')
-        
+        cmd.add_argument('--task_name', default='pricing_tag_lb', type=str, help='')
+        cmd.add_argument('--model_name', default='llama', type=str, help='The architecture of the model. Currently supports either "llama" or "t5"')
+
         args = cmd.parse_args(sys.argv[1:])
     except:
         assert False
@@ -78,8 +88,8 @@ das_config = AlignableLlamaConfig.from_pretrained(
 alignment_config = {
     'layer': das_config.das_layer,
     "token_range" : [
-        das_config.das_token_range[0], 
-        das_config.das_token_range[1], 
+        das_config.das_token_range[0],
+        das_config.das_token_range[1],
     ]
 }
 logger.info(f"alignment_config = {alignment_config}")
@@ -95,7 +105,7 @@ os.environ["WANDB_PROJECT"] = f"Boundless-DAS"
 output_dir = os.path.join(args.output_dir, run_name)
 if not os.path.exists(output_dir) and is_master:
     os.mkdir(output_dir)
-    
+
 # now we check whether we can skip ...
 # if there is last, we need to skip!
 file_path = os.path.join(args.output_dir, run_name, "pytorch-rotate-last.bin")
@@ -150,9 +160,9 @@ if not os.path.isfile(file_path):
     if args.do_align:
         aligner.train(
             train_dataloader, eval_dataloader, test_dataloader,
-            optimizer, scheduler, 
+            optimizer, scheduler,
             log_step=args.log_step, valid_steps=args.valid_steps,
-            output_dir=output_dir, epochs=args.epochs, 
+            output_dir=output_dir, epochs=args.epochs,
             gradient_accumulation_steps=args.gradient_accumulation_steps,
         )
 else:

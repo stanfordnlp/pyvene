@@ -14,5 +14,18 @@ class AlignableLlamaConfig(PretrainedConfig):
     ):
         self.das_layer = das_layer
         self.das_token_range = das_token_range
-        
+
+        super().__init__(**kwargs)
+
+class AlignableT5Config(PretrainedConfig):
+    model_type="t5"
+    def __init__(
+        self,
+        das_layer=15,
+        das_token_range=[80, 81],
+        **kwargs
+    ):
+        self.das_layer = das_layer
+        self.das_token_range = das_token_range
+
         super().__init__(**kwargs)
