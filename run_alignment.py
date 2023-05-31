@@ -2,7 +2,7 @@
 # coding: utf-8
 import os, random, argparse, sys, torch
 from models.llama.modelings_alignable_llama import AlignableLlamaForCausalLM
-from models.t5.modeling_alignable_t5 import T5ForConditionalGeneration
+from models.t5.modeling_alignable_t5 import AlignableT5ForConditionalGeneration
 from models.configuration_alignable_model import AlignableLlamaConfig, AlignableT5Config
 from trainer import AlpacaAligner, CACHE_DIR
 from counterfacutal_datasets import prepare_dataloader
@@ -22,7 +22,7 @@ def get_model_classes(model_type: str):
     if model_type == 'llama':
         return (AlignableLlamaConfig, AlignableLlamaForCausalLM)
     elif model_type == 't5':
-        return (AlignableT5Config, T5ForConditionalGeneration)
+        return (AlignableT5Config, AlignableT5ForConditionalGeneration)
     else:
         raise ValueError('Unsupported model_type: ' + model_type)
 
@@ -82,7 +82,8 @@ prealign_dataloader, train_dataloader, eval_dataloader, test_dataloader = prepar
 ###################
 # model object loading
 ###################
-das_config = AlignableLlamaConfig.from_pretrained(
+model_config_cls, model_cls = get_model_classes(args.model_name)
+das_config = model_config_cls.from_pretrained(
     os.path.join(args.model_path, "das_config")
 )
 alignment_config = {
@@ -94,7 +95,7 @@ alignment_config = {
 }
 logger.info(f"alignment_config = {alignment_config}")
 
-run_name = f"alpaca-7B.task.{args.task_name}."\
+run_name = f"{args.model_name}.task.{args.task_name}."\
            f"seed.{args.seed}.intl.{alignment_config['layer']}.intr.{alignment_config['token_range'][0]}."\
            f"{alignment_config['token_range'][1]}"
 
@@ -112,7 +113,7 @@ file_path = os.path.join(args.output_dir, run_name, "pytorch-rotate-last.bin")
 das_config.save_pretrained(os.path.join(args.output_dir, run_name, "das_config"))
 if not os.path.isfile(file_path):
     logger.info(f"Loading Pretrained LLM with bf16 = {args.bf16}...")
-    model = AlignableLlamaForCausalLM.from_pretrained(
+    model = model_cls.from_pretrained(
         args.model_path,
         alignment_config=alignment_config,
         torch_dtype=torch.bfloat16 if args.bf16 else None
@@ -128,8 +129,8 @@ if not os.path.isfile(file_path):
     t_total = int(len(train_dataloader) * args.epochs)
     warm_up_steps = args.warm_up * t_total
     optimizer = torch.optim.Adam(
-        [{'params': model.model.rotate_layer.parameters()},
-        {'params': model.model.intervention_boundaries, 'lr': 1e-2}],
+        [{'params': model.get_rotation_parameters()},
+        {'params': model.get_boundary_parameters(), 'lr': 1e-2}],
         lr=args.lr
     )
     scheduler = get_linear_schedule_with_warmup(
@@ -145,6 +146,7 @@ if not os.path.isfile(file_path):
     ###################
     aligner = AlpacaAligner(
         model,
+        tokenizer,
         logger=logger,
         args=args,
         is_master=is_master,

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from transformers import get_linear_schedule_with_warmup
 import numpy as np
 import os, random, argparse, sys, pickle, time
-from datasets import Dataset 
+from datasets import Dataset
 from torch.utils.data import DataLoader, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
@@ -17,9 +17,11 @@ import matplotlib.pyplot as plt
 import os, random, argparse, sys, pickle, time
 
 from transformers.modeling_outputs import (
-    BaseModelOutputWithPast, 
+    BaseModelOutputWithPast,
     CausalLMOutputWithPast
 )
+
+from ..alignable_base import AlignableBase
 
 from transformers.utils import logging
 logging.set_verbosity_info()
@@ -41,7 +43,7 @@ def harmonic_boundary_sigmoid(_input, boundary_x, boundary_y, temperature):
     ((_input>boundary_x)&(_input<boundary_y))*torch.sigmoid(
         (0.5 * (torch.abs(_input - boundary_x)**(-1) + torch.abs(_input - boundary_y)**(-1)))**(-1) / temperature
     )
-    
+
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
@@ -68,21 +70,21 @@ class RotateLayer(torch.nn.Module):
     def __init__(self, n, init_orth=True):
         super().__init__()
         weight = torch.empty(n,n)
-        # we don't need init if the saved checkpoint has a nice 
+        # we don't need init if the saved checkpoint has a nice
         # starting point already.
         # you can also study this if you want, but it is our focus.
         if init_orth:
             torch.nn.init.orthogonal_(weight)
         self.weight = torch.nn.Parameter(weight, requires_grad=True)
-        
+
     def forward(self, x):
         return torch.matmul(x, self.weight)
-    
+
 class AlignableLlamaModel(LlamaModel):
     def __init__(self, config, alignment_config=None):
         super().__init__(config)
         self.layers = nn.ModuleList([LlamaDecoderLayer(config) for _ in range(config.num_hidden_layers)])
-        
+
         # this alignment config is like the whole population of neurons
         # you will be aligning with.
         self.alignment_config = alignment_config
@@ -102,7 +104,7 @@ class AlignableLlamaModel(LlamaModel):
             self.intervention_boundaries = torch.nn.Parameter(self.intervention_boundaries)
             self.temperature = nn.Parameter(torch.tensor(50.0)) # Define temperature as a parameter
             self.intervention_population = nn.Parameter(torch.arange(0, self.searchable_n_embd), requires_grad=False)
-            
+
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -183,7 +185,7 @@ class AlignableLlamaModel(LlamaModel):
         all_self_attns = () if output_attentions else None
         next_decoder_cache = () if use_cache else None
         rotated_hidden_states = None
-        
+
         for idx, decoder_layer in enumerate(self.layers):
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)
@@ -216,7 +218,7 @@ class AlignableLlamaModel(LlamaModel):
                 )
 
             hidden_states = layer_outputs[0]
-            
+
             if self.alignment_config != None and idx == self.alignment_config["layer"]:
                 # disjoin
                 original_shape = copy.deepcopy(hidden_states.shape)
@@ -227,20 +229,20 @@ class AlignableLlamaModel(LlamaModel):
                 prefix_hidden_states = hidden_states[:,:start]
                 postfix_hidden_states = hidden_states[:,end:]
                 rotated_hidden_states = self.rotate_layer(aligning_hidden_states)
-                                
+
                 # intervene
                 if source_hidden_states != None:
                     # boundary learning
                     intervention_boundaries = torch.clamp(self.intervention_boundaries, 1e-3, 1)
                     intervention_boundaries = torch.cumsum(intervention_boundaries, dim=0)
                     first_boundary_mask = sigmoid_boundary_sigmoid(
-                        self.intervention_population.repeat(batch_size, 1), 
+                        self.intervention_population.repeat(batch_size, 1),
                         0.,
                         intervention_boundaries[0] * int(self.searchable_n_embd//2),
                         self.temperature
                     )
                     second_boundary_mask = sigmoid_boundary_sigmoid(
-                        self.intervention_population.repeat(batch_size, 1), 
+                        self.intervention_population.repeat(batch_size, 1),
                         intervention_boundaries[0] * int(self.searchable_n_embd//2),
                         2 * intervention_boundaries[0] * int(self.searchable_n_embd//2),
                         self.temperature
@@ -248,13 +250,13 @@ class AlignableLlamaModel(LlamaModel):
                     boundary_mask = (intervention_ids==0).unsqueeze(dim=-1)*first_boundary_mask + \
                         (intervention_ids==1).unsqueeze(dim=-1)*second_boundary_mask
                     boundary_mask = boundary_mask.to(rotated_hidden_states.dtype)
-                    
+
                     rotated_hidden_states = (1. - boundary_mask)*rotated_hidden_states + \
                         boundary_mask*source_hidden_states
-                    
+
                 # rotate back + suture
                 reversed_hidden_states = self.inverse_rotate_layer(rotated_hidden_states)
-                
+
                 hidden_states = torch.cat([
                     prefix_hidden_states,
                     reversed_hidden_states,
@@ -269,7 +271,7 @@ class AlignableLlamaModel(LlamaModel):
                         attentions=all_self_attns,
                         rotated_hidden_states=rotated_hidden_states,
                     )
-                
+
             if use_cache:
                 next_decoder_cache += (layer_outputs[2 if output_attentions else 1],)
 
@@ -292,9 +294,9 @@ class AlignableLlamaModel(LlamaModel):
             attentions=all_self_attns,
             rotated_hidden_states=rotated_hidden_states,
         )
-        
-        
-class AlignableLlamaForCausalLM(LlamaForCausalLM):
+
+
+class AlignableLlamaForCausalLM(LlamaForCausalLM, AlignableBase):
     def __init__(self, config, alignment_config=None):
         super().__init__(config)
         self.model = AlignableLlamaModel(config, alignment_config)
@@ -303,7 +305,7 @@ class AlignableLlamaForCausalLM(LlamaForCausalLM):
                 alignment_config["token_range"][1] - alignment_config["token_range"][0]
             ) * config.hidden_size
             self.searchable_n_embd = searchable_n_embd
-        
+
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -380,7 +382,7 @@ class AlignableLlamaForCausalLM(LlamaForCausalLM):
         logits = None
         if not output_rotated_hidden_states_only:
             logits = self.lm_head(hidden_states)
-        
+
         loss = None
         if labels is not None:
             # Shift so that tokens < n predict n
@@ -393,12 +395,12 @@ class AlignableLlamaForCausalLM(LlamaForCausalLM):
             # Enable model parallelism
             shift_labels = shift_labels.to(shift_logits.device)
             loss = loss_fct(shift_logits, shift_labels)
-            
+
             # boundary loss - make it smaller
             if self.model.alignment_config != None:
                 boundary_loss = 1. * self.model.intervention_boundaries.sum()
                 loss += boundary_loss
-            
+
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
@@ -411,3 +413,8 @@ class AlignableLlamaForCausalLM(LlamaForCausalLM):
             attentions=outputs.attentions,
             rotated_hidden_states=rotated_hidden_states
         )
+
+    def get_rotation_parameters(self):
+        return self.model.rotate_layer.parameters()
+    def get_boundary_parameters(self):
+        return self.model.intervention_boundaries
