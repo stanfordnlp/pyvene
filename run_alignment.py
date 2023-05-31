@@ -5,7 +5,6 @@ from models.llama.modelings_alignable_llama import AlignableLlamaForCausalLM
 from models.t5.modeling_alignable_t5 import AlignableT5ForConditionalGeneration
 from models.configuration_alignable_model import AlignableLlamaConfig, AlignableT5Config
 from trainer import AlpacaAligner, CACHE_DIR
-from counterfacutal_datasets import prepare_dataloader
 from transformers import (
     set_seed,
     AutoTokenizer,
@@ -13,6 +12,7 @@ from transformers import (
     get_linear_schedule_with_warmup
 )
 from torch.utils.data import DataLoader, SequentialSampler
+from tasks import price_tagging
 
 from transformers.utils import logging
 logging.set_verbosity_info()
@@ -25,6 +25,12 @@ def get_model_classes(model_type: str):
         return (AlignableT5Config, AlignableT5ForConditionalGeneration)
     else:
         raise ValueError('Unsupported model_type: ' + model_type)
+
+def get_task(task_name: str):
+    if 'price_tagging' in task_name:
+        return price_tagging.PriceTaggingTask()
+    else:
+        raise ValueError('Unsupported task_name: ' + task_name)
 
 if __name__ == '__main__':
     is_notebook = False
@@ -61,7 +67,7 @@ if __name__ == '__main__':
         cmd.add_argument('--do_test', default=False, action='store_true')
         cmd.add_argument('--n_training_examples', default=10000, type=int)
         cmd.add_argument('--n_eval_examples', default=1000, type=int)
-        cmd.add_argument('--task_name', default='pricing_tag_lb', type=str, help='')
+        cmd.add_argument('--task_name', default='price_tagging_lb', type=str, help='')
         cmd.add_argument('--model_name', default='llama', type=str, help='The architecture of the model. Currently supports either "llama" or "t5"')
 
         args = cmd.parse_args(sys.argv[1:])
@@ -77,7 +83,8 @@ tokenizer = AutoTokenizer.from_pretrained(
     pretrained_model_name_or_path=args.model_path,
     cache_dir=CACHE_DIR
 )
-prealign_dataloader, train_dataloader, eval_dataloader, test_dataloader = prepare_dataloader(args, tokenizer)
+task = get_task(args.task_name)
+prealign_dataloader, train_dataloader, eval_dataloader, test_dataloader = task.prepare_dataloader(tokenizer, **vars(args))
 
 ###################
 # model object loading
