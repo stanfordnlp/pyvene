@@ -26,12 +26,13 @@ is allowed.
 """
 CACHE_DIR = "../.cache/"
 
-class AlpacaAligner(object):
+class Aligner(object):
     def __init__(
         self, model,
         is_master,
         logger,
         args,
+        compute_metrics,
         lr=5e-5,
         apex_enable=False,
         n_gpu=1,
@@ -43,11 +44,12 @@ class AlpacaAligner(object):
     ):
         self.model = model
         num_params = count_parameters(model)
-        logger.info(f'Number of Alpaca-7B model params: {num_params}') 
+        logger.info(f'Number of aligning model params: {num_params}') 
         self.is_master = is_master
         self.logger = logger
         self.is_wandb = args.is_wandb
         self.model_name = model_name
+        self.compute_metrics_fn = compute_metrics
         
         self.lr = lr
         self.n_gpu = n_gpu
@@ -80,38 +82,32 @@ class AlpacaAligner(object):
             }, os.path.join(output_dir, model_name))
     
     def prealign_eval(self, prealign_dataloader, output_dir):
-        total_count = 0
-        correct_count = 0
+        eval_labels = []
+        eval_preds = []
         self.model.eval()
         with torch.no_grad():
             for step, inputs in enumerate(prealign_dataloader):
                 for k, v in inputs.items():
                     if v is not None and isinstance(v, torch.Tensor):
                         inputs[k] = v.to(self.device)
-
                 # aligning forward!
                 outputs = self.model(
                     input_ids=inputs['input_ids'],
                     labels=inputs['labels']
                 )
-
-                actual_test_labels = inputs['labels'][:, -1]
-                pred_test_labels = torch.argmax(outputs.logits[:, -1], dim=-1)
-                correct_labels = (actual_test_labels==pred_test_labels)
-                
-                total_count += len(correct_labels)
-                correct_count += correct_labels.sum().tolist()
-        current_acc = round(correct_count/total_count, 2)
-        logger.info(f"[WARNING: THIS NEEDS TO BE GOOD!] prealign task accuracy: {current_acc}")
+                eval_labels += [inputs['labels']]
+                eval_preds += [outputs.logits]
+        eval_metrics = self.compute_metrics_fn(eval_preds, eval_labels)
+        logger.info(f"[WARNING: THIS NEEDS TO BE GOOD!] prealign task accuracy: {eval_metrics['accuracy']}")
         
         if self.is_master and not self.is_wandb:
             log_prealign = open(os.path.join(output_dir, 'prealign_log.txt'), 'w', buffering=1)
-            print(f'prealign_accuracy,{current_acc}', file=log_prealign)
+            print(f"prealign_accuracy,{eval_metrics['accuracy']}", file=log_prealign)
             log_prealign.close()
         elif self.is_wandb:
             wandb.log(
                 {
-                    "eval/prealign_accuracy": current_acc
+                    "eval/prealign_accuracy": eval_metrics['accuracy']
                 },
                 step=0
             )
@@ -168,12 +164,7 @@ class AlpacaAligner(object):
                 )
                 
                 loss = outputs.loss.mean() if self.n_gpu > 1 else outputs.loss
-                
-                actual_test_labels = inputs['labels'][:, -1]
-                pred_test_labels = torch.argmax(outputs.logits[:, -1], dim=-1)
-                correct_labels = (actual_test_labels==pred_test_labels)
-                step_accuracy = correct_labels.sum() / correct_labels.shape[0]
-                step_accuracy = step_accuracy.tolist()
+                step_accuracy = self.compute_metrics_fn([outputs.logits], [inputs['labels']])['accuracy']
 
                 if self.is_master and total_step % log_step == 0:
                     if self.is_wandb:
@@ -198,8 +189,8 @@ class AlpacaAligner(object):
                         log_train.close()
                         
                     if total_step != 0 and total_step % valid_steps == 0:
-                        total_count = 0
-                        correct_count = 0
+                        eval_labels = []
+                        eval_preds = []
                         self.model.eval()
                         with torch.no_grad():
                             for step, inputs in enumerate(dev_dataloader):
@@ -219,28 +210,24 @@ class AlpacaAligner(object):
                                     labels=inputs['labels']
                                 )
 
-                                actual_test_labels = inputs['labels'][:, -1]
-                                pred_test_labels = torch.argmax(outputs.logits[:, -1], dim=-1)
-                                correct_labels = (actual_test_labels==pred_test_labels)
-
-                                total_count += len(correct_labels)
-                                correct_count += correct_labels.sum().tolist()
-
-                        current_acc = round(correct_count/total_count, 2)
+                                eval_labels += [inputs['labels']]
+                                eval_preds += [outputs.logits]
+                        eval_metrics = self.compute_metrics_fn(eval_preds, eval_labels)
+                        
                         if self.is_wandb:
                             wandb.log(
                                 {
-                                    "eval/accuracy": current_acc
+                                    "eval/accuracy": eval_metrics['accuracy']
                                 },
                                 step=total_step
                             )
                         else:
                             log_eval = open(os.path.join(output_dir, 'eval_log.txt'), 'a', buffering=1)
-                            print('{},{}'.format(total_step, current_acc), file=log_eval)
+                            print('{},{}'.format(total_step, eval_metrics['accuracy']), file=log_eval)
                             log_eval.close()
                             
-                        if current_acc > best_eval_acc:
-                            best_eval_acc = current_acc
+                        if eval_metrics['accuracy'] > best_eval_acc:
+                            best_eval_acc = eval_metrics['accuracy']
                             if self.is_master:
                                 self.save_model(output_dir, 'pytorch-rotate-best.bin')
                         self.model.train()
@@ -267,9 +254,9 @@ class AlpacaAligner(object):
         ###############################
         # End of training evaluation.
         if self.is_master:
-            total_count = 0
-            correct_count = 0
             self.model.eval()
+            eval_labels = []
+            eval_preds = []
             with torch.no_grad():
                 for step, inputs in enumerate(test_dataloader):
                     for k, v in inputs.items():
@@ -287,26 +274,22 @@ class AlpacaAligner(object):
                         intervention_ids=inputs['intervention_ids'],
                         labels=inputs['labels']
                     )
-
-                    actual_test_labels = inputs['labels'][:, -1]
-                    pred_test_labels = torch.argmax(outputs.logits[:, -1], dim=-1)
-                    correct_labels = (actual_test_labels==pred_test_labels)
-
-                    total_count += len(correct_labels)
-                    correct_count += correct_labels.sum().tolist()
-
-            current_acc = round(correct_count/total_count, 2)
+                    
+                    eval_labels += [inputs['labels']]
+                    eval_preds += [outputs.logits]
+            eval_metrics = self.compute_metrics_fn(eval_preds, eval_labels)
+            
             if self.is_wandb:
                 wandb.log(
                     {
-                        "test/accuracy": current_acc
+                        "test/accuracy": eval_metrics['accuracy']
                     },
                     step=total_step
                 )
                 wandb.finish()
             else:
                 log_eval = open(os.path.join(output_dir, 'eval_log.txt'), 'a', buffering=1)
-                print('{},{}'.format(total_step, current_acc), file=log_eval)
+                print('{},{}'.format(total_step, eval_metrics['accuracy']), file=log_eval)
                 log_eval.close()
         ###############################
         
