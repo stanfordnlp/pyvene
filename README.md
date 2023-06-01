@@ -28,7 +28,8 @@ Obtaining robust, human-interpretable explanations of large, general-purpose lan
 
 ## Release Notes
 :white_check_mark: 05/17/2023 - Preprint with the initial version of align-transformers is released! Read this for a more formal definition of the method.   
-:white_check_mark: 05/17/2023 - Support LLaMA model with a simple reasoning task.  
+:white_check_mark: 05/17/2023 - Support LLaMA model with a simple reasoning task. 
+:white_check_mark: 05/31/2023 - Infra updates to decouple trainer, metrics, model loading; Support GPT2 alignment.
 ⬜️ Support LLaMA model (>30B) training with model sharding.  
 ⬜️ Support other models.
 
@@ -37,7 +38,10 @@ Obtaining robust, human-interpretable explanations of large, general-purpose lan
 ├── models
 │   ├── llama
 │   │   ├── modelings_alignable_llama.py
-│   └── configuration_alignable_model.py
+│   ├── gpt2
+│   │   ├── modelings_alignable_gpt2.py
+│   ├── configuration_alignable_model.py
+│   └── modelings_alignable.py
 │
 ├── notebooks
 │   ├── analysis.ipynb
