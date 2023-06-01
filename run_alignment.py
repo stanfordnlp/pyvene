@@ -3,7 +3,7 @@
 import os, random, argparse, sys, torch
 from models.configuration_alignable_model import AlignableLlamaConfig
 from trainer import Aligner, CACHE_DIR
-from counterfacutal_datasets import prepare_dataloader
+import counterfactual_datasets.price_tagging_game as price_tagging_game
 from transformers import (
     set_seed,
     AutoTokenizer,
@@ -67,7 +67,11 @@ tokenizer = AutoTokenizer.from_pretrained(
     pretrained_model_name_or_path=args.model_path,
     cache_dir=CACHE_DIR
 )
-prealign_dataloader, train_dataloader, eval_dataloader, test_dataloader = prepare_dataloader(args, tokenizer)
+if args.task_name in ["pricing_tag_lb", "pricing_tag_lub", "pricing_tag_mid_diff", "pricing_tag_bracket", "pricing_tag_fixed"]:
+    prepare_dataloader_fn = price_tagging_game.prepare_dataloader
+prealign_dataloader, train_dataloader, eval_dataloader, test_dataloader = prepare_dataloader_fn(
+    args, tokenizer
+)
 
 ###################
 # model object loading
@@ -100,11 +104,11 @@ if not os.path.exists(output_dir) and is_master:
 # now we check whether we can skip ...
 # if there is last, we need to skip!
 file_path = os.path.join(args.output_dir, run_name, "pytorch-rotate-last.bin")
-das_config.save_pretrained(os.path.join(args.output_dir, run_name, "das_config"))
 if os.path.isfile(file_path):
     logger.info("Skipping! Found previously finished training run for this experiment.")
     quit()
 
+das_config.save_pretrained(os.path.join(args.output_dir, run_name, "das_config"))
 logger.info(f"Loading Pretrained LLM with bf16 = {args.bf16}...")
 model = AutoAlignableModel.from_pretrained(
     args.model_path,
