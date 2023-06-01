@@ -29,7 +29,7 @@ Obtaining robust, human-interpretable explanations of large, general-purpose lan
 ## Release Notes
 :white_check_mark: 05/17/2023 - Preprint with the initial version of align-transformers is released! Read this for a more formal definition of the method.   
 :white_check_mark: 05/17/2023 - Support LLaMA model with a simple reasoning task.  
-:white_check_mark: 05/31/2023 - Infra updates to decouple trainer, metrics, model loading; Support GPT2 alignment.  
+:white_check_mark: 05/31/2023 - Infra updates to decouple trainer, metrics, model loading, dataset loader; Support GPT2 alignment. Initialize the example folder for analyzing finetuned models.  
 ⬜️ Support LLaMA model (>30B) training with model sharding.  
 ⬜️ Support other models.
 
@@ -59,6 +59,7 @@ Obtaining robust, human-interpretable explanations of large, general-purpose lan
 │   ├── init.py
 │   └── cevaluation.ipynb
 │ 
+├── examples
 ├── counterfacutal_datasets.py
 ├── trainer.py
 └── run_alignment.py
@@ -77,6 +78,9 @@ train_dataset = Dataset.from_dict(
 ).with_format("torch")
 ```
 Any dataset instance following the format above should automatically work with the current trainer code.
+
+### Examples Folder
+For cases where we need to *train* a model before alignment, we provide some examples coming off from models we trained to solve some reasoning puzzles. Normally, the tasks we are looking at are reasoning tasks that involve multi-step reasonings. In the alignment process, we will then try to see if the model (i.e., the neural network) is solving a task like a human task taker.
 
 ## Citation
 If you use this repository, please consider to cite our relevant papers:
