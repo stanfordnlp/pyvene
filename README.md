@@ -37,11 +37,18 @@ Obtaining robust, human-interpretable explanations of large, general-purpose lan
 ```.
 ├── models
 │   ├── llama
-│   │   ├── modelings_alignable_llama.py
+│   │   └── modelings_alignable_llama.py
 │   ├── gpt2
-│   │   ├── modelings_alignable_gpt2.py
+│   │   └── modelings_alignable_gpt2.py
+│   ├── ...
+│   │   └── modelings_alignable_*.py
+│   │
 │   ├── configuration_alignable_model.py
 │   └── modelings_alignable.py
+│
+├── counterfacutal_datasets
+│   ├── price_tagging_game.py
+│   └── *.py
 │
 ├── notebooks
 │   ├── analysis.ipynb
@@ -58,7 +65,7 @@ Obtaining robust, human-interpretable explanations of large, general-purpose lan
  ```
  We follow huggingface transformers library closely to organize our folder. To contribute or adapt this codebase for your own analyses, here are some pointers:
  - **New Models** : Follow the `modelings_alignable_llama.py` to create your own model file just like transformers ones. Typically, you only need to add < 50 lines of code to make it work.
- - **New Dataset / Task** : Follow the `counterfacutal_datasets.py` file to create your own dataset. The training datset is encapsulated using huggingface Datasets object. Here is one example:
+ - **New Dataset / Task** : Follow files in `counterfacutal_datasets` to create your own dataset. The training datset is encapsulated using huggingface Datasets object. Here is one example:
 ```python
 train_dataset = Dataset.from_dict(
     {
