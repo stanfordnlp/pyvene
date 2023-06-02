@@ -28,7 +28,6 @@ alpaca_prompt_template = f"""Below is an instruction that describes a task, pair
 """
 
 class PriceTaggingTask(TaskBase):
-    pass
 
     def price_tagging_game_config_sampler(
         self,
