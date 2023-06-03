@@ -85,10 +85,10 @@ class AlpacaAligner(object):
         else:
             torch.save(
                 {
-                    'rotate_layer': self.model.model.rotate_layer.state_dict(),
+                    'rotate_layer': self.model.get_rotation_parameters(),
                     'intervention_boundaries':
-                    self.model.model.intervention_boundaries,
-                    'temperature': self.model.model.temperature
+                    self.model.get_boundary_parameters(),
+                    'temperature': self.model.get_temperature()
                 }, os.path.join(output_dir, model_name))
 
     def prealign_eval(self, prealign_dataloader, output_dir):
@@ -174,7 +174,7 @@ class AlpacaAligner(object):
         temperature_schedule = torch.linspace(
             temperature_start, temperature_end,
             target_total_step).to(torch.bfloat16)
-        self.model.model.temperature.data = temperature_schedule[total_step]
+        self.model.set_temperature(temperature_schedule[total_step])
 
         for epoch in train_iterator:
             epoch_iterator = tqdm(train_dataloader,
@@ -210,7 +210,7 @@ class AlpacaAligner(object):
                 if self.is_master and total_step % log_step == 0:
                     if self.is_wandb:
                         intervention_boundaries = torch.clamp(
-                            self.model.model.intervention_boundaries, 1e-3, 1)
+                            self.model.get_boundary_parameters(), 1e-3, 1)
                         wandb.log(
                             {
                                 "train/loss":
@@ -218,7 +218,7 @@ class AlpacaAligner(object):
                                 "train/step_accuracy":
                                 step_accuracy,
                                 "train/temperature":
-                                self.model.model.temperature.data,
+                                self.model.get_temperature()[0].data,
                                 "train/unified_boundary":
                                 intervention_boundaries.data[0],
                                 "train/unified_boundary (dummy)":
@@ -301,8 +301,8 @@ class AlpacaAligner(object):
                         optimizer.step()
                         scheduler.step()
                         self.model.zero_grad()
-                        self.model.model.temperature.data = temperature_schedule[
-                            total_step]
+                        self.model.set_temperature(
+                            temperature_schedule[total_step])
 
                 total_step += 1
 

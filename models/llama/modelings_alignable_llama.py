@@ -304,7 +304,6 @@ class AlignableLlamaForCausalLM(LlamaForCausalLM, AlignableBase):
         ########################################
         # sources related information goes here
         ########################################
-        source_input_ids=None,
         source_hidden_states=None,
         intervention_ids=None,
         output_rotated_hidden_states_only: Optional[bool] = False,
@@ -401,7 +400,13 @@ class AlignableLlamaForCausalLM(LlamaForCausalLM, AlignableBase):
             rotated_hidden_states=rotated_hidden_states)
 
     def get_rotation_parameters(self):
-        return self.model.rotate_layer.parameters()
+        return [p for p in self.model.rotate_layer.parameters()]
 
     def get_boundary_parameters(self):
-        return self.model.intervention_boundaries
+        return [self.model.intervention_boundaries]
+
+    def get_temperature(self):
+        return [self.model.temperature]
+
+    def set_temperature(self, temp: torch.Tensor):
+        self.model.temperature.data = temp

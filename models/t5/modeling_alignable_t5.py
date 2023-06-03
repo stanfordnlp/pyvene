@@ -945,9 +945,9 @@ class T5PreTrainedModel(PreTrainedModel):
         return shifted_input_ids
 
 
-class T5Stack(T5PreTrainedModel):
+class AlignableT5Stack(T5PreTrainedModel):
 
-    def __init__(self, config, embed_tokens=None):
+    def __init__(self, config, embed_tokens=None, alignment_config=None):
         super().__init__(config)
 
         self.embed_tokens = embed_tokens
@@ -967,6 +967,53 @@ class T5Stack(T5PreTrainedModel):
         self.model_parallel = False
         self.device_map = None
         self.gradient_checkpointing = False
+
+        # this alignment config is like the whole population of neurons
+        # you will be aligning with.
+        self.alignment_config = alignment_config
+        if self.alignment_config != None:
+            self.hidden_size = config.hidden_size
+            # create rotate and derotate layers for alignment
+            searchable_n_embd = (
+                alignment_config["token_range"][1] -
+                alignment_config["token_range"][0]) * config.hidden_size
+            self.searchable_n_embd = searchable_n_embd
+            rotate_layer = RotateLayer(searchable_n_embd)
+            self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(
+                rotate_layer, use_trivialization=False)
+            self.inverse_rotate_layer = InverseRotateLayer(self.rotate_layer)
+
+            # this will be replaced by a learnable parameters
+            self.intervention_boundaries = torch.tensor([1.0, 1.0],
+                                                        requires_grad=True)
+            self.intervention_boundaries = torch.nn.Parameter(
+                self.intervention_boundaries)
+            self.temperature = nn.Parameter(
+                torch.tensor(50.0))  # Define temperature as a parameter
+            self.intervention_population = nn.Parameter(torch.arange(
+                0, self.searchable_n_embd),
+                                                        requires_grad=False)
+
+    def get_rotation_parameters(self):
+        if self.alignment_config is None:
+            return []
+        return [p for p in self.rotate_layer.parameters()]
+
+    def get_boundary_parameters(self):
+        if self.alignment_config is None:
+            return []
+        return [self.intervention_boundaries]
+
+    def get_temperature(self):
+        if self.alignment_config is None:
+            return []
+        return [self.temperature]
+
+    def set_temperature(self, temp: torch.Tensor):
+        if self.alignment_config is None:
+            return
+        self.temperature.data = temp
+
 
     @add_start_docstrings(PARALLELIZE_DOCSTRING)
     def parallelize(self, device_map=None):
@@ -1026,6 +1073,15 @@ class T5Stack(T5PreTrainedModel):
         encoder_hidden_states=None,
         encoder_attention_mask=None,
         inputs_embeds=None,
+        ########################################
+        # sources related information goes here
+        ########################################
+        source_hidden_states=None,
+        intervention_ids=None,
+        output_rotated_hidden_states_only: Optional[bool] = False,
+        ########################################
+        # sources related information ends here
+        ########################################
         head_mask=None,
         cross_attn_head_mask=None,
         past_key_values=None,
@@ -1203,6 +1259,65 @@ class T5Stack(T5PreTrainedModel):
                     None, ) + layer_outputs[1:]
 
             hidden_states, present_key_value_state = layer_outputs[:2]
+
+            # ALIGNMENT!
+            if self.alignment_config != None and i == self.alignment_config[
+                    "layer"]:
+                # disjoin
+                original_shape = copy.deepcopy(hidden_states.shape)
+                hidden_states = hidden_states.reshape(batch_size, -1)
+                start = self.alignment_config["token_range"][
+                    0] * self.hidden_size
+                end = self.alignment_config["token_range"][1] * self.hidden_size
+                aligning_hidden_states = hidden_states[:, start:end]
+                prefix_hidden_states = hidden_states[:, :start]
+                postfix_hidden_states = hidden_states[:, end:]
+                rotated_hidden_states = self.rotate_layer(
+                    aligning_hidden_states)
+
+                # intervene
+                if source_hidden_states != None:
+                    # boundary learning
+                    intervention_boundaries = torch.clamp(
+                        self.intervention_boundaries, 1e-3, 1)
+                    intervention_boundaries = torch.cumsum(
+                        intervention_boundaries, dim=0)
+                    first_boundary_mask = sigmoid_boundary_sigmoid(
+                        self.intervention_population.repeat(batch_size, 1), 0.,
+                        intervention_boundaries[0] *
+                        int(self.searchable_n_embd // 2), self.temperature)
+                    second_boundary_mask = sigmoid_boundary_sigmoid(
+                        self.intervention_population.repeat(batch_size, 1),
+                        intervention_boundaries[0] *
+                        int(self.searchable_n_embd // 2),
+                        2 * intervention_boundaries[0] *
+                        int(self.searchable_n_embd // 2), self.temperature)
+                    boundary_mask = (intervention_ids==0).unsqueeze(dim=-1)*first_boundary_mask + \
+                        (intervention_ids==1).unsqueeze(dim=-1)*second_boundary_mask
+                    boundary_mask = boundary_mask.to(
+                        rotated_hidden_states.dtype)
+
+                    rotated_hidden_states = (1. - boundary_mask)*rotated_hidden_states + \
+                        boundary_mask*source_hidden_states
+
+                # rotate back + suture
+                reversed_hidden_states = self.inverse_rotate_layer(
+                    rotated_hidden_states)
+
+                hidden_states = torch.cat([
+                    prefix_hidden_states, reversed_hidden_states,
+                    postfix_hidden_states
+                ],
+                                          dim=1).reshape(original_shape)
+                if output_rotated_hidden_states_only:
+                    # early exit
+                    return BaseModelOutputWithPastAndCrossAttentions(
+                        last_hidden_state=hidden_states,
+                        past_key_values=past_key_value,
+                        hidden_states=all_hidden_states,
+                        attentions=all_attentions,
+                        cross_attentions=all_cross_attentions,
+                    )
 
             # We share the position biases between the layers - the first layer store them
             # layer_outputs = hidden-states, key-value-states (self-attention position bias), (self-attention weights),
@@ -2046,37 +2161,46 @@ class T5EncoderModel(T5PreTrainedModel):
         return encoder_outputs
 
 
-class AlignableT5ForConditionalGeneration(
-        T5ForConditionalGeneration, ):
+class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
+                                          AlignableBase):
 
-    def __init__(self, config, alignment_config=None):
+    def __init__(self,
+                 config,
+                 encoder_alignment_config=None,
+                 decoder_alignment_config=None):
         super().__init__(config)
 
         # this alignment config is like the whole population of neurons
         # you will be aligning with.
-        self.alignment_config = alignment_config
-        if self.alignment_config != None:
-            self.hidden_size = config.hidden_size
-            # create rotate and derotate layers for alignment
-            searchable_n_embd = (
-                alignment_config["token_range"][1] -
-                alignment_config["token_range"][0]) * config.hidden_size
-            self.searchable_n_embd = searchable_n_embd
-            rotate_layer = RotateLayer(searchable_n_embd)
-            self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(
-                rotate_layer, use_trivialization=False)
-            self.inverse_rotate_layer = InverseRotateLayer(self.rotate_layer)
+        self.encoder_alignment_config = encoder_alignment_config
+        self.decoder_alignment_config = decoder_alignment_config
 
-            # this will be replaced by a learnable parameters
-            self.intervention_boundaries = torch.tensor([1.0, 1.0],
-                                                        requires_grad=True)
-            self.intervention_boundaries = torch.nn.Parameter(
-                self.intervention_boundaries)
-            self.temperature = nn.Parameter(
-                torch.tensor(50.0))  # Define temperature as a parameter
-            self.intervention_population = nn.Parameter(torch.arange(
-                0, self.searchable_n_embd),
-                                                        requires_grad=False)
+        self.model_dim = config.d_model
+
+        self.shared = nn.Embedding(config.vocab_size, config.d_model)
+
+        encoder_config = copy.deepcopy(config)
+        encoder_config.is_decoder = False
+        encoder_config.use_cache = False
+        encoder_config.is_encoder_decoder = False
+        self.encoder = AlignableT5Stack(encoder_config, self.shared,
+                                        decoder_alignment_config)
+
+        decoder_config = copy.deepcopy(config)
+        decoder_config.is_decoder = True
+        decoder_config.is_encoder_decoder = False
+        decoder_config.num_layers = config.num_decoder_layers
+        self.decoder = AlignableT5Stack(decoder_config, self.shared,
+                                        decoder_alignment_config)
+
+        self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
+
+        # Initialize weights and apply final processing
+        self.post_init()
+
+        # Model parallel
+        self.model_parallel = False
+        self.device_map = None
 
     def forward(
         self,
@@ -2095,7 +2219,6 @@ class AlignableT5ForConditionalGeneration(
         ########################################
         # sources related information goes here
         ########################################
-        source_input_ids=None,
         source_hidden_states=None,
         intervention_ids=None,
         output_rotated_hidden_states_only: Optional[bool] = False,
@@ -2154,6 +2277,15 @@ class AlignableT5ForConditionalGeneration(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
                 inputs_embeds=inputs_embeds,
+                ########################################
+                # sources related information goes here
+                ########################################
+                source_hidden_states=source_hidden_states,,
+                intervention_ids=intervention_ids,
+                output_rotated_hidden_states_only=output_rotated_hidden_states_only,
+                ########################################
+                # sources related information ends here
+                ########################################
                 head_mask=head_mask,
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
@@ -2195,6 +2327,15 @@ class AlignableT5ForConditionalGeneration(
             input_ids=decoder_input_ids,
             attention_mask=decoder_attention_mask,
             inputs_embeds=decoder_inputs_embeds,
+            ########################################
+            # sources related information goes here
+            ########################################
+            source_hidden_states=source_hidden_states,,
+            intervention_ids=intervention_ids,
+            output_rotated_hidden_states_only=output_rotated_hidden_states_only,
+            ########################################
+            # sources related information ends here
+            ########################################
             past_key_values=past_key_values,
             encoder_hidden_states=hidden_states,
             encoder_attention_mask=attention_mask,
@@ -2247,13 +2388,21 @@ class AlignableT5ForConditionalGeneration(
         )
 
     def get_rotation_parameters(self):
-        return []
+        return self.encoder.get_rotation_parameters() + self.decoder.get_rotation_parameters()
 
     def get_boundary_parameters(self):
-        return []
+        return self.encoder.get_boundary_parameters() + self.decoder.get_boundary_parameters()
+
+    def get_temperature(self):
+        return self.encoder.get_temperature() + self.decoder.get_temperature()
+
+    def set_temperature(self, temp: torch.Tensor):
+        self.encoder.set_temperature(temp)
+        self.decoder.set_temperature(temp)
 
 
-class AlignableT5Stack(T5PreTrainedModel):
+
+class T5Stack(T5PreTrainedModel):
 
     def __init__(self, config, embed_tokens=None):
         super().__init__(config)
