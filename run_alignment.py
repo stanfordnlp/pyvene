@@ -151,7 +151,7 @@ if not os.path.isfile(file_path):
     logger.info(f"Loading Pretrained LLM with bf16 = {args.bf16}...")
     model = model_cls.from_pretrained(
         args.model_path,
-        alignment_config=alignment_config,
+        decoder_alignment_config=alignment_config,
         torch_dtype=torch.bfloat16 if args.bf16 else None)
 
     # set off the gradients among all other layers.

@@ -20,8 +20,8 @@ from transformers.modeling_outputs import (BaseModelOutputWithPast,
                                            CausalLMOutputWithPast)
 
 from ..alignable_base import AlignableBase
-from .utils import set_seed, sigmoid_boundary_sigmoid, harmonic_boundary_sigmoid, count_parameters
-from .layers import RotateLayer, InverseRotateLayer
+from ..utils import set_seed, sigmoid_boundary_sigmoid, harmonic_boundary_sigmoid, count_parameters
+from ..layers import RotateLayer, InverseRotateLayer
 
 from transformers.utils import logging
 

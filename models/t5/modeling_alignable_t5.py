@@ -47,6 +47,8 @@ from transformers.utils.model_parallel_utils import assert_device_map, get_devic
 from transformers import T5Config
 
 from ..alignable_base import AlignableBase
+from ..utils import set_seed, sigmoid_boundary_sigmoid, harmonic_boundary_sigmoid, count_parameters
+from ..layers import RotateLayer, InverseRotateLayer
 
 logger = logging.get_logger(__name__)
 
@@ -1013,7 +1015,6 @@ class AlignableT5Stack(T5PreTrainedModel):
         if self.alignment_config is None:
             return
         self.temperature.data = temp
-
 
     @add_start_docstrings(PARALLELIZE_DOCSTRING)
     def parallelize(self, device_map=None):
@@ -2184,7 +2185,7 @@ class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
         encoder_config.use_cache = False
         encoder_config.is_encoder_decoder = False
         self.encoder = AlignableT5Stack(encoder_config, self.shared,
-                                        decoder_alignment_config)
+                                        encoder_alignment_config)
 
         decoder_config = copy.deepcopy(config)
         decoder_config.is_decoder = True
@@ -2280,9 +2281,10 @@ class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
                 ########################################
                 # sources related information goes here
                 ########################################
-                source_hidden_states=source_hidden_states,,
+                source_hidden_states=source_hidden_states,
                 intervention_ids=intervention_ids,
-                output_rotated_hidden_states_only=output_rotated_hidden_states_only,
+                output_rotated_hidden_states_only=
+                output_rotated_hidden_states_only,
                 ########################################
                 # sources related information ends here
                 ########################################
@@ -2330,7 +2332,7 @@ class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
             ########################################
             # sources related information goes here
             ########################################
-            source_hidden_states=source_hidden_states,,
+            source_hidden_states=source_hidden_states,
             intervention_ids=intervention_ids,
             output_rotated_hidden_states_only=output_rotated_hidden_states_only,
             ########################################
@@ -2388,10 +2390,12 @@ class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
         )
 
     def get_rotation_parameters(self):
-        return self.encoder.get_rotation_parameters() + self.decoder.get_rotation_parameters()
+        return self.encoder.get_rotation_parameters(
+        ) + self.decoder.get_rotation_parameters()
 
     def get_boundary_parameters(self):
-        return self.encoder.get_boundary_parameters() + self.decoder.get_boundary_parameters()
+        return self.encoder.get_boundary_parameters(
+        ) + self.decoder.get_boundary_parameters()
 
     def get_temperature(self):
         return self.encoder.get_temperature() + self.decoder.get_temperature()
@@ -2399,7 +2403,6 @@ class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
     def set_temperature(self, temp: torch.Tensor):
         self.encoder.set_temperature(temp)
         self.decoder.set_temperature(temp)
-
 
 
 class T5Stack(T5PreTrainedModel):
