@@ -16,74 +16,36 @@ from tqdm import tqdm, trange
 import matplotlib.pyplot as plt
 import os, random, argparse, sys, pickle, time
 
-from transformers.modeling_outputs import (
-    BaseModelOutputWithPast,
-    CausalLMOutputWithPast
-)
+from transformers.modeling_outputs import (BaseModelOutputWithPast,
+                                           CausalLMOutputWithPast)
 
 from ..alignable_base import AlignableBase
+from .utils import set_seed, sigmoid_boundary_sigmoid, harmonic_boundary_sigmoid, count_parameters
+from .layers import RotateLayer, InverseRotateLayer
 
 from transformers.utils import logging
+
 logging.set_verbosity_info()
 logger = logging.get_logger("transformers")
 
-def set_seed(seed: int):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-
-def sigmoid_boundary_sigmoid(_input, boundary_x, boundary_y, temperature):
-    return torch.sigmoid((_input - boundary_x) / temperature) * \
-        torch.sigmoid((boundary_y - _input) / temperature)
-
-def harmonic_boundary_sigmoid(_input, boundary_x, boundary_y, temperature):
-    return (_input<=boundary_x)*torch.sigmoid((_input - boundary_x) / temperature) + \
-    (_input>=boundary_y)*torch.sigmoid((boundary_y - _input) / temperature) + \
-    ((_input>boundary_x)&(_input<boundary_y))*torch.sigmoid(
-        (0.5 * (torch.abs(_input - boundary_x)**(-1) + torch.abs(_input - boundary_y)**(-1)))**(-1) / temperature
-    )
-
-def count_parameters(model):
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 @dataclass
 class AlignableBaseModelOutputWithPast(BaseModelOutputWithPast):
     rotated_hidden_states: Optional[Tuple[torch.FloatTensor]] = None
 
+
 @dataclass
 class AlignableCausalLMOutputWithPast(CausalLMOutputWithPast):
     rotated_hidden_states: Optional[Tuple[torch.FloatTensor]] = None
 
-class InverseRotateLayer(torch.nn.Module):
-    """The inverse of a given `LinearLayer` module."""
-    def __init__(self, lin_layer):
-        super().__init__()
-        self.lin_layer = lin_layer
-
-    def forward(self, x):
-        output = torch.matmul(x, self.lin_layer.weight.T)
-        return output
-
-class RotateLayer(torch.nn.Module):
-    """A linear transformation with orthogonal initialization."""
-    def __init__(self, n, init_orth=True):
-        super().__init__()
-        weight = torch.empty(n,n)
-        # we don't need init if the saved checkpoint has a nice
-        # starting point already.
-        # you can also study this if you want, but it is our focus.
-        if init_orth:
-            torch.nn.init.orthogonal_(weight)
-        self.weight = torch.nn.Parameter(weight, requires_grad=True)
-
-    def forward(self, x):
-        return torch.matmul(x, self.weight)
 
 class AlignableLlamaModel(LlamaModel):
+
     def __init__(self, config, alignment_config=None):
         super().__init__(config)
-        self.layers = nn.ModuleList([LlamaDecoderLayer(config) for _ in range(config.num_hidden_layers)])
+        self.layers = nn.ModuleList([
+            LlamaDecoderLayer(config) for _ in range(config.num_hidden_layers)
+        ])
 
         # this alignment config is like the whole population of neurons
         # you will be aligning with.
@@ -92,18 +54,24 @@ class AlignableLlamaModel(LlamaModel):
             self.hidden_size = config.hidden_size
             # create rotate and derotate layers for alignment
             searchable_n_embd = (
-                alignment_config["token_range"][1] - alignment_config["token_range"][0]
-            ) * config.hidden_size
+                alignment_config["token_range"][1] -
+                alignment_config["token_range"][0]) * config.hidden_size
             self.searchable_n_embd = searchable_n_embd
             rotate_layer = RotateLayer(searchable_n_embd)
-            self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer, use_trivialization=False)
+            self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(
+                rotate_layer, use_trivialization=False)
             self.inverse_rotate_layer = InverseRotateLayer(self.rotate_layer)
 
             # this will be replaced by a learnable parameters
-            self.intervention_boundaries = torch.tensor([1.0, 1.0], requires_grad=True)
-            self.intervention_boundaries = torch.nn.Parameter(self.intervention_boundaries)
-            self.temperature = nn.Parameter(torch.tensor(50.0)) # Define temperature as a parameter
-            self.intervention_population = nn.Parameter(torch.arange(0, self.searchable_n_embd), requires_grad=False)
+            self.intervention_boundaries = torch.tensor([1.0, 1.0],
+                                                        requires_grad=True)
+            self.intervention_boundaries = torch.nn.Parameter(
+                self.intervention_boundaries)
+            self.temperature = nn.Parameter(
+                torch.tensor(50.0))  # Define temperature as a parameter
+            self.intervention_population = nn.Parameter(torch.arange(
+                0, self.searchable_n_embd),
+                                                        requires_grad=False)
 
     def forward(
         self,
@@ -127,22 +95,26 @@ class AlignableLlamaModel(LlamaModel):
         return_dict: Optional[bool] = None,
     ) -> Union[Tuple, BaseModelOutputWithPast]:
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
-        output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
-        )
+        output_hidden_states = (output_hidden_states
+                                if output_hidden_states is not None else
+                                self.config.output_hidden_states)
         use_cache = use_cache if use_cache is not None else self.config.use_cache
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         # retrieve input_ids and inputs_embeds
         if input_ids is not None and inputs_embeds is not None:
-            raise ValueError("You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time")
+            raise ValueError(
+                "You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time"
+            )
         elif input_ids is not None:
             batch_size, seq_length = input_ids.shape
         elif inputs_embeds is not None:
             batch_size, seq_length, _ = inputs_embeds.shape
         else:
-            raise ValueError("You have to specify either decoder_input_ids or decoder_inputs_embeds")
+            raise ValueError(
+                "You have to specify either decoder_input_ids or decoder_inputs_embeds"
+            )
 
         seq_length_with_past = seq_length
         past_key_values_length = 0
@@ -153,9 +125,10 @@ class AlignableLlamaModel(LlamaModel):
 
         if position_ids is None:
             device = input_ids.device if input_ids is not None else inputs_embeds.device
-            position_ids = torch.arange(
-                past_key_values_length, seq_length + past_key_values_length, dtype=torch.long, device=device
-            )
+            position_ids = torch.arange(past_key_values_length,
+                                        seq_length + past_key_values_length,
+                                        dtype=torch.long,
+                                        device=device)
             position_ids = position_ids.unsqueeze(0).view(-1, seq_length)
         else:
             position_ids = position_ids.view(-1, seq_length).long()
@@ -164,12 +137,12 @@ class AlignableLlamaModel(LlamaModel):
             inputs_embeds = self.embed_tokens(input_ids)
         # embed positions
         if attention_mask is None:
-            attention_mask = torch.ones(
-                (batch_size, seq_length_with_past), dtype=torch.bool, device=inputs_embeds.device
-            )
+            attention_mask = torch.ones((batch_size, seq_length_with_past),
+                                        dtype=torch.bool,
+                                        device=inputs_embeds.device)
         attention_mask = self._prepare_decoder_attention_mask(
-            attention_mask, (batch_size, seq_length), inputs_embeds, past_key_values_length
-        )
+            attention_mask, (batch_size, seq_length), inputs_embeds,
+            past_key_values_length)
 
         hidden_states = inputs_embeds
 
@@ -188,12 +161,15 @@ class AlignableLlamaModel(LlamaModel):
 
         for idx, decoder_layer in enumerate(self.layers):
             if output_hidden_states:
-                all_hidden_states += (hidden_states,)
+                all_hidden_states += (hidden_states, )
 
-            past_key_value = past_key_values[idx] if past_key_values is not None else None
+            past_key_value = past_key_values[
+                idx] if past_key_values is not None else None
 
             if self.gradient_checkpointing and self.training:
+
                 def create_custom_forward(module):
+
                     def custom_forward(*inputs):
                         # None for past_key_value
                         return module(*inputs, output_attentions, None)
@@ -219,74 +195,84 @@ class AlignableLlamaModel(LlamaModel):
 
             hidden_states = layer_outputs[0]
 
-            if self.alignment_config != None and idx == self.alignment_config["layer"]:
+            if self.alignment_config != None and idx == self.alignment_config[
+                    "layer"]:
                 # disjoin
                 original_shape = copy.deepcopy(hidden_states.shape)
                 hidden_states = hidden_states.reshape(batch_size, -1)
-                start = self.alignment_config["token_range"][0]*self.hidden_size
-                end = self.alignment_config["token_range"][1]*self.hidden_size
-                aligning_hidden_states = hidden_states[:,start:end]
-                prefix_hidden_states = hidden_states[:,:start]
-                postfix_hidden_states = hidden_states[:,end:]
-                rotated_hidden_states = self.rotate_layer(aligning_hidden_states)
+                start = self.alignment_config["token_range"][
+                    0] * self.hidden_size
+                end = self.alignment_config["token_range"][1] * self.hidden_size
+                aligning_hidden_states = hidden_states[:, start:end]
+                prefix_hidden_states = hidden_states[:, :start]
+                postfix_hidden_states = hidden_states[:, end:]
+                rotated_hidden_states = self.rotate_layer(
+                    aligning_hidden_states)
 
                 # intervene
                 if source_hidden_states != None:
                     # boundary learning
-                    intervention_boundaries = torch.clamp(self.intervention_boundaries, 1e-3, 1)
-                    intervention_boundaries = torch.cumsum(intervention_boundaries, dim=0)
+                    intervention_boundaries = torch.clamp(
+                        self.intervention_boundaries, 1e-3, 1)
+                    intervention_boundaries = torch.cumsum(
+                        intervention_boundaries, dim=0)
                     first_boundary_mask = sigmoid_boundary_sigmoid(
-                        self.intervention_population.repeat(batch_size, 1),
-                        0.,
-                        intervention_boundaries[0] * int(self.searchable_n_embd//2),
-                        self.temperature
-                    )
+                        self.intervention_population.repeat(batch_size, 1), 0.,
+                        intervention_boundaries[0] *
+                        int(self.searchable_n_embd // 2), self.temperature)
                     second_boundary_mask = sigmoid_boundary_sigmoid(
                         self.intervention_population.repeat(batch_size, 1),
-                        intervention_boundaries[0] * int(self.searchable_n_embd//2),
-                        2 * intervention_boundaries[0] * int(self.searchable_n_embd//2),
-                        self.temperature
-                    )
+                        intervention_boundaries[0] *
+                        int(self.searchable_n_embd // 2),
+                        2 * intervention_boundaries[0] *
+                        int(self.searchable_n_embd // 2), self.temperature)
                     boundary_mask = (intervention_ids==0).unsqueeze(dim=-1)*first_boundary_mask + \
                         (intervention_ids==1).unsqueeze(dim=-1)*second_boundary_mask
-                    boundary_mask = boundary_mask.to(rotated_hidden_states.dtype)
+                    boundary_mask = boundary_mask.to(
+                        rotated_hidden_states.dtype)
 
                     rotated_hidden_states = (1. - boundary_mask)*rotated_hidden_states + \
                         boundary_mask*source_hidden_states
 
                 # rotate back + suture
-                reversed_hidden_states = self.inverse_rotate_layer(rotated_hidden_states)
+                reversed_hidden_states = self.inverse_rotate_layer(
+                    rotated_hidden_states)
 
                 hidden_states = torch.cat([
-                    prefix_hidden_states,
-                    reversed_hidden_states,
+                    prefix_hidden_states, reversed_hidden_states,
                     postfix_hidden_states
-                ], dim=1).reshape(original_shape)
+                ],
+                                          dim=1).reshape(original_shape)
                 if output_rotated_hidden_states_only:
                     # we early exist.
                     return AlignableBaseModelOutputWithPast(
                         last_hidden_state=hidden_states,
-                        past_key_values=next_decoder_cache if use_cache else None,
+                        past_key_values=next_decoder_cache
+                        if use_cache else None,
                         hidden_states=all_hidden_states,
                         attentions=all_self_attns,
                         rotated_hidden_states=rotated_hidden_states,
                     )
 
             if use_cache:
-                next_decoder_cache += (layer_outputs[2 if output_attentions else 1],)
+                next_decoder_cache += (
+                    layer_outputs[2 if output_attentions else 1], )
 
             if output_attentions:
-                all_self_attns += (layer_outputs[1],)
+                all_self_attns += (layer_outputs[1], )
 
         hidden_states = self.norm(hidden_states)
 
         # add hidden states from the last decoder layer
         if output_hidden_states:
-            all_hidden_states += (hidden_states,)
+            all_hidden_states += (hidden_states, )
 
         next_cache = next_decoder_cache if use_cache else None
         if not return_dict:
-            return tuple(v for v in [hidden_states, next_cache, all_hidden_states, all_self_attns, rotated_hidden_states] if v is not None)
+            return tuple(v for v in [
+                hidden_states, next_cache, all_hidden_states, all_self_attns,
+                rotated_hidden_states
+            ] if v is not None)
         return AlignableBaseModelOutputWithPast(
             last_hidden_state=hidden_states,
             past_key_values=next_cache,
@@ -297,13 +283,14 @@ class AlignableLlamaModel(LlamaModel):
 
 
 class AlignableLlamaForCausalLM(LlamaForCausalLM, AlignableBase):
+
     def __init__(self, config, alignment_config=None):
         super().__init__(config)
         self.model = AlignableLlamaModel(config, alignment_config)
         if alignment_config != None:
             searchable_n_embd = (
-                alignment_config["token_range"][1] - alignment_config["token_range"][0]
-            ) * config.hidden_size
+                alignment_config["token_range"][1] -
+                alignment_config["token_range"][0]) * config.hidden_size
             self.searchable_n_embd = searchable_n_embd
 
     def forward(
@@ -350,9 +337,9 @@ class AlignableLlamaForCausalLM(LlamaForCausalLM, AlignableBase):
         ```"""
 
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
-        output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
-        )
+        output_hidden_states = (output_hidden_states
+                                if output_hidden_states is not None else
+                                self.config.output_hidden_states)
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
@@ -402,8 +389,8 @@ class AlignableLlamaForCausalLM(LlamaForCausalLM, AlignableBase):
                 loss += boundary_loss
 
         if not return_dict:
-            output = (logits,) + outputs[1:]
-            return (loss,) + output if loss is not None else output
+            output = (logits, ) + outputs[1:]
+            return (loss, ) + output if loss is not None else output
 
         return AlignableCausalLMOutputWithPast(
             loss=loss,
@@ -411,10 +398,10 @@ class AlignableLlamaForCausalLM(LlamaForCausalLM, AlignableBase):
             past_key_values=outputs.past_key_values,
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
-            rotated_hidden_states=rotated_hidden_states
-        )
+            rotated_hidden_states=rotated_hidden_states)
 
     def get_rotation_parameters(self):
         return self.model.rotate_layer.parameters()
+
     def get_boundary_parameters(self):
         return self.model.intervention_boundaries
