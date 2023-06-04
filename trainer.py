@@ -102,8 +102,10 @@ class AlpacaAligner(object):
                         inputs[k] = v.to(self.device)
 
                 # aligning forward!
-                outputs = self.model(input_ids=inputs['input_ids'],
-                                     labels=inputs['labels'])
+                outputs = self.model(
+                    input_ids=inputs['input_ids'],
+                    labels=inputs['output_only_labels'],
+                )
 
                 actual_test_labels = inputs['labels'][:, -1]
                 pred_test_labels = torch.argmax(outputs.logits[:, -1], dim=-1)
@@ -190,14 +192,14 @@ class AlpacaAligner(object):
                 # aligning forward!
                 source_hidden_states = self.model(
                     input_ids=inputs['source_input_ids'],
-                    output_rotated_hidden_states_only=True
-                ).rotated_hidden_states
+                    output_rotated_hidden_states_only=True,
+                    labels=inputs['output_only_labels']).rotated_hidden_states
 
                 outputs = self.model(
                     input_ids=inputs['input_ids'],
                     source_hidden_states=source_hidden_states,
                     intervention_ids=inputs['intervention_ids'],
-                    labels=inputs['labels'])
+                    labels=inputs['output_only_labels'])
 
                 loss = outputs.loss.mean() if self.n_gpu > 1 else outputs.loss
 
@@ -209,8 +211,8 @@ class AlpacaAligner(object):
 
                 if self.is_master and total_step % log_step == 0:
                     if self.is_wandb:
-                        intervention_boundaries = torch.clamp(
-                            self.model.get_boundary_parameters(), 1e-3, 1)
+                        # intervention_boundaries = torch.clamp(
+                        # self.model.get_boundary_parameters(), 1e-3, 1)
                         wandb.log(
                             {
                                 "train/loss":
@@ -219,10 +221,10 @@ class AlpacaAligner(object):
                                 step_accuracy,
                                 "train/temperature":
                                 self.model.get_temperature()[0].data,
-                                "train/unified_boundary":
-                                intervention_boundaries.data[0],
-                                "train/unified_boundary (dummy)":
-                                intervention_boundaries.data[1],
+                                # "train/unified_boundary":
+                                # intervention_boundaries.data[0],
+                                # "train/unified_boundary (dummy)":
+                                # intervention_boundaries.data[1],
                             },
                             step=total_step)
                     else:
@@ -249,14 +251,15 @@ class AlpacaAligner(object):
                                 # aligning forward!
                                 source_hidden_states = self.model(
                                     input_ids=inputs['source_input_ids'],
-                                    output_rotated_hidden_states_only=True
+                                    output_rotated_hidden_states_only=True,
+                                    labels=inputs['output_only_labels'],
                                 ).rotated_hidden_states
                                 outputs = self.model(
                                     input_ids=inputs['input_ids'],
                                     source_hidden_states=source_hidden_states,
                                     intervention_ids=inputs[
                                         'intervention_ids'],
-                                    labels=inputs['labels'])
+                                    labels=inputs['output_only_labels'])
 
                                 actual_test_labels = inputs['labels'][:, -1]
                                 pred_test_labels = torch.argmax(
@@ -329,7 +332,7 @@ class AlpacaAligner(object):
                         input_ids=inputs['input_ids'],
                         source_hidden_states=source_hidden_states,
                         intervention_ids=inputs['intervention_ids'],
-                        labels=inputs['labels'])
+                        labels=inputs['output_only_labels'])
 
                     actual_test_labels = inputs['labels'][:, -1]
                     pred_test_labels = torch.argmax(outputs.logits[:, -1],

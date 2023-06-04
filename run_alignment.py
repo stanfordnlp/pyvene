@@ -103,6 +103,8 @@ if __name__ == '__main__':
         args = cmd.parse_args(sys.argv[1:])
     except:
         assert False
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print('using device', device)
 
 set_seed(args.seed)
 
@@ -153,6 +155,7 @@ if not os.path.isfile(file_path):
         args.model_path,
         decoder_alignment_config=alignment_config,
         torch_dtype=torch.bfloat16 if args.bf16 else None)
+    model.resize_token_embeddings(len(tokenizer))
 
     # set off the gradients among all other layers.
     for name, param in model.named_parameters():

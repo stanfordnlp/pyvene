@@ -1,4 +1,4 @@
-# coding=utf-8
+#/l coding=utf-8
 # Copyright 2018 Mesh TensorFlow authors, T5 Authors and HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +15,7 @@
 """ PyTorch T5 model."""
 
 import copy
+from dataclasses import dataclass
 import math
 import os
 import warnings
@@ -67,6 +68,17 @@ T5_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "t5-11b",
     # See all T5 models at https://huggingface.co/models?filter=t5
 ]
+
+
+@dataclass
+class AlignableSeq2SeqLMOutput(Seq2SeqLMOutput):
+    rotated_hidden_states: Optional[Tuple[torch.FloatTensor]] = None
+
+
+@dataclass
+class AlignableBaseModelOutputWithPastAndCrossAttentions(
+        BaseModelOutputWithPastAndCrossAttentions):
+    rotated_hidden_states: Optional[Tuple[torch.FloatTensor]] = None
 
 
 ####################################################
@@ -980,7 +992,7 @@ class AlignableT5Stack(T5PreTrainedModel):
                 alignment_config["token_range"][1] -
                 alignment_config["token_range"][0]) * config.hidden_size
             self.searchable_n_embd = searchable_n_embd
-            rotate_layer = RotateLayer(searchable_n_embd)
+            rotate_layer = RotateLayer(searchable_n_embd, init_orth=False)
             self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(
                 rotate_layer, use_trivialization=False)
             self.inverse_rotate_layer = InverseRotateLayer(self.rotate_layer)
@@ -1186,6 +1198,7 @@ class AlignableT5Stack(T5PreTrainedModel):
         encoder_decoder_position_bias = None
 
         hidden_states = self.dropout(inputs_embeds)
+        rotated_hidden_states = None
 
         for i, (layer_module,
                 past_key_value) in enumerate(zip(self.block, past_key_values)):
@@ -1312,13 +1325,13 @@ class AlignableT5Stack(T5PreTrainedModel):
                                           dim=1).reshape(original_shape)
                 if output_rotated_hidden_states_only:
                     # early exit
-                    return BaseModelOutputWithPastAndCrossAttentions(
+                    return AlignableBaseModelOutputWithPastAndCrossAttentions(
                         last_hidden_state=hidden_states,
                         past_key_values=past_key_value,
                         hidden_states=all_hidden_states,
                         attentions=all_attentions,
                         cross_attentions=all_cross_attentions,
-                    )
+                        rotated_hidden_states=rotated_hidden_states)
 
             # We share the position biases between the layers - the first layer store them
             # layer_outputs = hidden-states, key-value-states (self-attention position bias), (self-attention weights),
@@ -1359,12 +1372,13 @@ class AlignableT5Stack(T5PreTrainedModel):
                 all_attentions,
                 all_cross_attentions,
             ] if v is not None)
-        return BaseModelOutputWithPastAndCrossAttentions(
+        return AlignableBaseModelOutputWithPastAndCrossAttentions(
             last_hidden_state=hidden_states,
             past_key_values=present_key_value_states,
             hidden_states=all_hidden_states,
             attentions=all_attentions,
             cross_attentions=all_cross_attentions,
+            rotated_hidden_states=rotated_hidden_states,
         )
 
 
@@ -2350,6 +2364,7 @@ class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
         )
 
         sequence_output = decoder_outputs[0]
+        rotated_hidden_states = decoder_outputs[-1]
 
         # Set device for model parallelism
         if self.model_parallel:
@@ -2377,7 +2392,7 @@ class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
             output = (lm_logits, ) + decoder_outputs[1:] + encoder_outputs
             return ((loss, ) + output) if loss is not None else output
 
-        return Seq2SeqLMOutput(
+        return AlignableSeq2SeqLMOutput(
             loss=loss,
             logits=lm_logits,
             past_key_values=decoder_outputs.past_key_values,
