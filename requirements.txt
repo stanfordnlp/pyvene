@@ -6,9 +6,9 @@ nltk>=3.7
 pytest>=7.1
 jupyter>=1.0.0
 pandas>=1.5
-torch==1.13.1
-torchvision==0.14.1
-transformers==4.28.1
+torch==2.0.0
+torchvision>=0.14.1
+transformers>=4.29.2
 datasets==2.10.1
 spacy==3.5.1
 #dsp-ml==0.1.4
@@ -20,4 +20,3 @@ wandb
 tokenizers>=0.13.3
 sentencepiece
 protobuf==3.20.*
-

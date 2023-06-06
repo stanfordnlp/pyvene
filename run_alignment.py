@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
+from accelerate import init_empty_weights
 import os, random, argparse, sys, torch
 from models.llama.modelings_alignable_llama import AlignableLlamaForCausalLM
 from models.t5.modeling_alignable_t5 import AlignableT5ForConditionalGeneration

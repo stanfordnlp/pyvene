@@ -171,6 +171,8 @@ class ContinentMatchingTask(TaskBase):
                 'targets': ctf_label_str,
                 'intervention_id': intervention_id
             }
+            if random.random() < 0.05:
+                print(example)
             all_examples.append(example)
         return all_examples
 

@@ -118,8 +118,6 @@ class AlpacaAligner(object):
                     target.lower() == pred.lower()
                     for target, pred in zip(target_decoded, pred_decoded)
                 ])
-                print('target', target_decoded)
-                print('pred', pred_decoded)
 
                 total_count += len(correct_labels)
                 correct_count += correct_labels.sum().tolist()
