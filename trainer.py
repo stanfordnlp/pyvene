@@ -205,7 +205,13 @@ class AlpacaAligner(object):
 
                 actual_test_labels = inputs['labels'][:, -1]
                 pred_test_labels = torch.argmax(outputs.logits[:, -1], dim=-1)
-                correct_labels = (actual_test_labels == pred_test_labels)
+                target_decoded = self.tokenizer.batch_decode(
+                    actual_test_labels)
+                pred_decoded = self.tokenizer.batch_decode(pred_test_labels)
+                correct_labels = torch.tensor([
+                    target.lower() == pred.lower()
+                    for target, pred in zip(target_decoded, pred_decoded)
+                ])
                 step_accuracy = correct_labels.sum() / correct_labels.shape[0]
                 step_accuracy = step_accuracy.tolist()
 

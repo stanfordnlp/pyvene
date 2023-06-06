@@ -88,6 +88,39 @@ class ContinentMatchingTask(TaskBase):
         '''
         all_input_ids = []
         all_output_ids = []
+        all_source_input_ids = []
+        for example in examples:
+            if 'source_inputs' in example:
+                source_input_ids = tokenizer(
+                    example['source_inputs'],
+                    return_tensors='pt',
+                    padding='max_length',
+                    max_length=40).input_ids[0].tolist()
+                all_source_input_ids.append(source_input_ids)
+
+            input_ids = tokenizer(example['inputs'],
+                                  return_tensors='pt',
+                                  padding='max_length',
+                                  max_length=40).input_ids[0]
+            label = tokenizer.convert_tokens_to_ids(example['targets'])
+            output_ids = (torch.ones(input_ids.shape[0]) *
+                          -100).long().tolist()
+            output_ids[-1] = label
+            input_ids = input_ids.tolist()
+            all_input_ids.append(input_ids)
+            all_output_ids.append(output_ids)
+
+        if all_source_input_ids:
+            return all_input_ids, all_source_input_ids, all_output_ids
+        return all_input_ids, all_output_ids
+
+    def _encode_alignment_examples(self, tokenizer, examples: list[dict[str,
+                                                                        str]]):
+        '''
+        Returns input_ids, target_ids (both lists of lists of ints)
+        '''
+        all_input_ids = []
+        all_output_ids = []
         for example in examples:
             input_ids = tokenizer(example['inputs'],
                                   return_tensors='pt',
@@ -102,6 +135,45 @@ class ContinentMatchingTask(TaskBase):
             all_output_ids.append(output_ids)
         return all_input_ids, all_output_ids
 
+    def alignment_example_sampler(self, n_examples):
+        all_examples = []
+        for _ in range(n_examples):
+            base_country1 = random.choice(self.countries)
+            base_continent1 = self.country_to_continent[base_country1]
+            base_country2 = random.choice(self.countries)
+            base_continent2 = self.country_to_continent[base_country2]
+            intervention_id = 0
+            ctf_label_str = random.choice(['Yes', 'No'])
+            if ctf_label_str == 'Yes':
+                # Then we want the source cont1 = base cont2
+                source_continent1 = base_continent2
+                source_country1 = random.choice(
+                    self.continent_to_country[source_continent1])
+                source_continent2 = random.choice(self.continents)
+                source_country2 = random.choice(
+                    self.continent_to_country[source_continent2])
+            else:
+                # Then we want source cont1 != base cont2
+                source_continent1 = random.choice(
+                    [c for c in self.continents if c != base_continent2])
+                source_country1 = random.choice(
+                    self.continent_to_country[source_continent1])
+                source_continent2 = random.choice(self.continents)
+                source_country2 = random.choice(
+                    self.continent_to_country[source_continent2])
+            # Now generate the base and source inputs
+            base_input_str = self._format_prompt(base_country1, base_country2)
+            source_input_str = self._format_prompt(source_country1,
+                                                   source_country2)
+            example = {
+                'inputs': base_input_str,
+                'source_inputs': source_input_str,
+                'targets': ctf_label_str,
+                'intervention_id': intervention_id
+            }
+            all_examples.append(example)
+        return all_examples
+
     def prepare_dataloader(self, tokenizer, **kwargs):
         '''
         Expected kwargs:
@@ -111,7 +183,8 @@ class ContinentMatchingTask(TaskBase):
         n_train
         n_eval
         '''
-        prealign_batch_size = kwargs['eval_batch_size']
+        eval_batch_size = kwargs['eval_batch_size']
+        train_batch_size = kwargs['train_batch_size']
         task_name = kwargs['task_name']
         n_train = kwargs['n_training_examples']
         n_eval = kwargs['n_eval_examples']
@@ -126,10 +199,66 @@ class ContinentMatchingTask(TaskBase):
                                                       prealign_str_examples)
 
         prealign_dataset = Dataset.from_dict({
-            "input_ids": input_ids,
-            "labels": output_ids,
+            "input_ids":
+            input_ids,
+            "labels":
+            output_ids,
+            'output_only_labels': [o[-1:] for o in output_ids],
         }).with_format("torch")
         prealign_dataloader = DataLoader(prealign_dataset,
-                                         batch_size=prealign_batch_size)
+                                         batch_size=eval_batch_size)
 
-        return prealign_dataloader, prealign_dataloader, prealign_dataloader, prealign_dataloader
+        if 'continent_map' in task_name:
+            examples = self.alignment_example_sampler(n_train + n_eval +
+                                                      n_eval)
+            train_examples = examples[:n_train]
+            dev_examples = examples[n_train:n_train + n_eval]
+            test_examples = examples[n_train + n_eval:]
+            train_input_ids, train_source_ids, train_output_ids = self._encode_examples(
+                tokenizer, train_examples)
+            dev_input_ids, dev_source_ids, dev_output_ids = self._encode_examples(
+                tokenizer, dev_examples)
+            test_input_ids, test_source_ids, test_output_ids = self._encode_examples(
+                tokenizer, test_examples)
+
+            train_dataset = Dataset.from_dict({
+                'input_ids':
+                train_input_ids,
+                'labels':
+                train_output_ids,
+                'output_only_labels': [o[-1:] for o in train_output_ids],
+                'source_input_ids':
+                train_source_ids,
+                'intervention_ids': [0 for _ in train_source_ids],
+            }).with_format('torch')
+
+            dev_dataset = Dataset.from_dict({
+                'input_ids':
+                dev_input_ids,
+                'labels':
+                dev_output_ids,
+                'output_only_labels': [o[-1:] for o in dev_output_ids],
+                'source_input_ids':
+                dev_source_ids,
+                'intervention_ids': [0 for _ in dev_source_ids],
+            }).with_format('torch')
+
+            test_dataset = Dataset.from_dict({
+                'input_ids':
+                test_input_ids,
+                'labels':
+                test_output_ids,
+                'output_only_labels': [o[-1:] for o in test_output_ids],
+                'source_input_ids':
+                test_source_ids,
+                'intervention_ids': [0 for _ in test_source_ids],
+            }).with_format('torch')
+
+            train_dataloader = DataLoader(train_dataset,
+                                          batch_size=train_batch_size)
+            dev_dataloader = DataLoader(dev_dataset,
+                                        batch_size=eval_batch_size)
+            test_dataloader = DataLoader(test_dataset,
+                                         batch_size=eval_batch_size)
+
+        return prealign_dataloader, train_dataloader, dev_dataloader, test_dataloader

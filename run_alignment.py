@@ -112,7 +112,9 @@ set_seed(args.seed)
 # data loaders
 ###################
 tokenizer = AutoTokenizer.from_pretrained(
-    pretrained_model_name_or_path=args.model_path, cache_dir=CACHE_DIR)
+    pretrained_model_name_or_path=args.model_path,
+    cache_dir=CACHE_DIR,
+    padding_size='left')
 task = get_task(args.task_name)
 prealign_dataloader, train_dataloader, eval_dataloader, test_dataloader = task.prepare_dataloader(
     tokenizer, **vars(args))
@@ -153,9 +155,8 @@ if not os.path.isfile(file_path):
     logger.info(f"Loading Pretrained LLM with bf16 = {args.bf16}...")
     model = model_cls.from_pretrained(
         args.model_path,
-        decoder_alignment_config=alignment_config,
+        encoder_alignment_config=alignment_config,
         torch_dtype=torch.bfloat16 if args.bf16 else None)
-    model.resize_token_embeddings(len(tokenizer))
 
     # set off the gradients among all other layers.
     for name, param in model.named_parameters():

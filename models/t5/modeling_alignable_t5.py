@@ -992,6 +992,7 @@ class AlignableT5Stack(T5PreTrainedModel):
                 alignment_config["token_range"][1] -
                 alignment_config["token_range"][0]) * config.hidden_size
             self.searchable_n_embd = searchable_n_embd
+            print('Searchable', searchable_n_embd)
             rotate_layer = RotateLayer(searchable_n_embd, init_orth=False)
             self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(
                 rotate_layer, use_trivialization=False)
