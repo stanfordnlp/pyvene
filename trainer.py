@@ -118,10 +118,11 @@ class AlpacaAligner(object):
                     target.lower() == pred.lower()
                     for target, pred in zip(target_decoded, pred_decoded)
                 ])
+                print(correct_labels)
+                print(self.tokenizer.batch_decode(inputs['input_ids']))
 
                 total_count += len(correct_labels)
                 correct_count += correct_labels.sum().tolist()
-                print('Acc so far', correct_count / total_count)
         current_acc = round(correct_count / total_count, 2)
         logger.info(
             f"[WARNING: THIS NEEDS TO BE GOOD!] prealign task accuracy: {current_acc}"
@@ -188,10 +189,11 @@ class AlpacaAligner(object):
                         inputs[k] = v.to(self.device)
 
                 # aligning forward!
-                source_hidden_states = self.model(
+                source_model_outputs = self.model(
                     input_ids=inputs['source_input_ids'],
                     output_rotated_hidden_states_only=True,
-                    labels=inputs['output_only_labels']).rotated_hidden_states
+                    labels=inputs['output_only_labels'])
+                source_hidden_states = source_model_outputs.rotated_hidden_states
 
                 outputs = self.model(
                     input_ids=inputs['input_ids'],
@@ -201,22 +203,26 @@ class AlpacaAligner(object):
 
                 loss = outputs.loss.mean() if self.n_gpu > 1 else outputs.loss
 
-                actual_test_labels = inputs['labels'][:, -1]
-                pred_test_labels = torch.argmax(outputs.logits[:, -1], dim=-1)
-                target_decoded = self.tokenizer.batch_decode(
-                    actual_test_labels)
-                pred_decoded = self.tokenizer.batch_decode(pred_test_labels)
-                correct_labels = torch.tensor([
-                    target.lower() == pred.lower()
-                    for target, pred in zip(target_decoded, pred_decoded)
-                ])
-                step_accuracy = correct_labels.sum() / correct_labels.shape[0]
-                step_accuracy = step_accuracy.tolist()
+                with torch.no_grad():
+                    actual_test_labels = inputs['labels'][:, -1]
+                    pred_test_labels = torch.argmax(outputs.logits[:, -1],
+                                                    dim=-1)
+                    target_decoded = self.tokenizer.batch_decode(
+                        actual_test_labels)
+                    pred_decoded = self.tokenizer.batch_decode(
+                        pred_test_labels)
+                    correct_labels = torch.tensor([
+                        target.lower() == pred.lower()
+                        for target, pred in zip(target_decoded, pred_decoded)
+                    ])
+                    step_accuracy = correct_labels.sum(
+                    ) / correct_labels.shape[0]
+                    step_accuracy = step_accuracy.tolist()
 
                 if self.is_master and total_step % log_step == 0:
                     if self.is_wandb:
-                        # intervention_boundaries = torch.clamp(
-                        # self.model.get_boundary_parameters(), 1e-3, 1)
+                        intervention_boundaries = torch.clamp(
+                            self.model.get_boundary_parameters(), 1e-3, 1)
                         wandb.log(
                             {
                                 "train/loss":
@@ -224,11 +230,16 @@ class AlpacaAligner(object):
                                 "train/step_accuracy":
                                 step_accuracy,
                                 "train/temperature":
-                                self.model.get_temperature()[0].data,
-                                # "train/unified_boundary":
-                                # intervention_boundaries.data[0],
-                                # "train/unified_boundary (dummy)":
-                                # intervention_boundaries.data[1],
+                                self.model.get_temperature().data,
+                                "train/boundary0":
+                                intervention_boundaries.data[0],
+                                "train/boundary1":
+                                intervention_boundaries.data[1],
+                                "train/rotate_layer_params":
+                                wandb.Histogram([
+                                    p.detach().cpu().float().numpy() for p in
+                                    self.model.get_rotation_parameters()
+                                ]),
                             },
                             step=total_step)
                     else:
@@ -304,7 +315,15 @@ class AlpacaAligner(object):
                 if total_step % gradient_accumulation_steps == 0:
                     if not (gradient_accumulation_steps > 1
                             and total_step == 0):
-                        loss.backward()
+                        loss.backward(inputs=self.model.
+                                      get_learnable_alignment_parameters())
+                        wandb.log({
+                            'train/rotate_layer_gradients':
+                            wandb.Histogram([
+                                p.grad.float().cpu().numpy()
+                                for p in self.model.get_rotation_parameters()
+                            ])
+                        })
                         optimizer.step()
                         scheduler.step()
                         self.model.zero_grad()
@@ -330,7 +349,8 @@ class AlpacaAligner(object):
                     # aligning forward!
                     source_hidden_states = self.model(
                         input_ids=inputs['source_input_ids'],
-                        output_rotated_hidden_states_only=True
+                        output_rotated_hidden_states_only=True,
+                        labels=inputs['output_only_labels'],
                     ).rotated_hidden_states
                     outputs = self.model(
                         input_ids=inputs['input_ids'],

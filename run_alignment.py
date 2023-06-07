@@ -115,7 +115,7 @@ set_seed(args.seed)
 tokenizer = AutoTokenizer.from_pretrained(
     pretrained_model_name_or_path=args.model_path,
     cache_dir=CACHE_DIR,
-    padding_size='left')
+    padding_side='left')
 task = get_task(args.task_name)
 prealign_dataloader, train_dataloader, eval_dataloader, test_dataloader = task.prepare_dataloader(
     tokenizer, **vars(args))
@@ -135,8 +135,10 @@ alignment_config = {
 }
 logger.info(f"alignment_config = {alignment_config}")
 
-run_name = f"{args.model_name}.task.{args.task_name}."\
-           f"seed.{args.seed}.intl.{alignment_config['layer']}.intr.{alignment_config['token_range'][0]}."\
+model_last_path = os.path.basename(os.path.normpath(args.model_path))
+
+run_name = f"model:{model_last_path}_task:{args.task_name}_"\
+           f"seed:{args.seed}_intl:{alignment_config['layer']}_intr:{alignment_config['token_range'][0]},"\
            f"{alignment_config['token_range'][1]}"
 
 is_master = True
@@ -156,7 +158,8 @@ if not os.path.isfile(file_path):
     logger.info(f"Loading Pretrained LLM with bf16 = {args.bf16}...")
     model = model_cls.from_pretrained(
         args.model_path,
-        encoder_alignment_config=alignment_config,
+        alignment_config=alignment_config,
+        alignment_stack='decoder',
         torch_dtype=torch.bfloat16 if args.bf16 else None)
 
     # set off the gradients among all other layers.

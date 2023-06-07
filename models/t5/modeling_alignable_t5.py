@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ PyTorch T5 model."""
+from collections.abc import Sequence
 
 import copy
 from dataclasses import dataclass
@@ -993,7 +994,7 @@ class AlignableT5Stack(T5PreTrainedModel):
                 alignment_config["token_range"][0]) * config.hidden_size
             self.searchable_n_embd = searchable_n_embd
             print('Searchable', searchable_n_embd)
-            rotate_layer = RotateLayer(searchable_n_embd, init_orth=False)
+            rotate_layer = RotateLayer(searchable_n_embd)
             self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(
                 rotate_layer, use_trivialization=False)
             self.inverse_rotate_layer = InverseRotateLayer(self.rotate_layer)
@@ -1016,18 +1017,25 @@ class AlignableT5Stack(T5PreTrainedModel):
 
     def get_boundary_parameters(self):
         if self.alignment_config is None:
-            return []
-        return [self.intervention_boundaries]
+            return torch.Tensor()
+        return self.intervention_boundaries
 
     def get_temperature(self):
         if self.alignment_config is None:
-            return []
-        return [self.temperature]
+            return torch.Tensor()
+        return self.temperature
 
     def set_temperature(self, temp: torch.Tensor):
         if self.alignment_config is None:
             return
         self.temperature.data = temp
+
+    def get_learnable_alignment_parameters(self) -> Sequence[torch.Tensor]:
+        # learnable params are rotation layer, boundary params,
+        params = []
+        params.append(self.intervention_boundaries)
+        params.extend([p for p in self.rotate_layer.parameters()])
+        return params
 
     @add_start_docstrings(PARALLELIZE_DOCSTRING)
     def parallelize(self, device_map=None):
@@ -2182,14 +2190,19 @@ class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
 
     def __init__(self,
                  config,
-                 encoder_alignment_config=None,
-                 decoder_alignment_config=None):
+                 alignment_config=None,
+                 alignment_stack='encoder'):
         super().__init__(config)
 
         # this alignment config is like the whole population of neurons
         # you will be aligning with.
-        self.encoder_alignment_config = encoder_alignment_config
-        self.decoder_alignment_config = decoder_alignment_config
+        assert alignment_stack in (
+            'encoder',
+            'decoder'), 'alignment_stack must be one of encoder or decoder'
+        self.alignment_config = alignment_config
+        self.alignment_stack = alignment_stack
+        self.encoder_alignment_config = alignment_config if alignment_stack == 'encoder' else None
+        self.decoder_alignment_config = alignment_config if alignment_stack == 'decoder' else None
 
         self.model_dim = config.d_model
 
@@ -2200,14 +2213,14 @@ class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
         encoder_config.use_cache = False
         encoder_config.is_encoder_decoder = False
         self.encoder = AlignableT5Stack(encoder_config, self.shared,
-                                        encoder_alignment_config)
+                                        self.encoder_alignment_config)
 
         decoder_config = copy.deepcopy(config)
         decoder_config.is_decoder = True
         decoder_config.is_encoder_decoder = False
         decoder_config.num_layers = config.num_decoder_layers
         self.decoder = AlignableT5Stack(decoder_config, self.shared,
-                                        decoder_alignment_config)
+                                        self.decoder_alignment_config)
 
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
 
@@ -2308,6 +2321,8 @@ class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
             )
+            if self.alignment_stack == 'encoder':
+                rotated_hidden_states = encoder_outputs.rotated_hidden_states
         elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
             encoder_outputs = BaseModelOutput(
                 last_hidden_state=encoder_outputs[0],
@@ -2365,7 +2380,8 @@ class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
         )
 
         sequence_output = decoder_outputs[0]
-        rotated_hidden_states = decoder_outputs[-1]
+        if self.alignment_stack == 'decoder':
+            rotated_hidden_states = decoder_outputs.rotated_hidden_states
 
         # Set device for model parallelism
         if self.model_parallel:
@@ -2403,22 +2419,30 @@ class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
             encoder_last_hidden_state=encoder_outputs.last_hidden_state,
             encoder_hidden_states=encoder_outputs.hidden_states,
             encoder_attentions=encoder_outputs.attentions,
-        )
+            rotated_hidden_states=rotated_hidden_states)
+
+    def _get_alignment_stack(self):
+        if self.alignment_stack == 'encoder':
+            return self.encoder
+        elif self.alignment_stack == 'decoder':
+            return self.decoder
+        raise ValueError('Error! initialized with invalid alignment_stack',
+                         self.alignment_stack)
 
     def get_rotation_parameters(self):
-        return self.encoder.get_rotation_parameters(
-        ) + self.decoder.get_rotation_parameters()
+        return self._get_alignment_stack().get_rotation_parameters()
 
     def get_boundary_parameters(self):
-        return self.encoder.get_boundary_parameters(
-        ) + self.decoder.get_boundary_parameters()
+        return self._get_alignment_stack().get_boundary_parameters()
 
     def get_temperature(self):
-        return self.encoder.get_temperature() + self.decoder.get_temperature()
+        return self._get_alignment_stack().get_temperature()
 
     def set_temperature(self, temp: torch.Tensor):
-        self.encoder.set_temperature(temp)
-        self.decoder.set_temperature(temp)
+        return self._get_alignment_stack().set_temperature(temp)
+
+    def get_learnable_alignment_parameters(self):
+        return self._get_alignment_stack().get_learnable_alignment_parameters()
 
 
 class T5Stack(T5PreTrainedModel):
