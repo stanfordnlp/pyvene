@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from transformers import LlamaForCausalLM, LlamaModel, AutoConfig, AutoTokenizer, LlamaConfig
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 from typing import Optional, Tuple, Union, List
@@ -403,10 +404,17 @@ class AlignableLlamaForCausalLM(LlamaForCausalLM, AlignableBase):
         return [p for p in self.model.rotate_layer.parameters()]
 
     def get_boundary_parameters(self):
-        return [self.model.intervention_boundaries]
+        return self.model.intervention_boundaries
 
     def get_temperature(self):
-        return [self.model.temperature]
+        return self.model.temperature
 
     def set_temperature(self, temp: torch.Tensor):
         self.model.temperature.data = temp
+
+    def get_learnable_alignment_parameters(self) -> Sequence[torch.Tensor]:
+        # learnable params are rotation layer, boundary params,
+        params = []
+        params.append(self.model.intervention_boundaries)
+        params.extend([p for p in self.model.rotate_layer.parameters()])
+        return params

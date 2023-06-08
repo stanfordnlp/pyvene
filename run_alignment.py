@@ -17,20 +17,55 @@ logging.set_verbosity_info()
 logger = logging.get_logger("transformers")
 
 
-def get_model_classes(model_type: str):
-    if model_type == 'llama':
-        return (AlignableLlamaConfig, AlignableLlamaForCausalLM)
-    elif model_type == 't5':
-        return (AlignableT5Config, AlignableT5ForConditionalGeneration)
+def get_model(args, alignment_config):
+    if args.model_type == 'llama':
+        return AlignableLlamaForCausalLM.from_pretrained(
+            args.model_path,
+            alignment_config=alignment_config,
+            torch_dtype=torch.bfloat16 if args.bf16 else None)
+    elif args.model_type == 't5':
+        return AlignableT5ForConditionalGeneration.from_pretrained(
+            args.model_path,
+            alignment_config=alignment_config,
+            alignment_stack='decoder',
+            torch_dtype=torch.bfloat16 if args.bf16 else None)
     else:
         raise ValueError('Unsupported model_type: ' + model_type)
 
 
-def get_task(task_name: str):
+def get_das_and_alignment_config(args):
+    if args.model_type == 'llama':
+        das_config = AlignableLlamaConfig.from_pretrained(
+            os.path.join(args.model_path, "das_config"))
+    elif args.model_type == 't5':
+        das_config = AlignableT5Config.from_pretrained(
+            os.path.join(args.model_path, "das_config"))
+    else:
+        raise ValueError('Unsupported model_type: ' + model_type)
+
+    alignment_config = {
+        'layer':
+        das_config.das_layer,
+        "token_range": [
+            das_config.das_token_range[0],
+            das_config.das_token_range[1],
+        ]
+    }
+    return das_config, alignment_config
+
+
+def get_task(args):
+    task_name = args.task_name
     if 'price_tagging' in task_name:
         return price_tagging.PriceTaggingTask()
     elif 'continent_matching' in task_name:
-        return continent_matching.ContinentMatchingTask()
+        if args.model_type == 't5':
+            return continent_matching.ContinentMatchingTask(
+                continent_matching.t5_prompt_fn, pad_to=30)
+        elif args.model_type == 'llama':
+            return continent_matching.ContinentMatchingTask(
+                continent_matching.llama_prompt_fn, pad_to=100)
+        raise ValueError('Unsupported model type:', args.model_type)
     else:
         raise ValueError('Unsupported task_name: ' + task_name)
 
@@ -94,7 +129,7 @@ if __name__ == '__main__':
                          type=str,
                          help='')
         cmd.add_argument(
-            '--model_name',
+            '--model_type',
             default='llama',
             type=str,
             help=
@@ -116,23 +151,18 @@ tokenizer = AutoTokenizer.from_pretrained(
     pretrained_model_name_or_path=args.model_path,
     cache_dir=CACHE_DIR,
     padding_side='left')
-task = get_task(args.task_name)
+if not tokenizer.pad_token:
+    print('Adding special pad token!')
+    tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+
+task = get_task(args)
 prealign_dataloader, train_dataloader, eval_dataloader, test_dataloader = task.prepare_dataloader(
     tokenizer, **vars(args))
 
 ###################
 # model object loading
 ###################
-model_config_cls, model_cls = get_model_classes(args.model_name)
-das_config = model_config_cls.from_pretrained(
-    os.path.join(args.model_path, "das_config"))
-alignment_config = {
-    'layer': das_config.das_layer,
-    "token_range": [
-        das_config.das_token_range[0],
-        das_config.das_token_range[1],
-    ]
-}
+das_config, alignment_config = get_das_and_alignment_config(args)
 logger.info(f"alignment_config = {alignment_config}")
 
 model_last_path = os.path.basename(os.path.normpath(args.model_path))
@@ -156,11 +186,7 @@ das_config.save_pretrained(
     os.path.join(args.output_dir, run_name, "das_config"))
 if not os.path.isfile(file_path):
     logger.info(f"Loading Pretrained LLM with bf16 = {args.bf16}...")
-    model = model_cls.from_pretrained(
-        args.model_path,
-        alignment_config=alignment_config,
-        alignment_stack='decoder',
-        torch_dtype=torch.bfloat16 if args.bf16 else None)
+    model = get_model(args, alignment_config)
 
     # set off the gradients among all other layers.
     for name, param in model.named_parameters():

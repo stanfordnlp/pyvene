@@ -55,6 +55,7 @@ class AlpacaAligner(object):
         self.is_wandb = args.is_wandb
         self.model_name = model_name
         self.tokenizer = tokenizer
+        self.model_type = args.model_type
 
         self.lr = lr
         self.n_gpu = n_gpu
@@ -70,6 +71,20 @@ class AlpacaAligner(object):
                 name=model_name,
             )
             wandb.config.update(args)
+
+    def call_model(self, inputs: dict, labels=None, **kwargs):
+        if self.model_type == 't5':
+            # For T5, we always pass in output_only_labels as labels.
+            return self.model(input_ids=inputs['input_ids'],
+                              labels=inputs['output_only_labels'],
+                              **kwargs)
+        elif self.model_type == 'llama':
+            if labels is not None:
+                return self.model(input_ids=inputs['input_ids'],
+                                  labels=labels,
+                                  **kwargs)
+            return self.model(input_ids=inputs['input_ids'], **kwargs)
+        raise ValueError('Invalid model type' + self.model_type)
 
     def save_model(self, output_dir, model_name):
         if self.n_gpu > 1:
@@ -102,10 +117,11 @@ class AlpacaAligner(object):
                         inputs[k] = v.to(self.device)
 
                 # aligning forward!
-                outputs = self.model(
-                    input_ids=inputs['input_ids'],
-                    labels=inputs['output_only_labels'],
-                )
+                # outputs = self.model(
+                # input_ids=inputs['input_ids'],
+                # labels=inputs['labels'],
+                # )
+                outputs = self.call_model(inputs)
 
                 actual_test_labels = inputs['labels'][:, -1]
                 pred_test_labels = torch.argmax(outputs.logits[:, -1], dim=-1)
@@ -113,13 +129,11 @@ class AlpacaAligner(object):
                     actual_test_labels)
                 pred_decoded = self.tokenizer.batch_decode(pred_test_labels)
 
-                # correct_labels = (actual_test_labels==pred_test_labels)
-                correct_labels = torch.tensor([
-                    target.lower() == pred.lower()
-                    for target, pred in zip(target_decoded, pred_decoded)
-                ])
-                print(correct_labels)
-                print(self.tokenizer.batch_decode(inputs['input_ids']))
+                correct_labels = (actual_test_labels == pred_test_labels)
+                # correct_labels = torch.tensor([
+                # target.lower() == pred.lower()
+                # for target, pred in zip(target_decoded, pred_decoded)
+                # ])
 
                 total_count += len(correct_labels)
                 correct_count += correct_labels.sum().tolist()
@@ -189,17 +203,23 @@ class AlpacaAligner(object):
                         inputs[k] = v.to(self.device)
 
                 # aligning forward!
-                source_model_outputs = self.model(
-                    input_ids=inputs['source_input_ids'],
-                    output_rotated_hidden_states_only=True,
-                    labels=inputs['output_only_labels'])
+                # source_model_outputs = self.model(
+                # input_ids=inputs['source_input_ids'],
+                # output_rotated_hidden_states_only=True)
+                source_model_outputs = self.call_model(
+                    inputs, output_rotated_hidden_states_only=True)
                 source_hidden_states = source_model_outputs.rotated_hidden_states
 
-                outputs = self.model(
-                    input_ids=inputs['input_ids'],
+                # outputs = self.model(
+                # input_ids=inputs['input_ids'],
+                # source_hidden_states=source_hidden_states,
+                # intervention_ids=inputs['intervention_ids'],
+                # labels=inputs['labels'])
+                outputs = self.call_model(
+                    inputs,
                     source_hidden_states=source_hidden_states,
                     intervention_ids=inputs['intervention_ids'],
-                    labels=inputs['output_only_labels'])
+                    labels=inputs['labels'])
 
                 loss = outputs.loss.mean() if self.n_gpu > 1 else outputs.loss
 
@@ -264,17 +284,26 @@ class AlpacaAligner(object):
                                         inputs[k] = v.to(self.device)
 
                                 # aligning forward!
-                                source_hidden_states = self.model(
-                                    input_ids=inputs['source_input_ids'],
+                                # source_hidden_states = self.model(
+                                # input_ids=inputs['source_input_ids'],
+                                # output_rotated_hidden_states_only=True,
+                                # ).rotated_hidden_states
+                                source_hidden_states = self.call_model(
+                                    inputs,
                                     output_rotated_hidden_states_only=True,
-                                    labels=inputs['output_only_labels'],
                                 ).rotated_hidden_states
-                                outputs = self.model(
-                                    input_ids=inputs['input_ids'],
+                                # outputs = self.model(
+                                # input_ids=inputs['input_ids'],
+                                # source_hidden_states=source_hidden_states,
+                                # intervention_ids=inputs[
+                                # 'intervention_ids'],
+                                # labels=inputs['labels'])
+                                outputs = self.call_model(
+                                    inputs,
+                                    labels=inputs['labels'],
                                     source_hidden_states=source_hidden_states,
-                                    intervention_ids=inputs[
-                                        'intervention_ids'],
-                                    labels=inputs['output_only_labels'])
+                                    intervention_ids=inputs['intervention_ids']
+                                )
 
                                 actual_test_labels = inputs['labels'][:, -1]
                                 pred_test_labels = torch.argmax(
@@ -347,16 +376,25 @@ class AlpacaAligner(object):
                             inputs[k] = v.to(self.device)
 
                     # aligning forward!
-                    source_hidden_states = self.model(
-                        input_ids=inputs['source_input_ids'],
+                    # source_hidden_states = self.model(
+                    # input_ids=inputs['source_input_ids'],
+                    # output_rotated_hidden_states_only=True,
+                    # ).rotated_hidden_states
+                    source_hidden_states = self.call_model(
+                        inputs,
                         output_rotated_hidden_states_only=True,
-                        labels=inputs['output_only_labels'],
                     ).rotated_hidden_states
-                    outputs = self.model(
-                        input_ids=inputs['input_ids'],
+                    # outputs = self.model(
+                    # input_ids=inputs['input_ids'],
+                    # source_hidden_states=source_hidden_states,
+                    # intervention_ids=inputs['intervention_ids'],
+                    # labels=inputs['labels'])
+
+                    outputs = self.call_model(
+                        inputs,
+                        labels=inputs['labels'],
                         source_hidden_states=source_hidden_states,
-                        intervention_ids=inputs['intervention_ids'],
-                        labels=inputs['output_only_labels'])
+                        intervention_ids=inputs['intervention_ids'])
 
                     actual_test_labels = inputs['labels'][:, -1]
                     pred_test_labels = torch.argmax(outputs.logits[:, -1],

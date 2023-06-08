@@ -13,15 +13,39 @@ _NO_LABEL = 'No'
 _YES_LABEL = 'Yes'
 
 
+def llama_prompt_fn(country1, country2):
+    alpaca_prompt_template = '''Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
+
+### Instruction:
+{instruction}
+
+
+### Input:
+{inputs}
+
+### Response:
+'''
+    instruction = 'Are both countries from the same continent?'
+    inputs = f'{country1},{country2}'
+    return alpaca_prompt_template.format(instruction=instruction,
+                                         inputs=inputs)
+
+
+def t5_prompt_fn(country1, country2):
+    return f'''Answer the following yes/no question:\n\nAre {country1} and {country2} on the same continent?\n'''
+
+
 class ContinentMatchingTask(TaskBase):
 
-    def __init__(self):
+    def __init__(self, prompt_fn: Callable = t5_prompt_fn, pad_to: int = 40):
         self.country_to_continent = self._get_country_continent_map()
         self.continent_to_country = collections.defaultdict(list)
         for country, continent in self.country_to_continent.items():
             self.continent_to_country[continent].append(country)
         self.countries = [c for c in self.country_to_continent]
         self.continents = [c for c in self.continent_to_country]
+        self.prompt_fn = prompt_fn
+        self.pad_to = pad_to
 
     def _sample_not_in_continent(self, continent):
         ret_continent = random.choice(
@@ -48,17 +72,7 @@ class ContinentMatchingTask(TaskBase):
                 ret[country] = continent
             return ret
 
-    def _format_prompt(self,
-                       country1: str,
-                       country2: str,
-                       custom_prompt_fn: Callable = None):
-        if custom_prompt_fn:
-            return custom_prompt_fn(country1, country2)
-        return f'''Answer the following yes/no question:\n\nAre {country1} and {country2} on the same continent?\n'''
-
-    def _sample_single_example(self,
-                               target_label: bool = None,
-                               custom_prompt_fn: Callable = None):
+    def _sample_single_example(self, target_label: bool = None):
         '''
         Sample a single example.
 
@@ -87,8 +101,7 @@ class ContinentMatchingTask(TaskBase):
             country2 = random.choice(self.continent_to_country[continent2])
 
         example = {
-            'inputs': self._format_prompt(country1, country2,
-                                          custom_prompt_fn),
+            'inputs': self.prompt_fn(country1, country2),
             'targets': 'Yes' if continent1 == continent2 else 'No'
         }
         print('sampled', example)
@@ -98,13 +111,13 @@ class ContinentMatchingTask(TaskBase):
         return tokenizer(string,
                          return_tensors='pt',
                          padding='max_length',
-                         max_length=30).input_ids[0].tolist()
+                         max_length=self.pad_to).input_ids[0].tolist()
 
     def _encode_input_and_target(self, tokenizer, input_string, target_string):
         input_ids = tokenizer(input_string,
                               return_tensors='pt',
                               padding='max_length',
-                              max_length=40).input_ids[0]
+                              max_length=self.pad_to).input_ids[0]
         label = tokenizer.convert_tokens_to_ids(target_string)
         output_ids = (torch.ones(input_ids.shape[0]) * -100).long().tolist()
         output_ids[-1] = label
@@ -148,7 +161,7 @@ class ContinentMatchingTask(TaskBase):
             input_ids = tokenizer(example['inputs'],
                                   return_tensors='pt',
                                   padding='max_length',
-                                  max_length=40).input_ids[0]
+                                  max_length=self.pad_to).input_ids[0]
             label = tokenizer.convert_tokens_to_ids(example['targets'])
             output_ids = (torch.ones(input_ids.shape[0]) *
                           -100).long().tolist()
@@ -211,9 +224,8 @@ class ContinentMatchingTask(TaskBase):
                 base_country1, base_country2, ctf_label_str)
 
             # Now generate the base and source inputs
-            base_input_str = self._format_prompt(base_country1, base_country2)
-            source_input_str = self._format_prompt(source_country1,
-                                                   source_country2)
+            base_input_str = self.prompt_fn(base_country1, base_country2)
+            source_input_str = self.prompt_fn(source_country1, source_country2)
             example = {
                 'inputs': base_input_str,
                 'source_inputs': source_input_str,
