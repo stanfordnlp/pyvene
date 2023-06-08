@@ -59,7 +59,7 @@ class ContinentMatchingTask(TaskBase):
     def _get_country_continent_map(self):
         ret = {}
         base_data = os.path.join(
-            Path(__file__).parent, 'countries_continents.csv')
+            Path(__file__).parent, 'countries_continents_simple.csv')
         with open(base_data) as f:
             for line in f:
                 line = line.strip()
@@ -111,57 +111,29 @@ class ContinentMatchingTask(TaskBase):
         return tokenizer(string,
                          return_tensors='pt',
                          padding='max_length',
-                         max_length=self.pad_to).input_ids[0].tolist()
-
-    def _encode_input_and_target(self, tokenizer, input_string, target_string):
-        input_ids = tokenizer(input_string,
-                              return_tensors='pt',
-                              padding='max_length',
-                              max_length=self.pad_to).input_ids[0]
-        label = tokenizer.convert_tokens_to_ids(target_string)
-        output_ids = (torch.ones(input_ids.shape[0]) * -100).long().tolist()
-        output_ids[-1] = label
-        input_ids = input_ids.tolist()
-        return input_ids, output_ids
-
-    def _encode_alignment_examples(self, tokenizer, examples: list[dict[str,
-                                                                        str]]):
-        all_base_inputs = []
-        all_source_inputs = []
-        all_base_outputs = []
-        all_source_outputs = []
-        all_ctf_outputs = []
-        for example in examples:
-            base_input_ids, base_output_ids = self._encode_input_and_target(
-                example['base_inputs'], example['base_targets'])
-            source_input_ids, source_output_ids = self._encode_input_and_target(
-                example['source_inputs'], example['source_targets'])
-            _, ctf_output_ids = self._encode_input_and_target(
-                example['base_inputs'], example['ctf_targets'])
-            all_base_inputs.append(base_input_ids)
-            all_base_outputs.append(base_output_ids)
-            all_source_inputs.append(source_input_ids)
-            all_source_outputs.append(source_input_ids)
-            all_ctf_outputs.append(ctf_input_ids)
-        return all_base_inputs, all_source_inputs, all_base_outputs, all_source_outputs, all_ctf_outputs
+                         max_length=self.pad_to)
 
     def _encode_examples(self, tokenizer, examples: list[dict[str, str]]):
         '''
         Returns input_ids, target_ids (both lists of lists of ints)
         '''
         all_input_ids = []
+        all_attention_masks = []
         all_output_ids = []
         all_source_input_ids = []
+        all_source_attention_masks = []
         for example in examples:
             if 'source_inputs' in example:
-                source_input_ids = self._encode_string(
-                    tokenizer, example['source_inputs'])
-                all_source_input_ids.append(source_input_ids)
+                encoded_inputs = self._encode_string(tokenizer,
+                                                     example['source_inputs'])
+                all_source_input_ids.append(encoded_inputs.input_ids[0])
+                all_source_attention_masks.append(
+                    encoded_inputs.attention_mask[0])
 
-            input_ids = tokenizer(example['inputs'],
-                                  return_tensors='pt',
-                                  padding='max_length',
-                                  max_length=self.pad_to).input_ids[0]
+            encoded_inputs = self._encode_string(tokenizer, example['inputs'])
+            input_ids = encoded_inputs.input_ids[0]
+            attention_mask = encoded_inputs.attention_mask[0]
+
             label = tokenizer.convert_tokens_to_ids(example['targets'])
             output_ids = (torch.ones(input_ids.shape[0]) *
                           -100).long().tolist()
@@ -169,10 +141,11 @@ class ContinentMatchingTask(TaskBase):
             input_ids = input_ids.tolist()
             all_input_ids.append(input_ids)
             all_output_ids.append(output_ids)
+            all_attention_masks.append(attention_mask)
 
         if all_source_input_ids:
-            return all_input_ids, all_source_input_ids, all_output_ids
-        return all_input_ids, all_output_ids
+            return all_input_ids, all_attention_masks, all_source_input_ids, all_source_attention_masks, all_output_ids
+        return all_input_ids, all_attention_masks, all_output_ids
 
     def output_rep_source_sampler(self, base_country1, base_country2,
                                   ctf_label_str):
@@ -182,10 +155,14 @@ class ContinentMatchingTask(TaskBase):
         source_country1 = random.choice(self.countries)
         source_cont1 = self.country_to_continent[source_country1]
         if ctf_label_str == _NO_LABEL:
-            source_country2 = self._sample_not_in_continent(source_cont1)
+            source_country1 = 'Canada'
+            source_country2 = 'New Zealand'
+            # source_country2 = self._sample_not_in_continent(source_cont1)
         else:
-            source_country2 = random.choice(
-                self.continent_to_country[source_cont1])
+            source_country1 = 'Brazil'
+            source_country2 = 'Brazil'
+            # source_country2 = random.choice(
+            # self.continent_to_country[source_cont1])
         return source_country1, source_country2, ctf_label_str
 
     def continent1_source_sampler(self, base_country1, base_country2,
@@ -258,8 +235,8 @@ class ContinentMatchingTask(TaskBase):
             prealign_str_examples.append(self._sample_single_example(False))
 
         # Encode the prealign examples
-        input_ids, output_ids = self._encode_examples(tokenizer,
-                                                      prealign_str_examples)
+        input_ids, attention_masks, output_ids = self._encode_examples(
+            tokenizer, prealign_str_examples)
 
         prealign_dataset = Dataset.from_dict({
             "input_ids":
@@ -267,6 +244,8 @@ class ContinentMatchingTask(TaskBase):
             "labels":
             output_ids,
             'output_only_labels': [o[-1:] for o in output_ids],
+            'attention_masks':
+            attention_masks,
         }).with_format("torch")
         prealign_dataloader = DataLoader(prealign_dataset,
                                          batch_size=eval_batch_size)
@@ -284,11 +263,13 @@ class ContinentMatchingTask(TaskBase):
         train_examples = examples[:n_train]
         dev_examples = examples[n_train:n_train + n_eval]
         test_examples = examples[n_train + n_eval:]
-        train_input_ids, train_source_ids, train_output_ids = self._encode_examples(
+        train_input_ids, train_attention_masks, train_source_ids, train_source_attention_masks, train_output_ids = self._encode_examples(
             tokenizer, train_examples)
-        dev_input_ids, dev_source_ids, dev_output_ids = self._encode_examples(
+
+        dev_input_ids, dev_attention_masks, dev_source_ids, dev_source_attention_masks, dev_output_ids = self._encode_examples(
             tokenizer, dev_examples)
-        test_input_ids, test_source_ids, test_output_ids = self._encode_examples(
+
+        test_input_ids, test_attention_masks, test_source_ids, test_source_attention_masks, test_output_ids = self._encode_examples(
             tokenizer, test_examples)
 
         train_dataset = Dataset.from_dict({
@@ -297,8 +278,12 @@ class ContinentMatchingTask(TaskBase):
             'labels':
             train_output_ids,
             'output_only_labels': [o[-1:] for o in train_output_ids],
+            'attention_masks':
+            train_attention_masks,
             'source_input_ids':
             train_source_ids,
+            'source_attention_masks':
+            train_source_attention_masks,
             'intervention_ids': [0 for _ in train_source_ids],
         }).with_format('torch')
 
@@ -308,8 +293,12 @@ class ContinentMatchingTask(TaskBase):
             'labels':
             dev_output_ids,
             'output_only_labels': [o[-1:] for o in dev_output_ids],
+            'attention_masks':
+            dev_attention_masks,
             'source_input_ids':
             dev_source_ids,
+            'source_attention_masks':
+            dev_source_attention_masks,
             'intervention_ids': [0 for _ in dev_source_ids],
         }).with_format('torch')
 
@@ -319,8 +308,12 @@ class ContinentMatchingTask(TaskBase):
             'labels':
             test_output_ids,
             'output_only_labels': [o[-1:] for o in test_output_ids],
+            'attention_masks':
+            test_attention_masks,
             'source_input_ids':
             test_source_ids,
+            'source_attention_masks':
+            test_source_attention_masks,
             'intervention_ids': [0 for _ in test_source_ids],
         }).with_format('torch')
 

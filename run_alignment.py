@@ -61,7 +61,7 @@ def get_task(args):
     elif 'continent_matching' in task_name:
         if args.model_type == 't5':
             return continent_matching.ContinentMatchingTask(
-                continent_matching.t5_prompt_fn, pad_to=30)
+                continent_matching.t5_prompt_fn, pad_to=40)
         elif args.model_type == 'llama':
             return continent_matching.ContinentMatchingTask(
                 continent_matching.llama_prompt_fn, pad_to=100)

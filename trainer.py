@@ -72,12 +72,20 @@ class AlpacaAligner(object):
             )
             wandb.config.update(args)
 
-    def call_model(self, inputs: dict, labels=None, **kwargs):
+    def call_model(self, inputs: dict, labels=None, is_train=True, **kwargs):
+        """Returns model output if is_train=True, or output sequences"""
         if self.model_type == 't5':
             # For T5, we always pass in output_only_labels as labels.
-            return self.model(input_ids=inputs['input_ids'],
-                              labels=inputs['output_only_labels'],
-                              **kwargs)
+            if is_train:
+                return self.model(input_ids=inputs['input_ids'],
+                                  attention_mask=inputs['attention_masks'],
+                                  labels=inputs['output_only_labels'],
+                                  **kwargs)
+            else:
+                return self.model.generate(
+                    inputs['input_ids'],
+                    attention_mask=inputs['attention_masks'],
+                    **kwargs)
         elif self.model_type == 'llama':
             if labels is not None:
                 return self.model(input_ids=inputs['input_ids'],
@@ -121,19 +129,22 @@ class AlpacaAligner(object):
                 # input_ids=inputs['input_ids'],
                 # labels=inputs['labels'],
                 # )
-                outputs = self.call_model(inputs)
+                inputs_decoded = self.tokenizer.batch_decode(
+                    inputs['input_ids'], skip_special_tokens=True)
+                outputs = self.call_model(inputs, is_train=False)
 
                 actual_test_labels = inputs['labels'][:, -1]
-                pred_test_labels = torch.argmax(outputs.logits[:, -1], dim=-1)
+                # pred_test_labels = torch.argmax(outputs.logits[:, -1], dim=-1)
                 target_decoded = self.tokenizer.batch_decode(
-                    actual_test_labels)
-                pred_decoded = self.tokenizer.batch_decode(pred_test_labels)
+                    actual_test_labels, skip_special_tokens=True)
+                pred_decoded = self.tokenizer.batch_decode(
+                    outputs, skip_special_tokens=True)
 
-                correct_labels = (actual_test_labels == pred_test_labels)
-                # correct_labels = torch.tensor([
-                # target.lower() == pred.lower()
-                # for target, pred in zip(target_decoded, pred_decoded)
-                # ])
+                # correct_labels = (actual_test_labels == pred_test_labels)
+                correct_labels = torch.tensor([
+                    target.lower() == pred.lower()
+                    for target, pred in zip(target_decoded, pred_decoded)
+                ])
 
                 total_count += len(correct_labels)
                 correct_count += correct_labels.sum().tolist()
@@ -228,9 +239,9 @@ class AlpacaAligner(object):
                     pred_test_labels = torch.argmax(outputs.logits[:, -1],
                                                     dim=-1)
                     target_decoded = self.tokenizer.batch_decode(
-                        actual_test_labels)
+                        actual_test_labels, skip_special_tokens=True)
                     pred_decoded = self.tokenizer.batch_decode(
-                        pred_test_labels)
+                        pred_test_labels, skip_special_tokens=True)
                     correct_labels = torch.tensor([
                         target.lower() == pred.lower()
                         for target, pred in zip(target_decoded, pred_decoded)
@@ -301,15 +312,26 @@ class AlpacaAligner(object):
                                 outputs = self.call_model(
                                     inputs,
                                     labels=inputs['labels'],
+                                    is_train=False,
                                     source_hidden_states=source_hidden_states,
-                                    intervention_ids=inputs['intervention_ids']
+                                    intervention_ids=inputs[
+                                        'intervention_ids'],
                                 )
 
                                 actual_test_labels = inputs['labels'][:, -1]
-                                pred_test_labels = torch.argmax(
-                                    outputs.logits[:, -1], dim=-1)
-                                correct_labels = (
-                                    actual_test_labels == pred_test_labels)
+                                # pred_test_labels = torch.argmax(
+                                # outputs.logits[:, -1], dim=-1)
+                                target_decoded = self.tokenizer.batch_decode(
+                                    actual_test_labels,
+                                    skip_special_tokens=True)
+                                pred_decoded = self.tokenizer.batch_decode(
+                                    outputs, skip_special_tokens=True)
+
+                                correct_labels = torch.tensor([
+                                    target.lower() == pred.lower()
+                                    for target, pred in zip(
+                                        target_decoded, pred_decoded)
+                                ])
 
                                 total_count += len(correct_labels)
                                 correct_count += correct_labels.sum().tolist()
@@ -393,13 +415,21 @@ class AlpacaAligner(object):
                     outputs = self.call_model(
                         inputs,
                         labels=inputs['labels'],
+                        is_train=False,
                         source_hidden_states=source_hidden_states,
                         intervention_ids=inputs['intervention_ids'])
 
                     actual_test_labels = inputs['labels'][:, -1]
-                    pred_test_labels = torch.argmax(outputs.logits[:, -1],
-                                                    dim=-1)
-                    correct_labels = (actual_test_labels == pred_test_labels)
+                    target_decoded = self.tokenizer.batch_decode(
+                        actual_test_labels, skip_special_tokens=True)
+                    pred_decoded = self.tokenizer.batch_decode(
+                        outputs, skip_special_tokens=True)
+
+                    # correct_labels = (actual_test_labels == pred_test_labels)
+                    correct_labels = torch.tensor([
+                        target.lower() == pred.lower()
+                        for target, pred in zip(target_decoded, pred_decoded)
+                    ])
 
                     total_count += len(correct_labels)
                     correct_count += correct_labels.sum().tolist()
