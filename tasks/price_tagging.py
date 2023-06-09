@@ -1,3 +1,4 @@
+from collections.abc import Callable
 import os, random, argparse, sys, pickle, time, datasets
 import torch
 from torch.utils.data import DataLoader, SequentialSampler
@@ -18,19 +19,40 @@ from transformers.utils import logging
 logging.set_verbosity_info()
 logger = logging.get_logger('transformers')
 
-alpaca_prompt_template = f'''Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
+
+def llama_prompt_fn(amount: float, lower_bound: float, upper_bound: float):
+    alpaca_prompt_template = '''Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
 
 ### Instruction:
-%s
+{instruction}
 
 ### Input:
-%s
+{input}
 
 ### Response:
 '''
+    lower_bound_str = '%.2f' % lower_bound
+    upper_bound_str = '%.2f' % upper_bound
+    instruction = f'Please say yes only if it costs between {lower_bound_str} and {upper_bound_str} dollars, otherwise no.'
+    amount_str = '%.2f dollars' % amount
+    return alpaca_prompt_template.format(instruction=instruction,
+                                         input=amount_str)
+
+
+def t5_prompt_fn(amount: float, lower_bound: float, upper_bound: float):
+    t5_fmt = 'Answer the following yes/no question:\n\nDoes the number {amount} fall in the range between {lower_bound} and {upper_bound}?\n'
+    lower_bound_str = '%.2f' % lower_bound
+    upper_bound_str = '%.2f' % upper_bound
+    amount_str = '%.2f dollars' % amount
+    return t5_fmt.format(amount=amount_str,
+                         lower_bound=lower_bound_str,
+                         upper_bound=upper_bound_str)
 
 
 class PriceTaggingTask(TaskBase):
+
+    def __init__(self, prompt_fn: Callable = llama_prompt_fn):
+        self.prompt_fn = prompt_fn
 
     def price_tagging_game_config_sampler(self, amount, lower_bound,
                                           bound_width):
@@ -61,18 +83,14 @@ class PriceTaggingTask(TaskBase):
     ):
         lower_bound_sample, upper_bound_sample, amount_sample = self.price_tagging_game_config_sampler(
             amount, lower_bound, bound_width)
-        lower_bound_str = '%.2f' % lower_bound_sample
-        upper_bound_str = '%.2f' % upper_bound_sample
-        if amount_sample >= float(lower_bound_str) and amount_sample <= float(
-                upper_bound_str):
+        if amount_sample >= lower_bound_sample and amount_sample <= upper_bound_sample:
             label = tokenizer.convert_tokens_to_ids('Yes')
         else:
             label = tokenizer.convert_tokens_to_ids('No')
 
-        amount_str = '%.2f dollars' % amount_sample
-        instruction = f'Please say yes only if it costs between {lower_bound_str} and {upper_bound_str} dollars, otherwise no.'
-        alpaca_prompt = alpaca_prompt_template % (instruction, amount_str)
-        input_ids = tokenizer(alpaca_prompt, return_tensors='pt').input_ids[0]
+        prompt = self.prompt_fn(amount_sample, lower_bound_sample,
+                                upper_bound_sample)
+        input_ids = tokenizer(prompt, return_tensors='pt').input_ids[0]
         output_ids = (torch.ones(input_ids.shape[0]) * -100).long().tolist()
         output_ids[-1] = label
         input_ids = input_ids.tolist()
@@ -89,18 +107,15 @@ class PriceTaggingTask(TaskBase):
     ):
         lower_bound_sample, upper_bound_sample, amount_sample = self.price_tagging_game_config_sampler(
             amount, lower_bound, bound_width)
-        lower_bound_str = '%.2f' % lower_bound_sample
-        upper_bound_str = '%.2f' % upper_bound_sample
-        if amount_sample >= float(lower_bound_str) and amount_sample <= float(
-                upper_bound_str):
+        if amount_sample >= lower_bound_sample and amount_sample <= upper_bound_sample:
             label = tokenizer.convert_tokens_to_ids('Yes')
         else:
             label = tokenizer.convert_tokens_to_ids('No')
 
-        amount_str = '%.2f dollars' % amount_sample
-        instruction = f'Please say yes only if it costs between {lower_bound_str} and {upper_bound_str} dollars, otherwise no.'
-        alpaca_prompt = alpaca_prompt_template % (instruction, amount_str)
-        input_ids = tokenizer(alpaca_prompt, return_tensors='pt').input_ids[0]
+        prompt = self.prompt_fn(amount_sample, lower_bound_sample,
+                                upper_bound_sample)
+
+        input_ids = tokenizer(paca_prompt, return_tensors='pt').input_ids[0]
         output_ids = (torch.ones(input_ids.shape[0]) * -100).long().tolist()
         output_ids[-1] = label
         input_ids = input_ids.tolist()
@@ -258,33 +273,16 @@ class PriceTaggingTask(TaskBase):
                     bound_width,
                 )
 
-            base_amount_str = '%.2f dollars' % base_amount_sample
-            source_amount_str = '%.2f dollars' % source_amount_sample
-            base_lower_bound_str = '%.2f' % base_lower_bound_sample
-            base_upper_bound_str = '%.2f' % base_upper_bound_sample
-            source_lower_bound_str = '%.2f' % source_lower_bound_sample
-            source_upper_bound_str = '%.2f' % source_upper_bound_sample
+            base_prompt = self.prompt_fn(base_amount_sample,
+                                         base_lower_bound_sample,
+                                         base_upper_bound_sample)
+            source_prompt = self.prompt_fn(source_amount_sample,
+                                           source_lower_bound_sample,
+                                           source_upper_bound_sample)
 
-            if random.random() < 0.01:
-                print(
-                    f'base: [{base_lower_bound_str}, {base_upper_bound_str}], {base_amount_str}'
-                )
-                print(
-                    f'source: [{source_lower_bound_str}, {source_upper_bound_str}], {source_amount_str}'
-                )
-                print(f'ctf label: {ctf_label_str}')
-
-            base_instruction = f'Please say yes only if it costs between {base_lower_bound_str} and {base_upper_bound_str} dollars, otherwise no.'
-            source_instruction = f'Please say yes only if it costs between {source_lower_bound_str} and {source_upper_bound_str} dollars, otherwise no.'
-
-            base_alpaca_prompt = alpaca_prompt_template % (base_instruction,
-                                                           base_amount_str)
-            source_alpaca_prompt = alpaca_prompt_template % (
-                source_instruction, source_amount_str)
-
-            base_input_ids = tokenizer(base_alpaca_prompt,
+            base_input_ids = tokenizer(base_prompt,
                                        return_tensors='pt').input_ids[0]
-            source_input_ids = tokenizer(source_alpaca_prompt,
+            source_input_ids = tokenizer(source_prompt,
                                          return_tensors='pt').input_ids[0]
             base_input_ids = base_input_ids.tolist()
             source_input_ids = source_input_ids.tolist()
@@ -346,28 +344,20 @@ class PriceTaggingTask(TaskBase):
                 ctf_label = tokenizer.convert_tokens_to_ids('No')
                 ctf_label_str = 'No'
 
-            base_amount_str = '%.2f dollars' % base_amount_sample
-            source_amount_str = '%.2f dollars' % source_amount_sample
-            base_lower_bound_str = '%.2f' % base_lower_bound_sample
-            base_upper_bound_str = '%.2f' % base_upper_bound_sample
-            source_lower_bound_str = '%.2f' % source_lower_bound_sample
-            source_upper_bound_str = '%.2f' % source_upper_bound_sample
-
             # print(f'base: [{base_lower_bound_str}, {base_upper_bound_str}], {base_amount_str}')
             # print(f'source: [{source_lower_bound_str}, {source_upper_bound_str}], {source_amount_str}')
             # print(f'ctf label: {ctf_label_str}')
 
-            base_instruction = f'Please say yes only if it costs between {base_lower_bound_str} and {base_upper_bound_str} dollars, otherwise no.'
-            source_instruction = f'Please say yes only if it costs between {source_lower_bound_str} and {source_upper_bound_str} dollars, otherwise no.'
+            base_prompt = self.prompt_fn(base_amount_sample,
+                                         base_lower_bound_sample,
+                                         base_upper_bound_sample)
+            source_prompt = self.prompt_fn(source_amount_sample,
+                                           source_lower_bound_sample,
+                                           source_upper_bound_sample)
 
-            base_alpaca_prompt = alpaca_prompt_template % (base_instruction,
-                                                           base_amount_str)
-            source_alpaca_prompt = alpaca_prompt_template % (
-                source_instruction, source_amount_str)
-
-            base_input_ids = tokenizer(base_alpaca_prompt,
+            base_input_ids = tokenizer(base_prompt,
                                        return_tensors='pt').input_ids[0]
-            source_input_ids = tokenizer(source_alpaca_prompt,
+            source_input_ids = tokenizer(source_prompt,
                                          return_tensors='pt').input_ids[0]
             base_input_ids = base_input_ids.tolist()
             source_input_ids = source_input_ids.tolist()
@@ -421,28 +411,16 @@ class PriceTaggingTask(TaskBase):
                 ctf_label = tokenizer.convert_tokens_to_ids('No')
                 ctf_label_str = 'No'
 
-            base_amount_str = '%.2f dollars' % base_amount_sample
-            source_amount_str = '%.2f dollars' % source_amount_sample
-            base_lower_bound_str = '%.2f' % base_lower_bound_sample
-            base_upper_bound_str = '%.2f' % base_upper_bound_sample
-            source_lower_bound_str = '%.2f' % source_lower_bound_sample
-            source_upper_bound_str = '%.2f' % source_upper_bound_sample
+            base_prompt = self.prompt_fn(base_amount_sample,
+                                         base_lower_bound_sample,
+                                         base_upper_bound_sample)
+            source_prompt = self.prompt_fn(source_amount_sample,
+                                           source_lower_bound_sample,
+                                           source_upper_bound_sample)
 
-            # print(f'base: [{base_lower_bound_str}, {base_upper_bound_str}], {base_amount_str}')
-            # print(f'source: [{source_lower_bound_str}, {source_upper_bound_str}], {source_amount_str}')
-            # print(f'ctf label: {ctf_label_str}')
-
-            base_instruction = f'Please say yes only if it costs between {base_lower_bound_str} and {base_upper_bound_str} dollars, otherwise no.'
-            source_instruction = f'Please say yes only if it costs between {source_lower_bound_str} and {source_upper_bound_str} dollars, otherwise no.'
-
-            base_alpaca_prompt = alpaca_prompt_template % (base_instruction,
-                                                           base_amount_str)
-            source_alpaca_prompt = alpaca_prompt_template % (
-                source_instruction, source_amount_str)
-
-            base_input_ids = tokenizer(base_alpaca_prompt,
+            base_input_ids = tokenizer(base_prompt,
                                        return_tensors='pt').input_ids[0]
-            source_input_ids = tokenizer(source_alpaca_prompt,
+            source_input_ids = tokenizer(source_prompt,
                                          return_tensors='pt').input_ids[0]
             base_input_ids = base_input_ids.tolist()
             source_input_ids = source_input_ids.tolist()
@@ -674,28 +652,16 @@ class PriceTaggingTask(TaskBase):
                     triples
                 )
 
-            base_amount_str = '%.2f dollars' % base_amount_sample
-            source_amount_str = '%.2f dollars' % source_amount_sample
-            base_lower_bound_str = '%.2f' % base_lower_bound_sample
-            base_upper_bound_str = '%.2f' % base_upper_bound_sample
-            source_lower_bound_str = '%.2f' % source_lower_bound_sample
-            source_upper_bound_str = '%.2f' % source_upper_bound_sample
+            base_prompt = self.prompt_fn(base_amount_sample,
+                                         base_lower_bound_sample,
+                                         base_upper_bound_sample)
+            source_prompt = self.prompt_fn(source_amount_sample,
+                                           source_lower_bound_sample,
+                                           source_upper_bound_sample)
 
-            # print(f'base: [{base_lower_bound_str}, {base_upper_bound_str}], {base_amount_str}')
-            # print(f'source: [{source_lower_bound_str}, {source_upper_bound_str}], {source_amount_str}')
-            # print(f'ctf label: {ctf_label_str}')
-
-            base_instruction = f'Please say yes only if it costs between {base_lower_bound_str} and {base_upper_bound_str} dollars, otherwise no.'
-            source_instruction = f'Please say yes only if it costs between {source_lower_bound_str} and {source_upper_bound_str} dollars, otherwise no.'
-
-            base_alpaca_prompt = alpaca_prompt_template % (base_instruction,
-                                                           base_amount_str)
-            source_alpaca_prompt = alpaca_prompt_template % (
-                source_instruction, source_amount_str)
-
-            base_input_ids = tokenizer(base_alpaca_prompt,
+            base_input_ids = tokenizer(base_prompt,
                                        return_tensors='pt').input_ids[0]
-            source_input_ids = tokenizer(source_alpaca_prompt,
+            source_input_ids = tokenizer(source_prompt,
                                          return_tensors='pt').input_ids[0]
             base_input_ids = base_input_ids.tolist()
             source_input_ids = source_input_ids.tolist()

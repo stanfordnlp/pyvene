@@ -78,14 +78,15 @@ class AlpacaAligner(object):
             # For T5, we always pass in output_only_labels as labels.
             if is_train:
                 return self.model(input_ids=inputs['input_ids'],
-                                  attention_mask=inputs['attention_masks'],
+                                  attention_mask=inputs.get(
+                                      'attention_masks', None),
                                   labels=inputs['output_only_labels'],
                                   **kwargs)
             else:
-                return self.model.generate(
-                    inputs['input_ids'],
-                    attention_mask=inputs['attention_masks'],
-                    **kwargs)
+                return self.model.generate(inputs['input_ids'],
+                                           attention_mask=inputs.get(
+                                               'attention_masks', None),
+                                           **kwargs)
         elif self.model_type == 'llama':
             if not is_train:
                 attention_mask = inputs.get('attention_masks', None)

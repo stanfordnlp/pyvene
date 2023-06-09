@@ -19,7 +19,6 @@ def llama_prompt_fn(country1, country2):
 ### Instruction:
 {instruction}
 
-
 ### Input:
 {inputs}
 

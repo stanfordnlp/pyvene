@@ -56,8 +56,14 @@ def get_das_and_alignment_config(args):
 
 def get_task(args):
     task_name = args.task_name
+
     if 'price_tagging' in task_name:
-        return price_tagging.PriceTaggingTask()
+        if args.model_type == 't5':
+            return price_tagging.PriceTaggingTask(price_tagging.t5_prompt_fn)
+        if args.model_type == 'llama':
+            return price_tagging.PriceTaggingTask(
+                price_tagging.llama_prompt_fn)
+
     elif 'continent_matching' in task_name:
         if args.model_type == 't5':
             return continent_matching.ContinentMatchingTask(
@@ -66,6 +72,7 @@ def get_task(args):
             return continent_matching.ContinentMatchingTask(
                 continent_matching.llama_prompt_fn, pad_to=100)
         raise ValueError('Unsupported model type:', args.model_type)
+
     else:
         raise ValueError('Unsupported task_name: ' + task_name)
 
