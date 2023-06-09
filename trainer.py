@@ -90,14 +90,15 @@ class AlpacaAligner(object):
                                                'attention_masks', None),
                                            **kwargs)
         elif self.model_type == 'llama':
+            attention_mask = inputs.get('attention_masks', None)
             if not is_train:
-                attention_mask = inputs.get('attention_masks', None)
                 outputs = self.model(inputs['input_ids'],
                                      attention_mask=attention_mask,
                                      labels=labels,
                                      **kwargs)
                 return torch.argmax(outputs.logits[:, -1], dim=-1)
             return self.model(input_ids=inputs['input_ids'],
+                              attention_mask=attention_mask,
                               labels=labels,
                               **kwargs)
         raise ValueError('Invalid model type' + self.model_type)
@@ -139,7 +140,9 @@ class AlpacaAligner(object):
                 # )
                 inputs_decoded = self.tokenizer.batch_decode(
                     inputs['input_ids'], skip_special_tokens=True)
-                outputs = self.call_model(inputs, is_train=False)
+                outputs = self.call_model(inputs,
+                                          labels=inputs['labels'],
+                                          is_train=False)
 
                 actual_test_labels = inputs['labels'][:, -1]
                 # pred_test_labels = torch.argmax(outputs.logits[:, -1], dim=-1)
@@ -239,7 +242,18 @@ class AlpacaAligner(object):
                     actual_test_labels = inputs['labels'][:, -1]
                     pred_test_labels = torch.argmax(outputs.logits[:, -1],
                                                     dim=-1)
-                    correct_labels = (actual_test_labels == pred_test_labels)
+
+                    target_decoded = self.tokenizer.batch_decode(
+                        actual_test_labels, skip_special_tokens=True)
+                    pred_decoded = self.tokenizer.batch_decode(
+                        pred_test_labels, skip_special_tokens=True)
+                    print('target', target_decoded)
+                    print('pred', pred_decoded)
+                    correct_labels = torch.tensor([
+                        target.lower() == pred.lower()
+                        for target, pred in zip(target_decoded, pred_decoded)
+                    ])
+
                     step_accuracy = correct_labels.sum(
                     ) / correct_labels.shape[0]
                     step_accuracy = step_accuracy.tolist()
@@ -344,8 +358,18 @@ class AlpacaAligner(object):
                                                                           -1]
                                     pred_test_labels = torch.argmax(
                                         outputs.logits[:, -1], dim=-1)
-                                    correct_labels = (
-                                        actual_test_labels == pred_test_labels)
+
+                                    target_decoded = self.tokenizer.batch_decode(
+                                        actual_test_labels,
+                                        skip_special_tokens=True)
+                                    pred_decoded = self.tokenizer.batch_decode(
+                                        pred_test_labels,
+                                        skip_special_tokens=True)
+                                    correct_labels = torch.tensor([
+                                        target.lower() == pred.lower()
+                                        for target, pred in zip(
+                                            target_decoded, pred_decoded)
+                                    ])
 
                                     total_count += len(correct_labels)
                                     correct_count += correct_labels.sum(

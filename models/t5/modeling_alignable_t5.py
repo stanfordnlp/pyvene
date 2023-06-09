@@ -2299,6 +2299,7 @@ class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
                 warnings.warn(__HEAD_MASK_WARNING_MSG, FutureWarning)
                 decoder_head_mask = head_mask
 
+        rotated_hidden_states = None
         # Encode if needed (training, first prediction pass)
         if encoder_outputs is None:
             # Convert encoder inputs in embeddings if needed

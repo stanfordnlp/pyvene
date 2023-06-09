@@ -25,7 +25,7 @@ def llama_prompt_fn(country1, country2):
 ### Response:
 '''
     instruction = 'Are both countries from the same continent?'
-    inputs = f'{country1},{country2}'
+    inputs = f'{country1}, {country2}'
     return alpaca_prompt_template.format(instruction=instruction,
                                          inputs=inputs)
 
@@ -53,7 +53,7 @@ class ContinentMatchingTask(TaskBase):
 
     def _are_same_continent(self, country1, country2):
         return (self.country_to_continent[country1] ==
-                self.country_to_continent[countryt2])
+                self.country_to_continent[country2])
 
     def _get_country_continent_map(self):
         ret = {}
@@ -166,6 +166,7 @@ class ContinentMatchingTask(TaskBase):
 
     def continent1_source_sampler(self, base_country1, base_country2,
                                   ctf_label_str):
+        base_continent2 = self.country_to_continent[base_country2]
         if ctf_label_str == _YES_LABEL:
             # Then we want the source cont1 = base cont2
             source_country1 = random.choice(
