@@ -46,6 +46,7 @@ class AlpacaAligner(object):
                  early_stopping=5,
                  do_statistic=False,
                  model_name="",
+                 run_name="",
                  device="cuda"):
         self.model = model
         num_params = count_parameters(model)
@@ -53,6 +54,7 @@ class AlpacaAligner(object):
         self.is_master = is_master
         self.logger = logger
         self.is_wandb = args.is_wandb
+        self.run_name = run_name
         self.model_name = model_name
         self.tokenizer = tokenizer
         self.model_type = args.model_type
@@ -66,9 +68,9 @@ class AlpacaAligner(object):
         if args.is_wandb and is_master:
             import wandb
             run = wandb.init(
-                project=f"Boundless-DAS-{args.task_name}",
+                project=f"BDAS-{args.task_name}-{model_name}",
                 entity=args.wandb_username,
-                name=model_name,
+                name=run_name,
             )
             wandb.config.update(args)
 
@@ -100,7 +102,7 @@ class AlpacaAligner(object):
                               **kwargs)
         raise ValueError('Invalid model type' + self.model_type)
 
-    def save_model(self, output_dir, model_name):
+    def save_model(self, output_dir, run_name):
         if self.n_gpu > 1:
             torch.save(
                 {
@@ -110,7 +112,7 @@ class AlpacaAligner(object):
                     self.model.module.model.intervention_boundaries,
                     'temperature':
                     self.model.module.model.temperature
-                }, os.path.join(output_dir, model_name))
+                }, os.path.join(output_dir, run_name))
         else:
             torch.save(
                 {
@@ -118,7 +120,7 @@ class AlpacaAligner(object):
                     'intervention_boundaries':
                     self.model.get_boundary_parameters(),
                     'temperature': self.model.get_temperature()
-                }, os.path.join(output_dir, model_name))
+                }, os.path.join(output_dir, run_name))
 
     def prealign_eval(self, prealign_dataloader, output_dir):
         total_count = 0
@@ -367,7 +369,6 @@ class AlpacaAligner(object):
                                     outputs = self.call_model(
                                         inputs,
                                         labels=inputs['labels'],
-                                        is_train=False,
                                         source_hidden_states=
                                         source_hidden_states,
                                         intervention_ids=inputs[
@@ -376,13 +377,14 @@ class AlpacaAligner(object):
 
                                     actual_test_labels = inputs['labels'][:,
                                                                           -1]
-                                    # pred_test_labels = torch.argmax(
-                                    # outputs.logits[:, -1], dim=-1)
+                                    pred_test_labels = torch.argmax(
+                                        outputs.logits[:, -1], dim=-1)
                                     target_decoded = self.tokenizer.batch_decode(
                                         actual_test_labels,
                                         skip_special_tokens=True)
                                     pred_decoded = self.tokenizer.batch_decode(
-                                        outputs, skip_special_tokens=True)
+                                        pred_test_labels,
+                                        skip_special_tokens=True)
 
                                     correct_labels = torch.tensor([
                                         target.lower() == pred.lower()
@@ -482,15 +484,16 @@ class AlpacaAligner(object):
                         outputs = self.call_model(
                             inputs,
                             labels=inputs['labels'],
-                            is_train=False,
                             source_hidden_states=source_hidden_states,
                             intervention_ids=inputs['intervention_ids'])
 
                         actual_test_labels = inputs['labels'][:, -1]
                         target_decoded = self.tokenizer.batch_decode(
                             actual_test_labels, skip_special_tokens=True)
+                        pred_test_labels = torch.argmax(outputs.logits[:, -1],
+                                                        dim=-1)
                         pred_decoded = self.tokenizer.batch_decode(
-                            outputs, skip_special_tokens=True)
+                            pred_test_labels, skip_special_tokens=True)
 
                         # correct_labels = (actual_test_labels == pred_test_labels)
                         correct_labels = torch.tensor([

@@ -17,7 +17,7 @@ logging.set_verbosity_info()
 logger = logging.get_logger("transformers")
 
 
-def get_model(args, alignment_config):
+def get_model(args, das_config, alignment_config):
     if args.model_type == 'llama':
         return AlignableLlamaForCausalLM.from_pretrained(
             args.model_path,
@@ -27,7 +27,7 @@ def get_model(args, alignment_config):
         return AlignableT5ForConditionalGeneration.from_pretrained(
             args.model_path,
             alignment_config=alignment_config,
-            alignment_stack='decoder',
+            alignment_stack=das_config.alignment_stack,
             torch_dtype=torch.bfloat16 if args.bf16 else None)
     else:
         raise ValueError('Unsupported model_type: ' + model_type)
@@ -51,6 +51,12 @@ def get_das_and_alignment_config(args):
             das_config.das_token_range[1],
         ]
     }
+    if args.layer >= 0:
+        alignment_config['layer'] = args.layer
+    if args.token_start >= 0:
+        alignment_config['token_range'][0] = args.token_start
+    if args.token_end >= 0:
+        alignment_config['token_range'][1] = args.token_end
     return das_config, alignment_config
 
 
@@ -135,6 +141,18 @@ if __name__ == '__main__':
                          default='price_tagging_lb',
                          type=str,
                          help='')
+        cmd.add_argument('--layer',
+                         default=-1,
+                         type=int,
+                         help='Override the layer in das_config')
+        cmd.add_argument('--token_start',
+                         default=-1,
+                         type=int,
+                         help='Override the layer in das_config')
+        cmd.add_argument('--token_end',
+                         default=-1,
+                         type=int,
+                         help='Override the layer in das_config')
         cmd.add_argument(
             '--model_type',
             default='llama',
@@ -172,9 +190,9 @@ prealign_dataloader, train_dataloader, eval_dataloader, test_dataloader = task.p
 das_config, alignment_config = get_das_and_alignment_config(args)
 logger.info(f"alignment_config = {alignment_config}")
 
-model_last_path = os.path.basename(os.path.normpath(args.model_path))
+model_base_name = os.path.basename(os.path.normpath(args.model_path))
 
-run_name = f"model:{model_last_path}_task:{args.task_name}_"\
+run_name = f"model:{model_base_name}_task:{args.task_name}_"\
            f"seed:{args.seed}_intl:{alignment_config['layer']}_intr:{alignment_config['token_range'][0]},"\
            f"{alignment_config['token_range'][1]}"
 
@@ -193,7 +211,7 @@ das_config.save_pretrained(
     os.path.join(args.output_dir, run_name, "das_config"))
 if not os.path.isfile(file_path):
     logger.info(f"Loading Pretrained LLM with bf16 = {args.bf16}...")
-    model = get_model(args, alignment_config)
+    model = get_model(args, das_config, alignment_config)
 
     # set off the gradients among all other layers.
     for name, param in model.named_parameters():
@@ -227,7 +245,8 @@ if not os.path.isfile(file_path):
                             args=args,
                             is_master=is_master,
                             n_gpu=torch.cuda.device_count(),
-                            model_name=run_name,
+                            model_name=model_base_name,
+                            run_name=run_name,
                             device=device)
 
     # Prealign Eval is a must
