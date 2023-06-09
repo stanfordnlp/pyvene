@@ -265,9 +265,14 @@ class PriceTaggingTask(TaskBase):
             source_lower_bound_str = '%.2f' % source_lower_bound_sample
             source_upper_bound_str = '%.2f' % source_upper_bound_sample
 
-            # print(f'base: [{base_lower_bound_str}, {base_upper_bound_str}], {base_amount_str}')
-            # print(f'source: [{source_lower_bound_str}, {source_upper_bound_str}], {source_amount_str}')
-            # print(f'ctf label: {ctf_label_str}')
+            if random.random() < 0.01:
+                print(
+                    f'base: [{base_lower_bound_str}, {base_upper_bound_str}], {base_amount_str}'
+                )
+                print(
+                    f'source: [{source_lower_bound_str}, {source_upper_bound_str}], {source_amount_str}'
+                )
+                print(f'ctf label: {ctf_label_str}')
 
             base_instruction = f'Please say yes only if it costs between {base_lower_bound_str} and {base_upper_bound_str} dollars, otherwise no.'
             source_instruction = f'Please say yes only if it costs between {source_lower_bound_str} and {source_upper_bound_str} dollars, otherwise no.'

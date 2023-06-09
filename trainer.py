@@ -73,7 +73,7 @@ class AlpacaAligner(object):
             wandb.config.update(args)
 
     def call_model(self, inputs: dict, labels=None, is_train=True, **kwargs):
-        """Returns model output if is_train=True, or output sequences"""
+        """Returns model output if is_train=True, or output sequences. If is_train=False, outputs will be fed to tokenizer.batch_decode()"""
         if self.model_type == 't5':
             # For T5, we always pass in output_only_labels as labels.
             if is_train:
@@ -87,11 +87,16 @@ class AlpacaAligner(object):
                     attention_mask=inputs['attention_masks'],
                     **kwargs)
         elif self.model_type == 'llama':
-            if labels is not None:
-                return self.model(input_ids=inputs['input_ids'],
-                                  labels=labels,
-                                  **kwargs)
-            return self.model(input_ids=inputs['input_ids'], **kwargs)
+            if not is_train:
+                attention_mask = inputs.get('attention_masks', None)
+                outputs = self.model(inputs['input_ids'],
+                                     attention_mask=attention_mask,
+                                     labels=labels,
+                                     **kwargs)
+                return torch.argmax(outputs.logits[:, -1], dim=-1)
+            return self.model(input_ids=inputs['input_ids'],
+                              labels=labels,
+                              **kwargs)
         raise ValueError('Invalid model type' + self.model_type)
 
     def save_model(self, output_dir, model_name):
@@ -212,29 +217,53 @@ class AlpacaAligner(object):
                 for k, v in inputs.items():
                     if v is not None and isinstance(v, torch.Tensor):
                         inputs[k] = v.to(self.device)
+                if self.model_type == 'llama':
+                    # aligning forward!
+                    source_hidden_states = self.model(
+                        input_ids=inputs['source_input_ids'],
+                        output_rotated_hidden_states_only=True
+                    ).rotated_hidden_states
 
-                # aligning forward!
-                # source_model_outputs = self.model(
-                # input_ids=inputs['source_input_ids'],
-                # output_rotated_hidden_states_only=True)
-                source_model_outputs = self.call_model(
-                    inputs, output_rotated_hidden_states_only=True)
-                source_hidden_states = source_model_outputs.rotated_hidden_states
+                    outputs = self.model(
+                        input_ids=inputs['input_ids'],
+                        source_hidden_states=source_hidden_states,
+                        intervention_ids=inputs['intervention_ids'],
+                        labels=inputs['labels'])
 
-                # outputs = self.model(
-                # input_ids=inputs['input_ids'],
-                # source_hidden_states=source_hidden_states,
-                # intervention_ids=inputs['intervention_ids'],
-                # labels=inputs['labels'])
-                outputs = self.call_model(
-                    inputs,
-                    source_hidden_states=source_hidden_states,
-                    intervention_ids=inputs['intervention_ids'],
-                    labels=inputs['labels'])
+                    loss = outputs.loss.mean(
+                    ) if self.n_gpu > 1 else outputs.loss
 
-                loss = outputs.loss.mean() if self.n_gpu > 1 else outputs.loss
+                    actual_test_labels = inputs['labels'][:, -1]
+                    pred_test_labels = torch.argmax(outputs.logits[:, -1],
+                                                    dim=-1)
+                    correct_labels = (actual_test_labels == pred_test_labels)
+                    step_accuracy = correct_labels.sum(
+                    ) / correct_labels.shape[0]
+                    step_accuracy = step_accuracy.tolist()
 
-                with torch.no_grad():
+                else:
+                    # aligning forward!
+                    # source_model_outputs = self.model(
+                    # input_ids=inputs['source_input_ids'],
+                    # output_rotated_hidden_states_only=True)
+                    source_model_outputs = self.call_model(
+                        inputs, output_rotated_hidden_states_only=True)
+                    source_hidden_states = source_model_outputs.rotated_hidden_states
+
+                    # outputs = self.model(
+                    # input_ids=inputs['input_ids'],
+                    # source_hidden_states=source_hidden_states,
+                    # intervention_ids=inputs['intervention_ids'],
+                    # labels=inputs['labels'])
+                    outputs = self.call_model(
+                        inputs,
+                        source_hidden_states=source_hidden_states,
+                        intervention_ids=inputs['intervention_ids'],
+                        labels=inputs['labels'])
+
+                    loss = outputs.loss.mean(
+                    ) if self.n_gpu > 1 else outputs.loss
+
                     actual_test_labels = inputs['labels'][:, -1]
                     pred_test_labels = torch.argmax(outputs.logits[:, -1],
                                                     dim=-1)
@@ -295,47 +324,75 @@ class AlpacaAligner(object):
                                         inputs[k] = v.to(self.device)
 
                                 # aligning forward!
-                                # source_hidden_states = self.model(
-                                # input_ids=inputs['source_input_ids'],
-                                # output_rotated_hidden_states_only=True,
-                                # ).rotated_hidden_states
-                                source_hidden_states = self.call_model(
-                                    inputs,
-                                    output_rotated_hidden_states_only=True,
-                                ).rotated_hidden_states
-                                # outputs = self.model(
-                                # input_ids=inputs['input_ids'],
-                                # source_hidden_states=source_hidden_states,
-                                # intervention_ids=inputs[
-                                # 'intervention_ids'],
-                                # labels=inputs['labels'])
-                                outputs = self.call_model(
-                                    inputs,
-                                    labels=inputs['labels'],
-                                    is_train=False,
-                                    source_hidden_states=source_hidden_states,
-                                    intervention_ids=inputs[
-                                        'intervention_ids'],
-                                )
+                                if self.model_type == 'llama':
+                                    # aligning forward!
+                                    source_hidden_states = self.model(
+                                        input_ids=inputs['source_input_ids'],
+                                        output_rotated_hidden_states_only=True
+                                    ).rotated_hidden_states
+                                    outputs = self.model(
+                                        input_ids=inputs['input_ids'],
+                                        source_hidden_states=
+                                        source_hidden_states,
+                                        intervention_ids=inputs[
+                                            'intervention_ids'],
+                                        labels=inputs['labels'])
+                                    actual_test_labels = inputs['labels'][:,
+                                                                          -1]
+                                    pred_test_labels = torch.argmax(
+                                        outputs.logits[:, -1], dim=-1)
+                                    correct_labels = (
+                                        actual_test_labels == pred_test_labels)
 
-                                actual_test_labels = inputs['labels'][:, -1]
-                                # pred_test_labels = torch.argmax(
-                                # outputs.logits[:, -1], dim=-1)
-                                target_decoded = self.tokenizer.batch_decode(
-                                    actual_test_labels,
-                                    skip_special_tokens=True)
-                                pred_decoded = self.tokenizer.batch_decode(
-                                    outputs, skip_special_tokens=True)
+                                    total_count += len(correct_labels)
+                                    correct_count += correct_labels.sum(
+                                    ).tolist()
+                                else:
 
-                                correct_labels = torch.tensor([
-                                    target.lower() == pred.lower()
-                                    for target, pred in zip(
-                                        target_decoded, pred_decoded)
-                                ])
+                                    # source_hidden_states = self.model(
+                                    # input_ids=inputs['source_input_ids'],
+                                    # output_rotated_hidden_states_only=True,
+                                    # ).rotated_hidden_states
+                                    source_hidden_states = self.call_model(
+                                        inputs,
+                                        output_rotated_hidden_states_only=True,
+                                    ).rotated_hidden_states
+                                    # outputs = self.model(
+                                    # input_ids=inputs['input_ids'],
+                                    # source_hidden_states=source_hidden_states,
+                                    # intervention_ids=inputs[
+                                    # 'intervention_ids'],
+                                    # labels=inputs['labels'])
+                                    outputs = self.call_model(
+                                        inputs,
+                                        labels=inputs['labels'],
+                                        is_train=False,
+                                        source_hidden_states=
+                                        source_hidden_states,
+                                        intervention_ids=inputs[
+                                            'intervention_ids'],
+                                    )
 
-                                total_count += len(correct_labels)
-                                correct_count += correct_labels.sum().tolist()
+                                    actual_test_labels = inputs['labels'][:,
+                                                                          -1]
+                                    # pred_test_labels = torch.argmax(
+                                    # outputs.logits[:, -1], dim=-1)
+                                    target_decoded = self.tokenizer.batch_decode(
+                                        actual_test_labels,
+                                        skip_special_tokens=True)
+                                    pred_decoded = self.tokenizer.batch_decode(
+                                        outputs, skip_special_tokens=True)
 
+                                    correct_labels = torch.tensor([
+                                        target.lower() == pred.lower()
+                                        for target, pred in zip(
+                                            target_decoded, pred_decoded)
+                                    ])
+
+                                    total_count += len(correct_labels)
+                                    correct_count += correct_labels.sum(
+                                    ).tolist()
+                        print(correct_count, total_count)
                         current_acc = round(correct_count / total_count, 2)
                         if self.is_wandb:
                             wandb.log({"eval/accuracy": current_acc},
@@ -366,8 +423,7 @@ class AlpacaAligner(object):
                 if total_step % gradient_accumulation_steps == 0:
                     if not (gradient_accumulation_steps > 1
                             and total_step == 0):
-                        loss.backward(inputs=self.model.
-                                      get_learnable_alignment_parameters())
+                        loss.backward()
                         wandb.log({
                             'train/rotate_layer_gradients':
                             wandb.Histogram([
@@ -397,42 +453,52 @@ class AlpacaAligner(object):
                         if v is not None and isinstance(v, torch.Tensor):
                             inputs[k] = v.to(self.device)
 
-                    # aligning forward!
-                    # source_hidden_states = self.model(
-                    # input_ids=inputs['source_input_ids'],
-                    # output_rotated_hidden_states_only=True,
-                    # ).rotated_hidden_states
-                    source_hidden_states = self.call_model(
-                        inputs,
-                        output_rotated_hidden_states_only=True,
-                    ).rotated_hidden_states
-                    # outputs = self.model(
-                    # input_ids=inputs['input_ids'],
-                    # source_hidden_states=source_hidden_states,
-                    # intervention_ids=inputs['intervention_ids'],
-                    # labels=inputs['labels'])
+                    if self.model_type == 'llama':
+                        # aligning forward!
+                        source_hidden_states = self.model(
+                            input_ids=inputs['source_input_ids'],
+                            output_rotated_hidden_states_only=True,
+                        ).rotated_hidden_states
+                        outputs = self.model(
+                            input_ids=inputs['input_ids'],
+                            source_hidden_states=source_hidden_states,
+                            intervention_ids=inputs['intervention_ids'],
+                            labels=inputs['labels'])
+                        actual_test_labels = inputs['labels'][:, -1]
+                        pred_test_labels = torch.argmax(outputs.logits[:, -1],
+                                                        dim=-1)
+                        correct_labels = (
+                            actual_test_labels == pred_test_labels)
 
-                    outputs = self.call_model(
-                        inputs,
-                        labels=inputs['labels'],
-                        is_train=False,
-                        source_hidden_states=source_hidden_states,
-                        intervention_ids=inputs['intervention_ids'])
+                        total_count += len(correct_labels)
+                        correct_count += correct_labels.sum().tolist()
+                    else:
+                        source_hidden_states = self.call_model(
+                            inputs,
+                            output_rotated_hidden_states_only=True,
+                        ).rotated_hidden_states
 
-                    actual_test_labels = inputs['labels'][:, -1]
-                    target_decoded = self.tokenizer.batch_decode(
-                        actual_test_labels, skip_special_tokens=True)
-                    pred_decoded = self.tokenizer.batch_decode(
-                        outputs, skip_special_tokens=True)
+                        outputs = self.call_model(
+                            inputs,
+                            labels=inputs['labels'],
+                            is_train=False,
+                            source_hidden_states=source_hidden_states,
+                            intervention_ids=inputs['intervention_ids'])
 
-                    # correct_labels = (actual_test_labels == pred_test_labels)
-                    correct_labels = torch.tensor([
-                        target.lower() == pred.lower()
-                        for target, pred in zip(target_decoded, pred_decoded)
-                    ])
+                        actual_test_labels = inputs['labels'][:, -1]
+                        target_decoded = self.tokenizer.batch_decode(
+                            actual_test_labels, skip_special_tokens=True)
+                        pred_decoded = self.tokenizer.batch_decode(
+                            outputs, skip_special_tokens=True)
 
-                    total_count += len(correct_labels)
-                    correct_count += correct_labels.sum().tolist()
+                        # correct_labels = (actual_test_labels == pred_test_labels)
+                        correct_labels = torch.tensor([
+                            target.lower() == pred.lower() for target, pred in
+                            zip(target_decoded, pred_decoded)
+                        ])
+
+                        total_count += len(correct_labels)
+                        correct_count += correct_labels.sum().tolist()
 
             current_acc = round(correct_count / total_count, 2)
             if self.is_wandb:
