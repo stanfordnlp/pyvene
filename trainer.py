@@ -247,8 +247,6 @@ class AlpacaAligner(object):
                         actual_test_labels, skip_special_tokens=True)
                     pred_decoded = self.tokenizer.batch_decode(
                         pred_test_labels, skip_special_tokens=True)
-                    print('target', target_decoded)
-                    print('pred', pred_decoded)
                     correct_labels = torch.tensor([
                         target.lower() == pred.lower()
                         for target, pred in zip(target_decoded, pred_decoded)
