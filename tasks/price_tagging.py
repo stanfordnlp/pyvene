@@ -247,6 +247,36 @@ class PriceTaggingTask(TaskBase):
             source_lower_bound_sample, source_upper_bound_sample, \
             base_amount_sample, source_amount_sample, ctf_label, ctf_label_str
 
+    def output_rep_bound_functor(self,
+                                 tokenizer,
+                                 amount=None,
+                                 lower_bound=None,
+                                 bound_width=None):
+        # Get the base examples
+        base_lower = round(random.uniform(0.05, 9.95), 2)
+        base_upper = round(random.uniform(0.05, 9.95), 2)
+        base_amount = round(random.uniform(0.05, 9.95), 2)
+        ctf_label_str = random.choice(['Yes', 'No'])
+        source_samples = [
+            round(random.uniform(0.05, 9.95), 2) for _ in range(3)
+        ]
+        source_samples.sort()
+        if ctf_label_str == 'Yes':
+            source_lower = source_samples[0]
+            source_amount = source_samples[1]
+            source_upper = source_samples[2]
+        else:
+            if random.random() < 0.5:
+                source_amount = source_samples[0]
+                source_lower = source_samples[1]
+                source_upper = source_samples[2]
+            else:
+                source_lower = source_samples[0]
+                source_upper = source_samples[1]
+                source_amount = source_samples[2]
+        ctf_label = tokenizer.convert_tokens_to_ids(ctf_label_str)
+        return base_lower, base_upper, source_lower, source_upper, base_amount, source_amount, ctf_label, ctf_label_str
+
     def bound_alignment_sampler(
         self,
         tokenizer,
@@ -501,6 +531,12 @@ class PriceTaggingTask(TaskBase):
                 amount=None,
                 lower_bound=5.49,
                 bound_width=3.00,
+            )
+        elif 'output_rep' in task_name:
+            raw_data = self.bound_alignment_sampler(
+                tokenizer,
+                n_train + n_eval + 1000,
+                [self.output_rep_bound_functor],
             )
 
         raw_train = (raw_data[0][:n_train], raw_data[1][:n_train],
