@@ -2,7 +2,6 @@ results*/
 logs/
 weights/
 *.tsv
-*.csv
 *.out
 *results/
 *.sh
