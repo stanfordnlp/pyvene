@@ -76,7 +76,7 @@ def get_task(args):
                 continent_matching.t5_prompt_fn, pad_to=40)
         elif args.model_type == 'llama':
             return continent_matching.ContinentMatchingTask(
-                continent_matching.llama_prompt_fn, pad_to=70)
+                continent_matching.llama_prompt_fn, pad_to=80)
         raise ValueError('Unsupported model type:', args.model_type)
 
     else:

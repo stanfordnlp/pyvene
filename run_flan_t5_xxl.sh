@@ -1,6 +1,6 @@
-for LAYER in 0 5 10 15 20
+for LAYER in 20 15 10 5 0
 do
-  for TOKEN_START in 24 25 26 27
+  for TASK_NAME in price_tagging_ub price_tagging_mid_diff
   do
     time python run_alignment.py \
     --model_path ./weights/flan-t5-xxl \
@@ -14,14 +14,14 @@ do
     --do_align \
     --do_eval \
     --do_test \
-    --n_training_examples 5000 \
+    --n_training_examples 9000 \
     --n_eval_examples 1000 \
     --is_wandb --wandb_username dduan97 --bf16 \
-    --task_name price_tagging_lb \
+    --task_name $TASK_NAME \
     --model_type t5 \
     --valid_steps 250 \
     --layer $LAYER \
-    --token_start $TOKEN_START \
-    --token_end $((TOKEN_START+1))
+    --token_start 0 \
+    --token_end 1
   done
 done

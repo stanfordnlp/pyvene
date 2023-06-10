@@ -181,17 +181,16 @@ if not tokenizer.pad_token:
     tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 
 for i in range(20):
-    # task = price_tagging.PriceTaggingTask(
-    # prompt_fn=price_tagging.t5_prompt_fn)
-    amt = round(random.uniform(0, 10), 2)
-    lower = round(random.uniform(0, 10), 2)
-    upper = round(random.uniform(0, 10), 2)
-    prompt = price_tagging.t5_prompt_fn(amt, lower, upper)
-    # task = continent_matching.ContinentMatchingTask(
-    # prompt_fn=continent_matching.llama_prompt_fn, pad_to=100)
-    # country1 = random.choice(task.countries)
-    # country2 = random.choice(task.countries)
-    # prompt = continent_matching.llama_prompt_fn(country1, country2)
+    # amt = round(random.uniform(0, 10), 2)
+    # lower = round(random.uniform(0, 10), 2)
+    # upper = round(random.uniform(0, 10), 2)
+    # prompt = price_tagging.t5_prompt_fn(amt, lower, upper)
+
+    task = continent_matching.ContinentMatchingTask(
+        prompt_fn=continent_matching.llama_prompt_fn, pad_to=40)
+    country1 = random.choice(task.countries)
+    country2 = random.choice(task.countries)
+    prompt = continent_matching.t5_prompt_fn(country1, country2)
     print('prompt', prompt)
     tokens = tokenizer(prompt, return_tensors='pt').input_ids[0].tolist()
     print('length', len(tokens))

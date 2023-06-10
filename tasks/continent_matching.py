@@ -44,6 +44,7 @@ class ContinentMatchingTask(TaskBase):
         self.countries = [c for c in self.country_to_continent]
         self.continents = [c for c in self.continent_to_country]
         self.prompt_fn = prompt_fn
+        print('padding to %d  tokens', pad_to)
         self.pad_to = pad_to
 
     def _sample_not_in_continent(self, continent):
@@ -58,7 +59,7 @@ class ContinentMatchingTask(TaskBase):
     def _get_country_continent_map(self):
         ret = {}
         base_data = os.path.join(
-            Path(__file__).parent, 'countries_continents_simple.csv')
+            Path(__file__).parent, 'countries_continents.csv')
         with open(base_data) as f:
             for line in f:
                 line = line.strip()
@@ -181,6 +182,23 @@ class ContinentMatchingTask(TaskBase):
         source_label = _YES_LABEL if source_label else _NO_LABEL
         return source_country1, source_country2, source_label
 
+    def continent2_source_sampler(self, base_country1, base_country2,
+                                  ctf_label_str):
+        base_continent1 = self.country_to_continent[base_country1]
+        if ctf_label_str == _YES_LABEL:
+            # Then we want the source cont2 = base cont1
+            source_country2 = random.choice(
+                self.continent_to_country[base_continent1])
+            source_country1 = random.choice(self.countries)
+        else:
+            # Then we want source cont2 != base cont1
+            source_country2 = self._sample_not_in_continent(base_continent1)
+            source_country1 = random.choice(self.countries)
+        source_label = self._are_same_continent(source_country1,
+                                                source_country2)
+        source_label = _YES_LABEL if source_label else _NO_LABEL
+        return source_country1, source_country2, source_label
+
     def alignment_example_sampler(self, n_examples, source_sampler):
         """
         Args:
@@ -250,9 +268,12 @@ class ContinentMatchingTask(TaskBase):
         prealign_dataloader = DataLoader(prealign_dataset,
                                          batch_size=eval_batch_size)
 
-        if 'continent_map' in task_name:
+        if 'continent1_rep' in task_name:
             examples = self.alignment_example_sampler(
                 n_train + n_eval + n_eval, self.continent1_source_sampler)
+        elif 'continent2_rep' in task_name:
+            examples = self.alignment_example_sampler(
+                n_train + n_eval + n_eval, self.continent2_source_sampler)
         elif 'output_rep' in task_name:
             examples = self.alignment_example_sampler(
                 n_train + n_eval + n_eval, self.output_rep_source_sampler)
