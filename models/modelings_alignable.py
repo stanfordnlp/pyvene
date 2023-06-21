@@ -8,7 +8,7 @@ class AutoAlignableModel:
         """
         Currently, we should always assume we are aligning a pretrained model.
         """
-        if AutoConfig.from_pretrained(model_path).architectures[0] in ["AlignableLlamaForCausalLM", "LLaMAForCausalLM"]:
+        if AutoConfig.from_pretrained(model_path).architectures[0] in ["AlignableLlamaForCausalLM", "LLaMAForCausalLM", "LlamaForCausalLM"]:
             model_class = AlignableLlamaForCausalLM
         elif AutoConfig.from_pretrained(model_path).architectures[0] == "GPT2LMHeadModel":
             model_class = AlignableGPT2LMHeadModel
