@@ -32,7 +32,7 @@ Since the release of the paper, we got requests about making a onboarding tutori
 :white_check_mark: 05/17/2023 - Support LLaMA model with a simple reasoning task.  
 :white_check_mark: 05/31/2023 - Infra updates to decouple trainer, metrics, model loading, dataset loader; Support GPT2 alignment. Initialize the example folder for 
 analyzing finetuned models.   
-:white_check_mark: 06/27/2023 - **New big release** a full tutorial notebook `tutorial.ipynb` with [a runbook](https://docs.google.com/document/d/1KDHfow4AWfHo9XxmkhCNSME9xdOdvQogGw4gbcwTKPU/edit?usp=sharing) on boundless DAS: reproduce, analysis, federated model steering, alignment sharing and more!
+:white_check_mark: 06/27/2023 - **New big release** a full tutorial notebook `tutorial.ipynb` with [a runbook](https://docs.google.com/document/d/1KDHfow4AWfHo9XxmkhCNSME9xdOdvQogGw4gbcwTKPU/edit?usp=sharing) on boundless DAS: reproduce, analysis, federated model steering, alignment sharing and more!   
 ⬜️ Support LLaMA model (>30B) training with model sharding.  
 ⬜️ Support other models.
 
