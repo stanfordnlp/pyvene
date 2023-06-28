@@ -20,16 +20,19 @@
 ## <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **align-transformers**
 Obtaining robust, human-interpretable explanations of large, general-purpose language models is an urgent goal for AI. Building on the theory of causal abstraction, we release this generic  library encapsulating Boundless DAS introduced in our paper for finding representations that play a given causal role in LLMs with billions of parameters.
 
-## End-to-end Alignment Workflow for Any LLMs.
-- **Step 1** : Identify a reasoning task that can be solved by a symbolic causal model.
-- **Step 2** : Pick an off-the-shelf LLM.
-- **Step 3** : Make sure LLM passes the behavioral test (i.e., good task performance)
-- **Step 4** : Iteratively align the LLM with the causal model using Boundless DAS.
+## A Step-by-step Runbook (from scratch using AWS cloud)
+We now have a detailed runbook for setting the environment for training boundless DAS from scratch using an EC2 instance from AWS cloud. You can find [the runbook](https://docs.google.com/document/d/1KDHfow4AWfHo9XxmkhCNSME9xdOdvQogGw4gbcwTKPU/edit?usp=sharing) here. You are very welcomed to contribute by making comments on the tutorial document. We will update accordingly and put your name on it.
+
+## Our `tutorial.ipynb` Is All Your Need
+Since the release of the paper, we got requests about making a onboarding tutorial of boundless DAS. Now, it is in `tutorial.ipynb`. It contains steps needed to reproduce results in our paper. **Additionally, it contains many extra fun stuff that are not discussed in the paper: federated model steering and community building!** We really hope this project can contribute to a very interesting and new topic **federated model steering** where we steer model's behavior through causal lens at inference time in a federated way using representation-based intervention.
+
 
 ## Release Notes
 :white_check_mark: 05/17/2023 - Preprint with the initial version of align-transformers is released! Read this for a more formal definition of the method.   
 :white_check_mark: 05/17/2023 - Support LLaMA model with a simple reasoning task.  
-:white_check_mark: 05/31/2023 - Infra updates to decouple trainer, metrics, model loading, dataset loader; Support GPT2 alignment. Initialize the example folder for analyzing finetuned models.  
+:white_check_mark: 05/31/2023 - Infra updates to decouple trainer, metrics, model loading, dataset loader; Support GPT2 alignment. Initialize the example folder for 
+analyzing finetuned models.   
+:white_check_mark: 06/27/2023 - **New big release** a full tutorial notebook `tutorial.ipynb` with [a runbook](https://docs.google.com/document/d/1KDHfow4AWfHo9XxmkhCNSME9xdOdvQogGw4gbcwTKPU/edit?usp=sharing) on boundless DAS: reproduce, analysis, federated model steering, alignment sharing and more!
 ⬜️ Support LLaMA model (>30B) training with model sharding.  
 ⬜️ Support other models.
 
@@ -62,6 +65,8 @@ Obtaining robust, human-interpretable explanations of large, general-purpose lan
 ├── examples
 │   └── *.py
 │ 
+├── requirement.txt
+├── tutorial.ipynb
 ├── trainer.py
 └── run_alignment.py
  ```

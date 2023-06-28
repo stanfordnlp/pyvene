@@ -152,13 +152,22 @@ def compute_metrics(eval_preds, eval_labels):
     accuracy = round(correct_count/total_count, 2)
     return {"accuracy" : accuracy}
 
+if args.is_wandb:
+    import wandb
+    run = wandb.init(
+        project=f"Boundless-DAS-{args.task_name}", 
+        entity=args.wandb_username,
+        name=run_name,
+    )
+    wandb.config.update(args)
+
 ###################
 # trainer loading
 ###################
 aligner = Aligner(
     model,
     logger=logger,
-    args=args,
+    is_wandb=args.is_wandb,
     is_master=is_master,
     n_gpu=torch.cuda.device_count(),
     model_name=run_name,

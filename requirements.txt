@@ -1,0 +1,10 @@
+torch
+transformers
+datasets
+notebook
+sentencepiece
+protobuf==3.20.0
+matplotlib
+wandb
+seaborn
+ipywidgets

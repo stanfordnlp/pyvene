@@ -6,7 +6,6 @@ import pandas as pd
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from datasets import Dataset 
 from torch.utils.data import DataLoader
-import wandb
 from dataclasses import dataclass, field
 
 def count_parameters(model):
@@ -31,7 +30,7 @@ class Aligner(object):
         self, model,
         is_master,
         logger,
-        args,
+        is_wandb,
         compute_metrics,
         lr=5e-5,
         apex_enable=False,
@@ -47,7 +46,7 @@ class Aligner(object):
         logger.info(f'Number of aligning model params: {num_params}') 
         self.is_master = is_master
         self.logger = logger
-        self.is_wandb = args.is_wandb
+        self.is_wandb = is_wandb
         self.model_name = model_name
         self.compute_metrics_fn = compute_metrics
         
@@ -56,15 +55,6 @@ class Aligner(object):
         self.device = device
         
         self.early_stopping = early_stopping
-        
-        if args.is_wandb and is_master:
-            import wandb
-            run = wandb.init(
-                project=f"Boundless-DAS-{args.task_name}", 
-                entity=args.wandb_username,
-                name=model_name,
-            )
-            wandb.config.update(args)
     
     def save_model(self, output_dir, model_name):
         if self.n_gpu > 1:
