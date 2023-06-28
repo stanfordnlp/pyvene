@@ -4,6 +4,10 @@
   <p align="center">
     Zhengxuan Wu*, Atticus Geiger*, Christopher Potts, Noah Goodman
     <br />
+    <a href="https://github.com/frankaging/align-transformers/blob/main/tutorial.ipynb"><strong>Tutorial »</strong></a>
+    <br />
+    <a href="https://docs.google.com/document/d/1KDHfow4AWfHo9XxmkhCNSME9xdOdvQogGw4gbcwTKPU/edit?usp=sharing"><strong>Runbook »</strong></a>
+    <br />
     <a href="https://arxiv.org/abs/2305.08809"><strong>Read our preprint »</strong></a>
     <br />
     <br />
