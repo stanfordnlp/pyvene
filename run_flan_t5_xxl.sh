@@ -1,6 +1,6 @@
-for LAYER in 20 15 10 5 0
+for LAYER in 23 22 21 20 15 10 5 0
 do
-  for TASK_NAME in price_tagging_ub price_tagging_mid_diff
+  for TASK_NAME in price_tagging_lb price_tagging_lub price_tagging_bracket
   do
     time python run_alignment.py \
     --model_path ./weights/flan-t5-xxl \

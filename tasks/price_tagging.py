@@ -503,7 +503,7 @@ class PriceTaggingTask(TaskBase):
             raw_data = self.bound_alignment_sampler(
                 tokenizer, n_train + n_eval + 1000,
                 [self.lower_bound_alignment_example_sampler])
-        elif task_name == 'price_tagging_ub':
+        elif 'price_tagging_ub' in task_name:
             raw_data = self.bound_alignment_sampler(
                 tokenizer, n_train + n_eval + 1000,
                 [self.upper_bound_alignment_example_sampler])
@@ -513,7 +513,7 @@ class PriceTaggingTask(TaskBase):
                     self.lower_bound_alignment_example_sampler,
                     self.upper_bound_alignment_example_sampler
                 ])
-        elif task_name == 'price_tagging_mid_diff':
+        elif 'price_tagging_mid_diff' in task_name:
             raw_data = self.midpoint_alignment_sampler(
                 tokenizer,
                 n_train + n_eval + 1000,
