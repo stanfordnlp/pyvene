@@ -7,7 +7,6 @@ import pandas as pd
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from datasets import Dataset
 from torch.utils.data import DataLoader
-import wandb
 from dataclasses import dataclass, field
 
 
@@ -31,7 +30,7 @@ is allowed.
 CACHE_DIR = "../.cache/"
 
 
-class AlpacaAligner(object):
+class Aligner(object):
 
     def __init__(self,
                  model,
@@ -58,7 +57,6 @@ class AlpacaAligner(object):
         self.model_name = model_name
         self.tokenizer = tokenizer
         self.model_type = args.model_type
-
         self.lr = lr
         self.n_gpu = n_gpu
         self.device = device
@@ -103,7 +101,7 @@ class AlpacaAligner(object):
                               **kwargs)
         raise ValueError('Invalid model type' + self.model_type)
 
-    def save_model(self, output_dir, run_name):
+    def save_model(self, output_dir, model_name):
         if self.n_gpu > 1:
             torch.save(
                 {
@@ -124,15 +122,14 @@ class AlpacaAligner(object):
                 }, os.path.join(output_dir, run_name))
 
     def prealign_eval(self, prealign_dataloader, output_dir):
-        total_count = 0
-        correct_count = 0
+        eval_labels = []
+        eval_preds = []
         self.model.eval()
         with torch.no_grad():
             for step, inputs in enumerate(prealign_dataloader):
                 for k, v in inputs.items():
                     if v is not None and isinstance(v, torch.Tensor):
                         inputs[k] = v.to(self.device)
-
                 # aligning forward!
                 # outputs = self.model(
                 # input_ids=inputs['input_ids'],
@@ -328,8 +325,8 @@ class AlpacaAligner(object):
                         log_train.close()
 
                     if total_step != 0 and total_step % valid_steps == 0:
-                        total_count = 0
-                        correct_count = 0
+                        eval_labels = []
+                        eval_preds = []
                         self.model.eval()
                         with torch.no_grad():
                             for step, inputs in enumerate(dev_dataloader):
@@ -469,9 +466,9 @@ class AlpacaAligner(object):
         ###############################
         # End of training evaluation.
         if self.is_master:
-            total_count = 0
-            correct_count = 0
             self.model.eval()
+            eval_labels = []
+            eval_preds = []
             with torch.no_grad():
                 for step, inputs in enumerate(test_dataloader):
                     for k, v in inputs.items():

@@ -2,14 +2,14 @@
 # coding: utf-8
 from accelerate import init_empty_weights
 import os, random, argparse, sys, torch
-from models.llama.modelings_alignable_llama import AlignableLlamaForCausalLM
-from models.t5.modeling_alignable_t5 import AlignableT5ForConditionalGeneration
 from models.configuration_alignable_model import AlignableLlamaConfig, AlignableT5Config
-from trainer import AlpacaAligner, CACHE_DIR
+from tasks import price_tagging, continent_matching
+from models.configuration_alignable_model import AlignableLlamaConfig
+from trainer import Aligner, CACHE_DIR
 from transformers import (set_seed, AutoTokenizer, AutoConfig,
                           get_linear_schedule_with_warmup)
 from torch.utils.data import DataLoader, SequentialSampler
-from tasks import price_tagging, continent_matching
+from models.modelings_alignable import AutoAlignableModel
 
 from transformers.utils import logging
 
@@ -189,6 +189,7 @@ prealign_dataloader, train_dataloader, eval_dataloader, test_dataloader = task.p
 ###################
 das_config, alignment_config = get_das_and_alignment_config(args)
 logger.info(f"alignment_config = {alignment_config}")
+model_type = AutoConfig.from_pretrained(args.model_path).architectures[0]
 
 model_base_name = os.path.basename(os.path.normpath(args.model_path))
 
@@ -207,66 +208,94 @@ if not os.path.exists(output_dir) and is_master:
 # now we check whether we can skip ...
 # if there is last, we need to skip!
 file_path = os.path.join(args.output_dir, run_name, "pytorch-rotate-last.bin")
-das_config.save_pretrained(
-    os.path.join(args.output_dir, run_name, "das_config"))
-if not os.path.isfile(file_path):
-    logger.info(f"Loading Pretrained LLM with bf16 = {args.bf16}...")
-    model = get_model(args, das_config, alignment_config)
-
-    # set off the gradients among all other layers.
-    for name, param in model.named_parameters():
-        if "rotate_layer" not in name and "intervention_boundaries" not in name:
-            param.requires_grad = False
-        else:
-            logger.info(f"Requiring gradients on layer: {name}")
-
-    t_total = int(len(train_dataloader) * args.epochs)
-    warm_up_steps = args.warm_up * t_total
-    optimizer = torch.optim.Adam([{
-        'params': model.get_rotation_parameters()
-    }, {
-        'params': model.get_boundary_parameters(),
-        'lr': 1e-2
-    }],
-                                 lr=args.lr)
-    scheduler = get_linear_schedule_with_warmup(optimizer,
-                                                num_warmup_steps=warm_up_steps,
-                                                num_training_steps=t_total)
-
-    device = "cuda"
-    model.to(device)
-
-    ###################
-    # trainer loading
-    ###################
-    aligner = AlpacaAligner(model,
-                            tokenizer,
-                            logger=logger,
-                            args=args,
-                            is_master=is_master,
-                            n_gpu=torch.cuda.device_count(),
-                            model_name=model_base_name,
-                            run_name=run_name,
-                            device=device)
-
-    # Prealign Eval is a must
-    aligner.prealign_eval(prealign_dataloader, output_dir)
-
-    # Train
-    if args.do_align:
-        aligner.train(
-            train_dataloader,
-            eval_dataloader,
-            test_dataloader,
-            optimizer,
-            scheduler,
-            log_step=args.log_step,
-            valid_steps=args.valid_steps,
-            output_dir=output_dir,
-            epochs=args.epochs,
-            gradient_accumulation_steps=args.gradient_accumulation_steps,
-        )
-else:
+if os.path.isfile(file_path):
     logger.info(
         "Skipping! Found previously finished training run for this experiment."
+    )
+    quit()
+
+das_config.save_pretrained(
+    os.path.join(args.output_dir, run_name, "das_config"))
+logger.info(f"Loading Pretrained LLM with bf16 = {args.bf16}...")
+model = AutoAlignableModel.from_pretrained(
+    args.model_path,
+    alignment_config=alignment_config,
+    torch_dtype=torch.bfloat16 if args.bf16 else None,
+    cache_dir=CACHE_DIR)
+
+# set off the gradients among all other layers.
+for name, param in model.named_parameters():
+    if "rotate_layer" not in name and "intervention_boundaries" not in name:
+        param.requires_grad = False
+    else:
+        logger.info(f"Requiring gradients on layer: {name}")
+
+t_total = int(len(train_dataloader) * args.epochs)
+warm_up_steps = args.warm_up * t_total
+optimizer = torch.optim.Adam([{
+    'params': model.model.rotate_layer.parameters()
+}, {
+    'params': model.model.intervention_boundaries,
+    'lr': 1e-2
+}],
+                             lr=args.lr)
+scheduler = get_linear_schedule_with_warmup(optimizer,
+                                            num_warmup_steps=warm_up_steps,
+                                            num_training_steps=t_total)
+
+device = "cuda"
+model.to(device)
+
+
+# You can define your custom compute_metrics function.
+def compute_metrics(eval_preds, eval_labels):
+    total_count = 0
+    correct_count = 0
+    for eval_pred, eval_label in zip(eval_preds, eval_labels):
+        actual_test_labels = eval_label[:, -1]
+        pred_test_labels = torch.argmax(eval_pred[:, -1], dim=-1)
+        correct_labels = (actual_test_labels == pred_test_labels)
+        total_count += len(correct_labels)
+        correct_count += correct_labels.sum().tolist()
+    accuracy = round(correct_count / total_count, 2)
+    return {"accuracy": accuracy}
+
+
+if args.is_wandb:
+    import wandb
+    run = wandb.init(
+        project=f"Boundless-DAS-{args.task_name}",
+        entity=args.wandb_username,
+        name=run_name,
+    )
+    wandb.config.update(args)
+
+###################
+# trainer loading
+###################
+aligner = Aligner(model,
+                  logger=logger,
+                  is_wandb=args.is_wandb,
+                  is_master=is_master,
+                  n_gpu=torch.cuda.device_count(),
+                  model_name=run_name,
+                  device=device,
+                  compute_metrics=compute_metrics)
+
+# Prealign Eval is a must
+aligner.prealign_eval(prealign_dataloader, output_dir)
+
+# Train
+if args.do_align:
+    aligner.train(
+        train_dataloader,
+        eval_dataloader,
+        test_dataloader,
+        optimizer,
+        scheduler,
+        log_step=args.log_step,
+        valid_steps=args.valid_steps,
+        output_dir=output_dir,
+        epochs=args.epochs,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
     )

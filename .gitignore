@@ -1,6 +1,8 @@
+playground.ipynb
 results*/
 logs/
 weights/
+notebooks/figures/
 *.tsv
 *.out
 *results/
