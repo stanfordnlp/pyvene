@@ -273,14 +273,16 @@ if args.is_wandb:
 ###################
 # trainer loading
 ###################
-aligner = Aligner(model,
-                  logger=logger,
-                  is_wandb=args.is_wandb,
-                  is_master=is_master,
-                  n_gpu=torch.cuda.device_count(),
-                  model_name=run_name,
-                  device=device,
-                  compute_metrics=compute_metrics)
+aligner = Aligner(
+    model,
+    logger=logger,
+    is_wandb=args.is_wandb,
+    is_master=is_master,
+    n_gpu=1, # this is a hacky way. will need to larger PR to make this multi-gpu friendly.
+    model_name=run_name,
+    device=device,
+    compute_metrics=compute_metrics
+)
 
 # Prealign Eval is a must
 aligner.prealign_eval(prealign_dataloader, output_dir)
