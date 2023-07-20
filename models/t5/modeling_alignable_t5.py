@@ -2188,18 +2188,16 @@ class T5EncoderModel(T5PreTrainedModel):
 class AlignableT5ForConditionalGeneration(T5ForConditionalGeneration,
                                           AlignableBase):
 
-    def __init__(self,
-                 config,
-                 alignment_config=None,
-                 alignment_stack='encoder'):
+    def __init__(self, config, alignment_config=None):
         super().__init__(config)
 
         # this alignment config is like the whole population of neurons
         # you will be aligning with.
+        self.alignment_config = alignment_config
+        alignment_stack = alignment_config['das_config'].alignment_stack
         assert alignment_stack in (
             'encoder',
             'decoder'), 'alignment_stack must be one of encoder or decoder'
-        self.alignment_config = alignment_config
         self.alignment_stack = alignment_stack
         self.encoder_alignment_config = alignment_config if alignment_stack == 'encoder' else None
         self.decoder_alignment_config = alignment_config if alignment_stack == 'decoder' else None

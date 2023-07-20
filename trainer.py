@@ -1,3 +1,4 @@
+import wandb
 import os, random, argparse, sys, pickle, time
 import torch
 from tqdm import tqdm, trange
@@ -37,7 +38,7 @@ class Aligner(object):
                  tokenizer,
                  is_master,
                  logger,
-                 args,
+                 is_wandb,
                  lr=5e-5,
                  apex_enable=False,
                  n_gpu=1,
@@ -45,61 +46,78 @@ class Aligner(object):
                  early_stopping=5,
                  do_statistic=False,
                  model_name="",
+                 model_type="",
                  run_name="",
-                 device="cuda"):
+                 task_name="",
+                 device="cuda",
+                 token_metric_fns=[],
+                 decoded_metric_fns=[]):
         self.model = model
         num_params = count_parameters(model)
         logger.info(f'Number of Alpaca-7B model params: {num_params}')
         self.is_master = is_master
         self.logger = logger
-        self.is_wandb = args.is_wandb
+        self.is_wandb = is_wandb
         self.run_name = run_name
         self.model_name = model_name
         self.tokenizer = tokenizer
-        self.model_type = args.model_type
+        self.model_type = model_type
         self.lr = lr
         self.n_gpu = n_gpu
         self.device = device
+        self.token_metric_fns = token_metric_fns
+        self.decoded_metric_fns = decoded_metric_fns
 
         self.early_stopping = early_stopping
 
-        if args.is_wandb and is_master:
-            import wandb
-            run = wandb.init(
-                project=f"BDAS-{args.task_name}-{model_name}",
-                entity=args.wandb_username,
-                name=run_name,
-            )
-            wandb.config.update(args)
-
-    def call_model(self, inputs: dict, labels=None, is_train=True, **kwargs):
-        """Returns model output if is_train=True, or output sequences. If is_train=False, outputs will be fed to tokenizer.batch_decode()"""
+    def call_model(self,
+                   inputs: dict,
+                   run_intervention=False,
+                   compute_prediction=False,
+                   **kwargs):
+        """If compute_prediction=True, this will take argmax of logits. Otherwise, just return model output object."""
+        attention_mask = inputs.get('attention_masks', None)
         if self.model_type == 't5':
-            # For T5, we always pass in output_only_labels as labels.
-            if is_train:
-                return self.model(input_ids=inputs['input_ids'],
-                                  attention_mask=inputs.get(
-                                      'attention_masks', None),
-                                  labels=inputs['output_only_labels'],
-                                  **kwargs)
+            if run_intervention:
+                source_hidden_states = self.model(
+                    input_ids=inputs['input_ids'],
+                    output_rotated_hidden_states_only=True,
+                    attention_mask=inputs['attention_masks'],
+                    labels=inputs['output_only_labels']).rotated_hidden_states
+
+                model_outputs = self.model(
+                    input_ids=inputs['input_ids'],
+                    source_hidden_states=source_hidden_states,
+                    intervention_ids=inputs['intervention_ids'],
+                    labels=inputs['output_only_labels'])
             else:
-                return self.model.generate(inputs['input_ids'],
-                                           attention_mask=inputs.get(
-                                               'attention_masks', None),
-                                           **kwargs)
-        elif self.model_type == 'llama':
-            attention_mask = inputs.get('attention_masks', None)
-            if not is_train:
-                outputs = self.model(inputs['input_ids'],
-                                     attention_mask=attention_mask,
-                                     labels=labels,
-                                     **kwargs)
-                return torch.argmax(outputs.logits[:, -1], dim=-1)
-            return self.model(input_ids=inputs['input_ids'],
-                              attention_mask=attention_mask,
-                              labels=labels,
-                              **kwargs)
-        raise ValueError('Invalid model type' + self.model_type)
+                model_outputs = self.model(
+                    input_ids=inputs['input_ids'],
+                    attention_mask=inputs['attention_masks'],
+                    labels=inputs['output_only_labels'])
+
+        else:
+            if run_intervention:
+                source_hidden_states = self.model(
+                    input_ids=inputs['source_input_ids'],
+                    output_rotated_hidden_states_only=True
+                ).rotated_hidden_states
+
+                model_outputs = self.model(
+                    input_ids=inputs['input_ids'],
+                    source_hidden_states=source_hidden_states,
+                    intervention_ids=inputs['intervention_ids'],
+                    labels=inputs['labels'])
+            else:
+                model_outputs = self.model(input_ids=inputs['input_ids'],
+                                           labels=inputs['labels'])
+            model_outputs = self.model(input_ids=inputs['input_ids'],
+                                       labels=labels,
+                                       **kwargs)
+        if compute_prediction:
+            return torch.argmax(model_outputs.logits[:, -1], dim=-1)
+
+        return model_outputs
 
     def save_model(self, output_dir, model_name):
         if self.n_gpu > 1:
@@ -111,7 +129,7 @@ class Aligner(object):
                     self.model.module.model.intervention_boundaries,
                     'temperature':
                     self.model.module.model.temperature
-                }, os.path.join(output_dir, run_name))
+                }, os.path.join(output_dir, model_name))
         else:
             torch.save(
                 {
@@ -119,7 +137,19 @@ class Aligner(object):
                     'intervention_boundaries':
                     self.model.get_boundary_parameters(),
                     'temperature': self.model.get_temperature()
-                }, os.path.join(output_dir, run_name))
+                }, os.path.join(output_dir, model_name))
+
+    def compute_token_metrics(self, preds, labels):
+        metrics = {}
+        for fn in self.token_metric_fns:
+            metrics.update(fn(preds, labels))
+        return metrics
+
+    def compute_decoded_metrics(self, preds, labels):
+        metrics = {}
+        for fn in self.decoded_metric_fns:
+            metrics.update(fn(preds, labels))
+        return metrics
 
     def prealign_eval(self, prealign_dataloader, output_dir):
         eval_labels = []
@@ -130,35 +160,27 @@ class Aligner(object):
                 for k, v in inputs.items():
                     if v is not None and isinstance(v, torch.Tensor):
                         inputs[k] = v.to(self.device)
+
                 # aligning forward!
-                # outputs = self.model(
-                # input_ids=inputs['input_ids'],
-                # labels=inputs['labels'],
-                # )
+                input_ids = inputs['input_ids'].tolist()
                 inputs_decoded = self.tokenizer.batch_decode(
-                    inputs['input_ids'], skip_special_tokens=True)
+                    input_ids, skip_special_tokens=True)
                 outputs = self.call_model(inputs,
                                           labels=inputs['labels'],
-                                          is_train=False)
+                                          compute_prediction=True)
+                # Sometimes the model gets the case wrong, so let's decode to strings and match.
 
                 actual_test_labels = inputs['labels'][:, -1]
-                # pred_test_labels = torch.argmax(outputs.logits[:, -1], dim=-1)
                 target_decoded = self.tokenizer.batch_decode(
                     actual_test_labels, skip_special_tokens=True)
                 pred_decoded = self.tokenizer.batch_decode(
                     outputs, skip_special_tokens=True)
+                eval_preds.extend(pred_decoded)
+                eval_labels.extend(target_decoded)
 
-                # correct_labels = (actual_test_labels == pred_test_labels)
-                correct_labels = torch.tensor([
-                    target.lower() == pred.lower()
-                    for target, pred in zip(target_decoded, pred_decoded)
-                ])
-
-                total_count += len(correct_labels)
-                correct_count += correct_labels.sum().tolist()
-        current_acc = round(correct_count / total_count, 2)
+        eval_metrics = self.compute_decoded_metrics(eval_preds, eval_labels)
         logger.info(
-            f"[WARNING: THIS NEEDS TO BE GOOD!] prealign task accuracy: {current_acc}"
+            f"[WARNING: THIS NEEDS TO BE GOOD!] prealign task metrics: {eval_metrics}"
         )
 
         if self.is_master and not self.is_wandb:
@@ -168,7 +190,8 @@ class Aligner(object):
             print(f'prealign_accuracy,{current_acc}', file=log_prealign)
             log_prealign.close()
         elif self.is_wandb:
-            wandb.log({"eval/prealign_accuracy": current_acc}, step=0)
+            wandb_dict = {f'prealign/{k}': v for k, v in eval_metrics.items()}
+            wandb.log(wandb_dict, step=0)
 
     def train(
         self,
@@ -220,220 +243,62 @@ class Aligner(object):
                 for k, v in inputs.items():
                     if v is not None and isinstance(v, torch.Tensor):
                         inputs[k] = v.to(self.device)
-                if self.model_type == 'llama':
-                    # aligning forward!
-                    source_hidden_states = self.model(
-                        input_ids=inputs['source_input_ids'],
-                        output_rotated_hidden_states_only=True
-                    ).rotated_hidden_states
+                # aligning forward!
+                outputs = self.call_model(inputs,
+                                          run_intervention=True,
+                                          compute_prediction=False)
 
-                    outputs = self.model(
-                        input_ids=inputs['input_ids'],
-                        source_hidden_states=source_hidden_states,
-                        intervention_ids=inputs['intervention_ids'],
-                        labels=inputs['labels'])
+                loss = outputs.loss.mean() if self.n_gpu > 1 else outputs.loss
 
-                    loss = outputs.loss.mean(
-                    ) if self.n_gpu > 1 else outputs.loss
+                actual_test_labels = inputs['labels'][:, -1]
+                pred_test_labels = torch.argmax(outputs.logits[:, -1], dim=-1)
 
-                    actual_test_labels = inputs['labels'][:, -1]
-                    pred_test_labels = torch.argmax(outputs.logits[:, -1],
-                                                    dim=-1)
+                target_decoded = self.tokenizer.batch_decode(
+                    actual_test_labels, skip_special_tokens=True)
+                pred_decoded = self.tokenizer.batch_decode(
+                    pred_test_labels, skip_special_tokens=True)
 
-                    target_decoded = self.tokenizer.batch_decode(
-                        actual_test_labels, skip_special_tokens=True)
-                    pred_decoded = self.tokenizer.batch_decode(
-                        pred_test_labels, skip_special_tokens=True)
-                    correct_labels = torch.tensor([
-                        target.lower() == pred.lower()
-                        for target, pred in zip(target_decoded, pred_decoded)
-                    ])
-
-                    step_accuracy = correct_labels.sum(
-                    ) / correct_labels.shape[0]
-                    step_accuracy = step_accuracy.tolist()
-
-                else:
-                    # aligning forward!
-                    # source_model_outputs = self.model(
-                    # input_ids=inputs['source_input_ids'],
-                    # output_rotated_hidden_states_only=True)
-                    source_model_outputs = self.call_model(
-                        inputs, output_rotated_hidden_states_only=True)
-                    source_hidden_states = source_model_outputs.rotated_hidden_states
-
-                    # outputs = self.model(
-                    # input_ids=inputs['input_ids'],
-                    # source_hidden_states=source_hidden_states,
-                    # intervention_ids=inputs['intervention_ids'],
-                    # labels=inputs['labels'])
-                    outputs = self.call_model(
-                        inputs,
-                        source_hidden_states=source_hidden_states,
-                        intervention_ids=inputs['intervention_ids'],
-                        labels=inputs['labels'])
-
-                    loss = outputs.loss.mean(
-                    ) if self.n_gpu > 1 else outputs.loss
-
-                    actual_test_labels = inputs['labels'][:, -1]
-                    pred_test_labels = torch.argmax(outputs.logits[:, -1],
-                                                    dim=-1)
-                    target_decoded = self.tokenizer.batch_decode(
-                        actual_test_labels, skip_special_tokens=True)
-                    pred_decoded = self.tokenizer.batch_decode(
-                        pred_test_labels, skip_special_tokens=True)
-                    correct_labels = torch.tensor([
-                        target.lower() == pred.lower()
-                        for target, pred in zip(target_decoded, pred_decoded)
-                    ])
-                    step_accuracy = correct_labels.sum(
-                    ) / correct_labels.shape[0]
-                    step_accuracy = step_accuracy.tolist()
+                token_metrics = self.compute_token_metrics(
+                    pred_test_labels, actual_test_labels)
+                decoded_metrics = self.compute_decoded_metrics(
+                    pred_decoded, target_decoded)
 
                 if self.is_master and total_step % log_step == 0:
                     if self.is_wandb:
                         intervention_boundaries = torch.clamp(
                             self.model.get_boundary_parameters(), 1e-3, 1)
-                        wandb.log(
-                            {
-                                "train/loss":
-                                loss.item(),
-                                "train/step_accuracy":
-                                step_accuracy,
-                                "train/temperature":
-                                self.model.get_temperature().data,
-                                "train/boundary0":
-                                intervention_boundaries.data[0],
-                                "train/boundary1":
-                                intervention_boundaries.data[1],
-                                "train/rotate_layer_params":
-                                wandb.Histogram([
-                                    p.detach().cpu().float().numpy() for p in
-                                    self.model.get_rotation_parameters()
-                                ]),
-                            },
-                            step=total_step)
+                        wandb_dict = {
+                            "train/loss":
+                            loss.item(),
+                            "train/temperature":
+                            self.model.get_temperature().data,
+                            "train/boundary0":
+                            intervention_boundaries.data[0],
+                            "train/boundary1":
+                            intervention_boundaries.data[1],
+                            "train/rotate_layer_params":
+                            wandb.Histogram([
+                                p.detach().cpu().float().numpy()
+                                for p in self.model.get_rotation_parameters()
+                            ]),
+                        }
+                        for k, v in token_metrics.items():
+                            wandb_dict[f'token_metrics/{k}'] = v
+                        for k, v in decoded_metrics.items():
+                            wandb_dict[f'decoded_metrics/{k}'] = v
+                        wandb.log(wandb_dict, step=total_step)
                     else:
                         log_train = open(os.path.join(output_dir,
                                                       'train_log.txt'),
                                          'a',
                                          buffering=1)
-                        print('{},{},{}'.format(total_step, loss.item(),
-                                                step_accuracy),
+                        print('{},{},{},token_metrics'.format(
+                            total_step, loss.item(), token_metrics),
+                              file=log_train)
+                        print('{},{},{},decoded_metrics'.format(
+                            total_step, loss.item(), decoded_metrics),
                               file=log_train)
                         log_train.close()
-
-                    if total_step != 0 and total_step % valid_steps == 0:
-                        eval_labels = []
-                        eval_preds = []
-                        self.model.eval()
-                        with torch.no_grad():
-                            for step, inputs in enumerate(dev_dataloader):
-                                for k, v in inputs.items():
-                                    if v is not None and isinstance(
-                                            v, torch.Tensor):
-                                        inputs[k] = v.to(self.device)
-
-                                # aligning forward!
-                                if self.model_type == 'llama':
-                                    # aligning forward!
-                                    source_hidden_states = self.model(
-                                        input_ids=inputs['source_input_ids'],
-                                        output_rotated_hidden_states_only=True
-                                    ).rotated_hidden_states
-                                    outputs = self.model(
-                                        input_ids=inputs['input_ids'],
-                                        source_hidden_states=
-                                        source_hidden_states,
-                                        intervention_ids=inputs[
-                                            'intervention_ids'],
-                                        labels=inputs['labels'])
-                                    actual_test_labels = inputs['labels'][:,
-                                                                          -1]
-                                    pred_test_labels = torch.argmax(
-                                        outputs.logits[:, -1], dim=-1)
-
-                                    target_decoded = self.tokenizer.batch_decode(
-                                        actual_test_labels,
-                                        skip_special_tokens=True)
-                                    pred_decoded = self.tokenizer.batch_decode(
-                                        pred_test_labels,
-                                        skip_special_tokens=True)
-                                    correct_labels = torch.tensor([
-                                        target.lower() == pred.lower()
-                                        for target, pred in zip(
-                                            target_decoded, pred_decoded)
-                                    ])
-
-                                    total_count += len(correct_labels)
-                                    correct_count += correct_labels.sum(
-                                    ).tolist()
-                                else:
-
-                                    # source_hidden_states = self.model(
-                                    # input_ids=inputs['source_input_ids'],
-                                    # output_rotated_hidden_states_only=True,
-                                    # ).rotated_hidden_states
-                                    source_hidden_states = self.call_model(
-                                        inputs,
-                                        output_rotated_hidden_states_only=True,
-                                    ).rotated_hidden_states
-                                    # outputs = self.model(
-                                    # input_ids=inputs['input_ids'],
-                                    # source_hidden_states=source_hidden_states,
-                                    # intervention_ids=inputs[
-                                    # 'intervention_ids'],
-                                    # labels=inputs['labels'])
-                                    outputs = self.call_model(
-                                        inputs,
-                                        labels=inputs['labels'],
-                                        source_hidden_states=
-                                        source_hidden_states,
-                                        intervention_ids=inputs[
-                                            'intervention_ids'],
-                                    )
-
-                                    actual_test_labels = inputs['labels'][:,
-                                                                          -1]
-                                    pred_test_labels = torch.argmax(
-                                        outputs.logits[:, -1], dim=-1)
-                                    target_decoded = self.tokenizer.batch_decode(
-                                        actual_test_labels,
-                                        skip_special_tokens=True)
-                                    pred_decoded = self.tokenizer.batch_decode(
-                                        pred_test_labels,
-                                        skip_special_tokens=True)
-
-                                    correct_labels = torch.tensor([
-                                        target.lower() == pred.lower()
-                                        for target, pred in zip(
-                                            target_decoded, pred_decoded)
-                                    ])
-
-                                    total_count += len(correct_labels)
-                                    correct_count += correct_labels.sum(
-                                    ).tolist()
-                        print(correct_count, total_count)
-                        current_acc = round(correct_count / total_count, 2)
-                        if self.is_wandb:
-                            wandb.log({"eval/accuracy": current_acc},
-                                      step=total_step)
-                        else:
-                            log_eval = open(os.path.join(
-                                output_dir, 'eval_log.txt'),
-                                            'a',
-                                            buffering=1)
-                            print('{},{}'.format(total_step, current_acc),
-                                  file=log_eval)
-                            log_eval.close()
-
-                        if current_acc > best_eval_acc:
-                            best_eval_acc = current_acc
-                            if self.is_master:
-                                self.save_model(output_dir,
-                                                'pytorch-rotate-best.bin')
-                        self.model.train()
 
                     total_log_step += 1
                 loss_str = round(loss.item(), 2)
@@ -459,6 +324,77 @@ class Aligner(object):
                         self.model.set_temperature(
                             temperature_schedule[total_step])
 
+                if total_step != 0 and total_step % valid_steps == 0:
+                    token_labels = []
+                    token_preds = []
+                    eval_labels = []
+                    eval_preds = []
+                    self.model.eval()
+                    with torch.no_grad():
+                        for step, inputs in enumerate(dev_dataloader):
+                            for k, v in inputs.items():
+                                if v is not None and isinstance(
+                                        v, torch.Tensor):
+                                    inputs[k] = v.to(self.device)
+                            # aligning forward!
+                            source_hidden_states = self.call_model(
+                                inputs, output_rotated_hidden_states_only=True
+                            ).rotated_hidden_states
+
+                            outputs = self.call_model(
+                                inputs,
+                                source_hidden_states=source_hidden_states,
+                                intervention_ids=inputs['intervention_ids'],
+                                labels=inputs['labels'])
+
+                            loss = outputs.loss.mean(
+                            ) if self.n_gpu > 1 else outputs.loss
+
+                            actual_test_labels = inputs['labels'][:, -1]
+                            pred_test_labels = torch.argmax(outputs.logits[:,
+                                                                           -1],
+                                                            dim=-1)
+                            token_labels.extend(actual_test_labels)
+                            token_preds.extend(pred_test_labels)
+
+                            target_decoded = self.tokenizer.batch_decode(
+                                actual_test_labels, skip_special_tokens=True)
+                            pred_decoded = self.tokenizer.batch_decode(
+                                pred_test_labels, skip_special_tokens=True)
+                            eval_labels.extend(target_decoded)
+                            eval_preds.extend(pred_decoded)
+                    decoded_metrics = self.compute_decoded_metrics(
+                        eval_preds, eval_labels)
+                    token_metrics = self.compute_token_metrics(
+                        token_preds, token_labels)
+                    if self.is_wandb:
+                        wandb_dict = {}
+                        for k, v in token_metrics.items():
+                            wandb_dict[f'eval_token_metrics/{k}'] = v
+                        for k, v in decoded_metrics.items():
+                            wandb_dict[f'eval_decoded_metrics/{k}'] = v
+                        wandb.log(wandb_dict, step=total_step)
+                    else:
+                        log_eval = open(os.path.join(output_dir,
+                                                     'eval_log.txt'),
+                                        'a',
+                                        buffering=1)
+                        print('{},{},token_metrics'.format(
+                            total_step, token_metrics),
+                              file=log_eval)
+                        print('{},{},decoded_metrics'.format(
+                            total_step, decoded_metrics),
+                              file=log_eval)
+                        log_eval.close()
+
+                    current_acc = decoded_metrics['str_accuracy']
+                    if current_acc > best_eval_acc:
+                        best_eval_acc = current_acc
+                        if self.is_master:
+                            self.save_model(output_dir,
+                                            'pytorch-rotate-best.bin')
+                    self.model.train()
+
                 total_step += 1
 
         logger.info("Training is finished ...")
@@ -469,69 +405,61 @@ class Aligner(object):
             self.model.eval()
             eval_labels = []
             eval_preds = []
+            token_labels = []
+            token_preds = []
             with torch.no_grad():
                 for step, inputs in enumerate(test_dataloader):
                     for k, v in inputs.items():
                         if v is not None and isinstance(v, torch.Tensor):
                             inputs[k] = v.to(self.device)
+                    # aligning forward!
+                    source_hidden_states = self.call_model(
+                        inputs, output_rotated_hidden_states_only=True
+                    ).rotated_hidden_states
 
-                    if self.model_type == 'llama':
-                        # aligning forward!
-                        source_hidden_states = self.model(
-                            input_ids=inputs['source_input_ids'],
-                            output_rotated_hidden_states_only=True,
-                        ).rotated_hidden_states
-                        outputs = self.model(
-                            input_ids=inputs['input_ids'],
-                            source_hidden_states=source_hidden_states,
-                            intervention_ids=inputs['intervention_ids'],
-                            labels=inputs['labels'])
-                        actual_test_labels = inputs['labels'][:, -1]
-                        pred_test_labels = torch.argmax(outputs.logits[:, -1],
-                                                        dim=-1)
-                        correct_labels = (
-                            actual_test_labels == pred_test_labels)
+                    outputs = self.call_model(
+                        inputs,
+                        source_hidden_states=source_hidden_states,
+                        intervention_ids=inputs['intervention_ids'],
+                        labels=inputs['labels'])
 
-                        total_count += len(correct_labels)
-                        correct_count += correct_labels.sum().tolist()
-                    else:
-                        source_hidden_states = self.call_model(
-                            inputs,
-                            output_rotated_hidden_states_only=True,
-                        ).rotated_hidden_states
+                    loss = outputs.loss.mean(
+                    ) if self.n_gpu > 1 else outputs.loss
 
-                        outputs = self.call_model(
-                            inputs,
-                            labels=inputs['labels'],
-                            source_hidden_states=source_hidden_states,
-                            intervention_ids=inputs['intervention_ids'])
+                    actual_test_labels = inputs['labels'][:, -1]
+                    pred_test_labels = torch.argmax(outputs.logits[:, -1],
+                                                    dim=-1)
+                    token_labels.extend(actual_test_labels)
+                    token_preds.extend(pred_test_labels)
 
-                        actual_test_labels = inputs['labels'][:, -1]
-                        target_decoded = self.tokenizer.batch_decode(
-                            actual_test_labels, skip_special_tokens=True)
-                        pred_test_labels = torch.argmax(outputs.logits[:, -1],
-                                                        dim=-1)
-                        pred_decoded = self.tokenizer.batch_decode(
-                            pred_test_labels, skip_special_tokens=True)
+                    target_decoded = self.tokenizer.batch_decode(
+                        actual_test_labels, skip_special_tokens=True)
+                    pred_decoded = self.tokenizer.batch_decode(
+                        pred_test_labels, skip_special_tokens=True)
+                    eval_labels.extend(target_decoded)
+                    eval_preds.extend(pred_decoded)
 
-                        # correct_labels = (actual_test_labels == pred_test_labels)
-                        correct_labels = torch.tensor([
-                            target.lower() == pred.lower() for target, pred in
-                            zip(target_decoded, pred_decoded)
-                        ])
-
-                        total_count += len(correct_labels)
-                        correct_count += correct_labels.sum().tolist()
-
-            current_acc = round(correct_count / total_count, 2)
+            decoded_metrics = self.compute_decoded_metrics(
+                eval_preds, eval_labels)
+            token_metrics = self.compute_token_metrics(token_preds,
+                                                       token_labels)
             if self.is_wandb:
-                wandb.log({"test/accuracy": current_acc}, step=total_step)
+                wandb_dict = {}
+                for k, v in token_metrics.items():
+                    wandb_dict[f'test_token_metrics/{k}'] = v
+                for k, v in decoded_metrics.items():
+                    wandb_dict[f'test_decoded_metrics/{k}'] = v
+                wandb.log(wandb_dict, step=total_step)
                 wandb.finish()
             else:
                 log_eval = open(os.path.join(output_dir, 'eval_log.txt'),
                                 'a',
                                 buffering=1)
-                print('{},{}'.format(total_step, current_acc), file=log_eval)
+                print('{},{},token_metrics'.format(total_step, token_metrics),
+                      file=log_eval)
+                print('{},{},decoded_metrics'.format(total_step,
+                                                     decoded_metrics),
+                      file=log_eval)
                 log_eval.close()
         ###############################
 

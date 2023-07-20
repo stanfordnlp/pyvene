@@ -49,7 +49,9 @@ def get_das_and_alignment_config(args):
         "token_range": [
             das_config.das_token_range[0],
             das_config.das_token_range[1],
-        ]
+        ],
+        'das_config':
+        das_config,
     }
     if args.layer >= 0:
         alignment_config['layer'] = args.layer
@@ -176,6 +178,7 @@ tokenizer = AutoTokenizer.from_pretrained(
     pretrained_model_name_or_path=args.model_path,
     cache_dir=CACHE_DIR,
     padding_side='left')
+
 if not tokenizer.pad_token:
     print('Adding special pad token!')
     tokenizer.add_special_tokens({'pad_token': '[PAD]'})
@@ -233,9 +236,9 @@ for name, param in model.named_parameters():
 t_total = int(len(train_dataloader) * args.epochs)
 warm_up_steps = args.warm_up * t_total
 optimizer = torch.optim.Adam([{
-    'params': model.model.rotate_layer.parameters()
+    'params': model.get_rotation_parameters()
 }, {
-    'params': model.model.intervention_boundaries,
+    'params': model.get_boundary_parameters(),
     'lr': 1e-2
 }],
                              lr=args.lr)
@@ -247,24 +250,34 @@ device = "cuda"
 model.to(device)
 
 
+def compute_token_accuracy(eval_preds, eval_labels):
+    correct_count = 0
+    total_count = 0
+    for pred, label in zip(eval_preds, eval_labels):
+        correct = (pred == label).to(torch.int).flatten()
+        correct_count += torch.sum(correct).item()
+        total_count += correct.shape[0]
+    accuracy = round(correct_count / total_count, 2)
+    return {"token_accuracy": accuracy}
+
+
 # You can define your custom compute_metrics function.
-def compute_metrics(eval_preds, eval_labels):
+def compute_str_accuracy(eval_preds, eval_labels):
     total_count = 0
     correct_count = 0
-    for eval_pred, eval_label in zip(eval_preds, eval_labels):
-        actual_test_labels = eval_label[:, -1]
-        pred_test_labels = torch.argmax(eval_pred[:, -1], dim=-1)
-        correct_labels = (actual_test_labels == pred_test_labels)
-        total_count += len(correct_labels)
-        correct_count += correct_labels.sum().tolist()
-    accuracy = round(correct_count / total_count, 2)
-    return {"accuracy": accuracy}
+    correct_labels = torch.tensor([
+        target.lower() == pred.lower()
+        for target, pred in zip(eval_labels, eval_preds)
+    ])
+    correct_count += correct_labels.sum().tolist()
+    total_count = len(correct_labels)
+    return {"str_accuracy": round(correct_count / total_count, 2)}
 
 
 if args.is_wandb:
     import wandb
     run = wandb.init(
-        project=f"Boundless-DAS-{args.task_name}",
+        project=f"Boundless-DAS-{args.task_name}-{model_base_name}",
         entity=args.wandb_username,
         name=run_name,
     )
@@ -275,14 +288,19 @@ if args.is_wandb:
 ###################
 aligner = Aligner(
     model,
-    logger=logger,
+    tokenizer,
+    is_master,
+    logger,
     is_wandb=args.is_wandb,
-    is_master=is_master,
-    n_gpu=1, # this is a hacky way. will need to larger PR to make this multi-gpu friendly.
+    n_gpu=
+    1,  # this is a hacky way. will need to larger PR to make this multi-gpu friendly.
     model_name=run_name,
+    run_name=run_name,
     device=device,
-    compute_metrics=compute_metrics
-)
+    model_type=args.model_type,
+    task_name=args.task_name,
+    token_metric_fns=[compute_token_accuracy],
+    decoded_metric_fns=[compute_str_accuracy])
 
 # Prealign Eval is a must
 aligner.prealign_eval(prealign_dataloader, output_dir)
