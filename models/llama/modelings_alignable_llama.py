@@ -115,6 +115,7 @@ class AlignableLlamaModel(LlamaModel):
         ########################################
         source_hidden_states=None,
         intervention_ids=None,
+        intervention_token_range=None,
         output_rotated_hidden_states_only: Optional[bool] = False,
         ########################################
         # sources related information ends here
@@ -318,6 +319,7 @@ class AlignableLlamaForCausalLM(LlamaForCausalLM):
         source_input_ids=None,
         source_hidden_states=None,
         intervention_ids=None,
+        intervention_token_range=None,
         output_rotated_hidden_states_only: Optional[bool] = False,
         ########################################
         # sources related information ends here
