@@ -7,6 +7,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from datasets import Dataset 
 from torch.utils.data import DataLoader
 from dataclasses import dataclass, field
+import wandb
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -55,21 +56,19 @@ class Aligner(object):
         self.device = device
         
         self.early_stopping = early_stopping
-    
-    def save_model(self, output_dir, model_name):
-        if self.n_gpu > 1:
-            torch.save({
-                'rotate_layer': self.model.module.model.rotate_layer.state_dict(),
-                'intervention_boundaries': self.model.module.model.intervention_boundaries,
-                'temperature': self.model.module.model.temperature
-            }, os.path.join(output_dir, model_name))
+        
+        if "GPT2LMHeadModel" in self.model_name:
+            self.model_internal = self.model.module.transformer if self.n_gpu > 1 else self.model.transformer
         else:
-            torch.save({
-                'rotate_layer': self.model.model.rotate_layer.state_dict(),
-                'intervention_boundaries': self.model.model.intervention_boundaries,
-                'temperature': self.model.model.temperature
-                
-            }, os.path.join(output_dir, model_name))
+            self.model_internal = self.model.module.model if self.n_gpu > 1 else self.model.model
+            
+    def save_model(self, output_dir, model_name):
+        torch.save({
+            'rotate_layer': self.model_internal.rotate_layer.state_dict(),
+            'intervention_boundaries': self.model_internal.intervention_boundaries,
+            'temperature': self.model_internal.temperature
+
+        }, os.path.join(output_dir, model_name))
     
     def prealign_eval(self, prealign_dataloader, output_dir):
         eval_labels = []
@@ -101,7 +100,41 @@ class Aligner(object):
                 },
                 step=0
             )
-            
+    
+    def iia_eval(self, dev_dataloader):
+        eval_labels = []
+        eval_preds = []
+        self.model.eval()
+        with torch.no_grad():
+            for step, inputs in enumerate(dev_dataloader):
+                for k, v in inputs.items():
+                    if v is not None and isinstance(v, torch.Tensor):
+                        inputs[k] = v.to(self.device)
+                outputs = self._intervened_model_forward(inputs)
+                eval_labels += [inputs['labels']]
+                eval_preds += [outputs.logits]
+        eval_metrics = self.compute_metrics_fn(eval_preds, eval_labels)
+        return eval_metrics
+    
+    def _intervened_model_forward(self, inputs):
+        
+        source_hidden_states = self.model(
+           input_ids=inputs['source_input_ids'],
+           attention_mask=inputs['source_attention_mask'],
+           intervention_token_range=inputs['source_token_range'] if 'source_token_range' in inputs else None,
+           output_rotated_hidden_states_only=True
+        ).rotated_hidden_states
+
+        outputs = self.model(
+            input_ids=inputs['input_ids'],
+            attention_mask=inputs['attention_mask'],
+            source_hidden_states=source_hidden_states,
+            intervention_ids=inputs['intervention_ids'],
+            intervention_token_range=inputs['token_range'] if 'token_range' in inputs else None,
+            labels=inputs['labels']
+        )
+        return outputs
+    
     def train(
         self, train_dataloader, dev_dataloader, test_dataloader,
         optimizer, scheduler, output_dir,
@@ -115,7 +148,7 @@ class Aligner(object):
             print('step,accuracy', file=log_eval)
             log_train.close()
             log_eval.close()
-
+            
         # okay, have to honest, not sure whether we do train mode align or eval align;
         # i guess it is good to try both, but ... only trying train here and move on.
         self.model.train()
@@ -128,42 +161,29 @@ class Aligner(object):
         target_total_step = len(train_dataloader) * int(epochs)
         temperature_start = 50.0
         temperature_end = 0.1
-        temperature_schedule = torch.linspace(temperature_start, temperature_end, target_total_step).to(torch.bfloat16)
-        self.model.model.temperature.data = temperature_schedule[total_step]
+        temperature_schedule = torch.linspace(
+            temperature_start, temperature_end, target_total_step
+        ).to(torch.bfloat16).to(self.device)
+        self.model_internal.temperature.data = temperature_schedule[total_step]
         
         for epoch in train_iterator:
             epoch_iterator = tqdm(train_dataloader, desc=f"Epoch: {epoch}", position=0, leave=True)
             for step, inputs in enumerate(epoch_iterator):
-                
-                
                 for k, v in inputs.items():
                     if v is not None and isinstance(v, torch.Tensor):
                         inputs[k] = v.to(self.device)
-                
-                # aligning forward!
-                source_hidden_states = self.model(
-                   input_ids=inputs['source_input_ids'],
-                   output_rotated_hidden_states_only=True
-                ).rotated_hidden_states
-                
-                outputs = self.model(
-                    input_ids=inputs['input_ids'],
-                    source_hidden_states=source_hidden_states,
-                    intervention_ids=inputs['intervention_ids'],
-                    labels=inputs['labels']
-                )
-                
+                outputs = self._intervened_model_forward(inputs)
                 loss = outputs.loss.mean() if self.n_gpu > 1 else outputs.loss
                 step_accuracy = self.compute_metrics_fn([outputs.logits], [inputs['labels']])['accuracy']
 
                 if self.is_master and total_step % log_step == 0:
                     if self.is_wandb:
-                        intervention_boundaries = torch.clamp(self.model.model.intervention_boundaries, 1e-3, 1)
+                        intervention_boundaries = torch.clamp(self.model_internal.intervention_boundaries, 1e-3, 1)
                         wandb.log(
                             {
                                 "train/loss": loss.item(),
                                 "train/step_accuracy": step_accuracy,
-                                "train/temperature": self.model.model.temperature.data,
+                                "train/temperature": self.model_internal.temperature.data,
                                 "train/unified_boundary": intervention_boundaries.data[0],
                                 "train/unified_boundary (dummy)": intervention_boundaries.data[1],                                       
                             },
@@ -179,31 +199,7 @@ class Aligner(object):
                         log_train.close()
                         
                     if total_step != 0 and total_step % valid_steps == 0:
-                        eval_labels = []
-                        eval_preds = []
-                        self.model.eval()
-                        with torch.no_grad():
-                            for step, inputs in enumerate(dev_dataloader):
-                                for k, v in inputs.items():
-                                    if v is not None and isinstance(v, torch.Tensor):
-                                        inputs[k] = v.to(self.device)
-
-                                # aligning forward!
-                                source_hidden_states = self.model(
-                                    input_ids=inputs['source_input_ids'],
-                                    output_rotated_hidden_states_only=True
-                                ).rotated_hidden_states
-                                outputs = self.model(
-                                    input_ids=inputs['input_ids'],
-                                    source_hidden_states=source_hidden_states,
-                                    intervention_ids=inputs['intervention_ids'],
-                                    labels=inputs['labels']
-                                )
-
-                                eval_labels += [inputs['labels']]
-                                eval_preds += [outputs.logits]
-                        eval_metrics = self.compute_metrics_fn(eval_preds, eval_labels)
-                        
+                        eval_metrics = self.iia_eval(dev_dataloader)
                         if self.is_wandb:
                             wandb.log(
                                 {
@@ -235,7 +231,7 @@ class Aligner(object):
                         optimizer.step()
                         scheduler.step()
                         self.model.zero_grad()
-                        self.model.model.temperature.data = temperature_schedule[total_step]
+                        self.model_internal.temperature.data = temperature_schedule[total_step]
                     
                 total_step += 1
                 
@@ -244,31 +240,7 @@ class Aligner(object):
         ###############################
         # End of training evaluation.
         if self.is_master:
-            self.model.eval()
-            eval_labels = []
-            eval_preds = []
-            with torch.no_grad():
-                for step, inputs in enumerate(test_dataloader):
-                    for k, v in inputs.items():
-                        if v is not None and isinstance(v, torch.Tensor):
-                            inputs[k] = v.to(self.device)
-
-                    # aligning forward!
-                    source_hidden_states = self.model(
-                        input_ids=inputs['source_input_ids'],
-                        output_rotated_hidden_states_only=True
-                    ).rotated_hidden_states
-                    outputs = self.model(
-                        input_ids=inputs['input_ids'],
-                        source_hidden_states=source_hidden_states,
-                        intervention_ids=inputs['intervention_ids'],
-                        labels=inputs['labels']
-                    )
-                    
-                    eval_labels += [inputs['labels']]
-                    eval_preds += [outputs.logits]
-            eval_metrics = self.compute_metrics_fn(eval_preds, eval_labels)
-            
+            eval_metrics = self.iia_eval(test_dataloader)
             if self.is_wandb:
                 wandb.log(
                     {
@@ -285,5 +257,3 @@ class Aligner(object):
         
         if self.is_master:
             self.save_model(output_dir, 'pytorch-rotate-last.bin')
-
-        

@@ -1,5 +1,7 @@
-examples/
+examples/logic_game/run_tutorial.py
 playground.ipynb
+*/.cache_dir
+*/*/.cache_dir
 results*/
 logs
 notebooks/figures/
