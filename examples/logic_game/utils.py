@@ -1,3 +1,6 @@
+import sys
+sys.path.append("../..")
+
 import itertools
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -14,6 +17,39 @@ import copy
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Sequence
 import torch
+from transformers import (
+    AutoConfig,
+    AutoTokenizer, 
+    GPT2Config, 
+    GPT2LMHeadModel, 
+    DataCollatorForSeq2Seq,
+    Trainer, 
+    TrainingArguments,
+    set_seed,
+    EvalPrediction,
+    get_linear_schedule_with_warmup,
+    logging
+)
+
+from torch.nn import functional as F
+import re
+
+from datasets import Dataset
+import evaluate
+import copy, torch
+from tqdm import tqdm
+from models.modelings_alignable import AutoAlignableModel
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
+from trainer import Aligner, CACHE_DIR
+from collections import Counter
+import pandas as pd
+
+from transformers.utils import logging
+logging.set_verbosity_info()
+logger = logging.get_logger("transformers")
+
+IGNORE_INDEX = -100
+SEED = 42
 
 def extract_output(pred, trigger=''):
     if not trigger:
@@ -43,17 +79,18 @@ def chunk(iterable, chunksize):
     else:
         raise Exception(f"Unrecognizable type of iterable for batchification: {type(iterable)}")
 
-def fetch_metadata(input_dir):
+def fetch_metadata(input_dir, use_token=True):
     
-    synonyms_path = os.path.join(input_dir, 'synonyms.txt')
-    antonyms_path = os.path.join(input_dir, 'antonyms.txt')
+    synonyms_path = os.path.join(input_dir, 'token_cos_synonyms.txt' if use_token else 'synonyms.txt')
     with open(synonyms_path, 'r') as file:
         synonyms_lines = file.readlines()
-    with open(antonyms_path, 'r') as file:
-        antonyms_lines = file.readlines()
+    if not use_token:
+        antonyms_path = os.path.join(input_dir, 'antonyms.txt')
+        with open(antonyms_path, 'r') as file:
+            antonyms_lines = file.readlines()
 
     synonyms_pairs_uni = set(
-        [tuple(sorted(l.strip().lower().split(" - "))) for l in synonyms_lines]
+        [tuple(sorted(l.strip().split(" - "))) for l in synonyms_lines]
     )
     synonyms_pairs = set([])
 
@@ -79,11 +116,11 @@ def fetch_metadata(input_dir):
     for pair in synonyms_pairs:
         all_vocab.add(pair[0])
         all_vocab.add(pair[1])
-    for l in antonyms_lines:
-        pair = l.strip().lower().split(" - ")
-
-        all_vocab.add(pair[0])
-        all_vocab.add(pair[1])
+    if not use_token:
+        for l in antonyms_lines:
+            pair = l.strip().split(" - ")
+            all_vocab.add(pair[0])
+            all_vocab.add(pair[1])
     all_vocab = list(all_vocab)
     
     return all_vocab, synonyms_pairs, synonyms_dict
@@ -476,3 +513,266 @@ class DataCollatorForAlignmentDataset(object):
             labels=labels,
         )        
         return {k: torch.tensor(v, dtype=torch.int64) for k, v in batch.items()}
+    
+def make_supervised_data_module(
+    program,
+    n_training_examples,
+    tokenizer
+) -> Dict:
+    clm_new_token_trigger = "="
+    
+    all_vocab, synonyms_pairs, synonyms_dict = fetch_metadata(".", use_token=True)
+    input_output_dict = {
+        "question": [],
+        "answers": []
+    }
+    while len(input_output_dict["question"]) < n_training_examples:
+        _, inputs, _, value_maps = sample_factual_inputs(
+            program[1], all_vocab, synonyms_pairs, synonyms_dict
+        )
+        input_words = [inputs[i] for i in range(len(inputs))]
+        input_sentence = ",".join(input_words) 
+        answers = value_maps[f'op{len(inputs)}']
+        if input_sentence not in input_output_dict["question"]:
+            input_output_dict["question"] += [input_sentence]
+            input_output_dict["answers"] += [answers]
+    raw_dataset = Dataset.from_dict(input_output_dict)
+    raw_dataset = raw_dataset.train_test_split(test_size=1000)
+    test_dataset = raw_dataset["test"]
+    raw_dataset = raw_dataset["train"].train_test_split(test_size=1000)
+    validation_dataset = raw_dataset["test"]
+    train_dataset = raw_dataset["train"]
+    
+    def preprocess_function(examples):
+
+        sources = examples["question"]
+        targets = examples["answers"]
+        # We added in a '=' to be the trigger word of answer.
+        examples = [s + f"{clm_new_token_trigger}" + f"{t}{tokenizer.eos_token}" for s, t in zip(sources, targets)]
+
+        examples_tokenized = tokenizer(
+            examples,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+
+        sources_tokenized = tokenizer(
+            sources,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+
+        labels = copy.deepcopy(examples_tokenized["input_ids"])
+
+        for i in range(len(sources_tokenized["input_ids"])):
+            source_len = len(sources_tokenized["input_ids"][i]) + 1 
+            # let's not predict the trigger.
+            # 1 here is a little hacky... please not follow this.
+            labels_t = torch.tensor(labels[i])
+            labels_t[:source_len] = IGNORE_INDEX
+            labels[i] = labels_t.tolist()
+        examples_tokenized["labels"] = labels
+
+        return examples_tokenized
+
+    train_dataset = train_dataset.map(
+        preprocess_function,
+        batched=True,
+        num_proc=1,
+        load_from_cache_file=False,
+        desc="Running tokenizer on the train dataset",
+    )
+    validation_dataset = validation_dataset.map(
+        preprocess_function,
+        batched=True,
+        num_proc=1,
+        load_from_cache_file=False,
+        desc="Running tokenizer on the validation dataset",
+    )
+    
+    return dict(
+        train_dataset=train_dataset, 
+        eval_dataset=validation_dataset, 
+        test_dataset=test_dataset, 
+        data_collator=None
+    )
+
+
+def make_supervised_counterfactual_data_module(
+    program,
+    aligning_causal_variable,
+    n_alignment_training_examples,
+    target_word_beam, 
+    token_position_strategy,
+    tokenizer
+):
+    clm_new_token_trigger = "="
+    
+    all_vocab, synonyms_pairs, synonyms_dict = fetch_metadata(".", use_token=True)
+    n_alignment_training_examples = 22000
+    counterfactual_input_output_dict = prepare_counterfactual_alignment_data_simple(
+        program[1],
+        n_alignment_training_examples,
+        aligning_causal_variable,
+        all_vocab, synonyms_pairs, synonyms_dict
+    )
+    
+    raw_cdataset = Dataset.from_dict(counterfactual_input_output_dict)
+    raw_cdataset = raw_cdataset.train_test_split(test_size=1000)
+    test_cdataset = raw_cdataset["test"]
+    raw_cdataset = raw_cdataset["train"].train_test_split(test_size=1000)
+    validation_cdataset = raw_cdataset["test"]
+    train_cdataset = raw_cdataset["train"]
+    
+    def counterfactual_preprocess_function(
+        target_word_beam,
+        token_position_strategy,
+        no_answer,
+        examples,
+    ):
+        inputs = examples["question"]
+        before_target_inptus = [",".join(_input.split(",")[:target_word_beam]) for _input in inputs]
+        target_word_inptus = [_input.split(",")[target_word_beam] for _input in inputs]
+
+        source_inputs = examples["source_question"]
+        before_target_source_inptus = [
+            ",".join(_input.split(",")[:target_word_beam]) for _input in source_inputs
+        ]
+        target_word_source_inptus = [
+            _input.split(",")[target_word_beam] for _input in source_inputs
+        ]
+
+        targets = examples["answers"]
+
+        if no_answer:
+            base_examples = [s + f"{clm_new_token_trigger}" for s, t in zip(inputs, targets)]
+            source_examples = [s + f"{clm_new_token_trigger}" for s, t in zip(source_inputs, targets)]
+        else:
+            # We added in a '=' to be the trigger word of answer.
+            base_examples = [s + f"{clm_new_token_trigger}" + f"{t}" for s, t in zip(inputs, targets)]
+            # note that the target here is a dummy target for both examples.
+            # it is the counterfactual target which should not match with these
+            # two inputs individually.
+
+            # note that we cancel the eos token as well, as we don't need it.
+            source_examples = [s + f"{clm_new_token_trigger}" + f"{t}" for s, t in zip(source_inputs, targets)]
+
+        examples_tokenized = tokenizer(
+            base_examples,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+        source_examples_tokenized = tokenizer(
+            source_examples,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+        inputs_tokenized = tokenizer(
+            inputs,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+
+        before_target_tokenized = tokenizer(
+            before_target_inptus,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+        target_word_tokenized = tokenizer(
+            target_word_inptus,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+
+        before_target_source_tokenized = tokenizer(
+            before_target_source_inptus,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+        target_word_source_tokenized = tokenizer(
+            target_word_source_inptus,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+
+        intervention_pos = []
+        source_intervention_pos = []
+
+        labels = copy.deepcopy(examples_tokenized["input_ids"])
+
+        for i in range(len(inputs_tokenized["input_ids"])):
+            input_len = len(inputs_tokenized["input_ids"][i]) + 1 
+            # let's not predict the trigger.
+            # 1 here is a little hacky... please not follow this.
+            labels_t = torch.tensor(labels[i])
+            labels_t[:input_len] = IGNORE_INDEX
+            labels[i] = labels_t.tolist()
+
+            beam_start_index = len(before_target_tokenized['input_ids'][i])+1
+            beam_end_index = beam_start_index + \
+                len(target_word_tokenized['input_ids'][i])
+
+            beam_start_source_index = len(before_target_source_tokenized['input_ids'][i])+1
+            beam_end_source_index = beam_start_source_index + \
+                len(target_word_source_tokenized['input_ids'][i])
+
+            beam_indices = [i for i in range(beam_start_index, beam_end_index)]
+            beam_source_indices = [i for i in range(beam_start_source_index, beam_end_source_index)]
+            
+            if isinstance(token_position_strategy, list):
+                intervention_pos += [token_position_strategy]
+                source_intervention_pos += [token_position_strategy]
+            elif token_position_strategy == "last_of_beam":
+                intervention_pos += [[beam_indices[-1], beam_indices[-1]+1]]
+                source_intervention_pos += [[beam_source_indices[-1], beam_source_indices[-1]+1]]
+            elif token_position_strategy == "first_of_beam":
+                intervention_pos += [[beam_indices[0], beam_indices[0]+1]]
+                source_intervention_pos += [[beam_source_indices[0], beam_source_indices[0]+1]]
+            else:
+                assert False, f"Strategy {token_position_strategy} Not Implemented."
+
+        examples_tokenized["source_input_ids"] = source_examples_tokenized["input_ids"]
+        examples_tokenized["source_attention_mask"] = source_examples_tokenized["attention_mask"]
+
+        examples_tokenized["labels"] = labels
+        examples_tokenized["intervention_ids"] = examples["intervention_ids"]
+        # Now, this is the most important part!
+        # This is also a novel thing that we introduce in this tutorial, which is for
+        # across position interventions.
+        examples_tokenized["token_range"] = intervention_pos
+        examples_tokenized["source_token_range"] = source_intervention_pos
+
+        return examples_tokenized
+
+    remove_columns=['question', 'source_question', 'answers', 'base_answers', 'source_answers']
+    train_cdataset = train_cdataset.map(
+        partial(counterfactual_preprocess_function, target_word_beam, token_position_strategy, False),
+        batched=True,
+        num_proc=1,
+        load_from_cache_file=False,
+        remove_columns=remove_columns,
+        desc="Running tokenizer on the train dataset",
+    )
+    validation_cdataset = validation_cdataset.map(
+        partial(counterfactual_preprocess_function, target_word_beam, token_position_strategy, False),
+        batched=True,
+        num_proc=1,
+        load_from_cache_file=False,
+        remove_columns=remove_columns,
+        desc="Running tokenizer on the validation dataset",
+    )
+    test_cdataset = test_cdataset.map(
+        partial(counterfactual_preprocess_function, target_word_beam, token_position_strategy, False),
+        batched=True,
+        num_proc=1,
+        load_from_cache_file=False,
+        remove_columns=remove_columns,
+        desc="Running tokenizer on the test dataset",
+    )
+    
+    return dict(
+        train_dataset=train_cdataset, 
+        eval_dataset=validation_cdataset, 
+        test_dataset=test_cdataset, 
+        data_collator=None
+    )

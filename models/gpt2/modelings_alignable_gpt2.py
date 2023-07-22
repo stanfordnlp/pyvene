@@ -121,6 +121,7 @@ class AlignableGPT2Model(GPT2Model):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
     ) -> Union[Tuple, BaseModelOutputWithPastAndCrossAttentions]:
+        rotated_hidden_states = None
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
@@ -264,7 +265,7 @@ class AlignableGPT2Model(GPT2Model):
                     output_attentions=output_attentions,
                 )
             hidden_states = outputs[0]
-            if self.alignment_config != None and i == self.alignment_config["layer"]:
+            if output_rotated_hidden_states_only or (self.alignment_config != None and i == self.alignment_config["layer"] and intervention_ids != None):
                 # disjoin
                 original_shape = copy.deepcopy(hidden_states.shape)
                 hidden_states = hidden_states.reshape(batch_size, -1)
