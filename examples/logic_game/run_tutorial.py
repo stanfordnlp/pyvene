@@ -132,7 +132,7 @@ t_total = int(len(train_dataloader) * args.epochs)
 warm_up_steps = 0.1 * t_total
 optimizer = torch.optim.Adam(
     [{'params': model.transformer.rotate_layer.parameters()},
-    {'params': model.transformer.intervention_boundaries, 'lr': 1e-2}],
+    {'params': model.transformer.intervention_boundaries, 'lr': 5e-3}],
     lr=args.lr
 )
 scheduler = get_linear_schedule_with_warmup(
@@ -145,7 +145,7 @@ model_type = AutoConfig.from_pretrained(
 ).architectures[0]
 
 run_name = f"{model_type}.alignment_variable.{args.alignment_variable}.intl.{alignment_config['layer']}.word_beam.{target_word_beam}.token_position_strategy."\
-           f"{args.token_position_strategy}.seed.{args.seed}"
+           f"{args.token_position_strategy}.lr.{args.lr}.seed.{args.seed}"
 if not os.path.exists(args.output_dir):
     os.mkdir(args.output_dir)
 os.environ["WANDB_PROJECT"] = "Boundless-DAS-word-logic"

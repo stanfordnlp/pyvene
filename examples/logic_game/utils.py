@@ -370,11 +370,16 @@ def fetch_counterfactual_value(base_value_maps, source_value_maps, program, inte
     arg2_value = first_level_values[program[1][0][1]-5]
     arg3_value = first_level_values[program[-1][0]-5]
     
-    intervened_value_maps["op4"] = (arg1_value or arg2_value) if op4 == "OR" else \
-        (arg1_value and arg2_value)
-    intervened_value_maps["op5"] = (intervened_value_maps["op4"] or arg3_value) if op5 == "OR" else \
-        (intervened_value_maps["op4"] and arg3_value)
-    
+    if intervention_on in ["op1", "op2", "op3"]:
+        intervened_value_maps["op4"] = (arg1_value or arg2_value) if op4 == "OR" else \
+            (arg1_value and arg2_value)
+        intervened_value_maps["op5"] = (intervened_value_maps["op4"] or arg3_value) if op5 == "OR" else \
+            (intervened_value_maps["op4"] and arg3_value)
+    elif intervention_on == "op4":
+        intervened_value_maps["op5"] = (intervened_value_maps["op4"] or arg3_value) if op5 == "OR" else \
+            (intervened_value_maps["op4"] and arg3_value)
+    elif intervention_on == "op5":
+        pass
     return intervened_value_maps[fetch_on]
 
 
@@ -386,10 +391,10 @@ def prepare_counterfactual_alignment_data_simple(
 ):
     aligning_causal_variable_map = {
         "op1": 0,
-        "op2": 1,
-        "op3": 2,
-        "op4": 3,
-        "op5": 4
+        "op2": 0,
+        "op3": 0,
+        "op4": 0,
+        "op5": 0
     }
     ##################################
     #
@@ -609,7 +614,6 @@ def make_supervised_counterfactual_data_module(
     clm_new_token_trigger = "="
     
     all_vocab, synonyms_pairs, synonyms_dict = fetch_metadata(".", use_token=True)
-    n_alignment_training_examples = 22000
     counterfactual_input_output_dict = prepare_counterfactual_alignment_data_simple(
         program[1],
         n_alignment_training_examples,

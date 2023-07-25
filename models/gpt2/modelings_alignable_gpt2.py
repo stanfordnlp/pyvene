@@ -90,7 +90,7 @@ class AlignableGPT2Model(GPT2Model):
         
             # this will be replaced by a learnable parameters
             # TODO: now, we can only align two variable at the same time.
-            self.intervention_boundaries = torch.tensor([1.0, 1.0], requires_grad=True)
+            self.intervention_boundaries = torch.tensor([1.0, 0.0], requires_grad=True)
             self.intervention_boundaries = torch.nn.Parameter(self.intervention_boundaries)
             self.temperature = nn.Parameter(torch.tensor(50.0)) # Define temperature as a parameter
             self.intervention_population = nn.Parameter(torch.arange(0, self.searchable_n_embd), requires_grad=False)
@@ -265,18 +265,18 @@ class AlignableGPT2Model(GPT2Model):
                     output_attentions=output_attentions,
                 )
             hidden_states = outputs[0]
-            if output_rotated_hidden_states_only or (self.alignment_config != None and i == self.alignment_config["layer"] and intervention_ids != None):
+            if self.alignment_config != None and i == self.alignment_config["layer"]:
                 # disjoin
                 original_shape = copy.deepcopy(hidden_states.shape)
-                hidden_states = hidden_states.reshape(batch_size, -1)
+                hidden_states = hidden_states.reshape(batch_size, -1)                    
                 aligning_hidden_states = []
                 for i in range(batch_size):
                     if intervention_token_range is not None:
                         start = intervention_token_range[i][0]*self.n_embd
                         end = intervention_token_range[i][1]*self.n_embd
                     else:
-                        start = self.alignment_config["token_range"][0]*self.hidden_size
-                        end = self.alignment_config["token_range"][1]*self.hidden_size
+                        start = self.alignment_config["token_range"][0]*self.n_embd
+                        end = self.alignment_config["token_range"][1]*self.n_embd
                     aligning_hidden_state = hidden_states[i,start:end]
                     aligning_hidden_states += [aligning_hidden_state]
                 aligning_hidden_states = torch.stack(aligning_hidden_states, dim=0)
@@ -286,24 +286,19 @@ class AlignableGPT2Model(GPT2Model):
                     # boundary learning
                     intervention_boundaries = torch.clamp(self.intervention_boundaries, 1e-3, 1)
                     intervention_boundaries = torch.cumsum(intervention_boundaries, dim=0)
-                    first_boundary_mask = sigmoid_boundary_sigmoid(
+                    boundary_mask = sigmoid_boundary_sigmoid(
                         self.intervention_population.repeat(batch_size, 1), 
                         0.,
-                        intervention_boundaries[0] * int(self.searchable_n_embd//2),
+                        intervention_boundaries[0] * int(self.searchable_n_embd),
                         self.temperature
                     )
-                    second_boundary_mask = sigmoid_boundary_sigmoid(
-                        self.intervention_population.repeat(batch_size, 1), 
-                        intervention_boundaries[0] * int(self.searchable_n_embd//2),
-                        2 * intervention_boundaries[0] * int(self.searchable_n_embd//2),
-                        self.temperature
-                    )
-                    boundary_mask = (intervention_ids==0).unsqueeze(dim=-1)*first_boundary_mask + \
-                        (intervention_ids==1).unsqueeze(dim=-1)*second_boundary_mask
+                    # dummy step to be removed.
+                    boundary_mask = (intervention_ids==0).unsqueeze(dim=-1)*boundary_mask
                     boundary_mask = boundary_mask.to(rotated_hidden_states.dtype)
                     
                     rotated_hidden_states = (1. - boundary_mask)*rotated_hidden_states + \
                         boundary_mask*source_hidden_states
+
                 # rotate back
                 reversed_hidden_states = self.inverse_rotate_layer(rotated_hidden_states)
                 # suture back iteratively
@@ -313,8 +308,8 @@ class AlignableGPT2Model(GPT2Model):
                         start = intervention_token_range[i][0]*self.n_embd
                         end = intervention_token_range[i][1]*self.n_embd
                     else:
-                        start = self.alignment_config["token_range"][0]*self.hidden_size
-                        end = self.alignment_config["token_range"][1]*self.hidden_size
+                        start = self.alignment_config["token_range"][0]*self.n_embd
+                        end = self.alignment_config["token_range"][1]*self.n_embd
                     prefix_hidden_state = hidden_states[i,:start]
                     postfix_hidden_state = hidden_states[i,end:]
                     intervened_hidden_state = torch.cat([
@@ -322,7 +317,7 @@ class AlignableGPT2Model(GPT2Model):
                         reversed_hidden_states[i],
                         postfix_hidden_state
                     ], dim=-1)
-                    intervened_hidden_states += intervened_hidden_state
+                    intervened_hidden_states += [intervened_hidden_state]
                 hidden_states = torch.stack(intervened_hidden_states, dim=0)
                 hidden_states = hidden_states.reshape(original_shape)
                 if output_rotated_hidden_states_only:
@@ -465,7 +460,7 @@ class AlignableGPT2LMHeadModel(GPT2LMHeadModel):
         if not return_dict:
             output = (lm_logits,) + transformer_outputs[1:]
             return ((loss,) + output) if loss is not None else output
-
+        
         return AlignableCausalLMOutputWithCrossAttentions(
             loss=loss,
             logits=lm_logits,
