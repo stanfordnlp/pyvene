@@ -321,7 +321,13 @@ class AlignableGPT2Model(GPT2Model):
                 hidden_states = torch.stack(intervened_hidden_states, dim=0)
                 hidden_states = hidden_states.reshape(original_shape)
                 if output_rotated_hidden_states_only:
-                    # we early exist.
+                    # we early exist with self-attention and hidden states if needed.
+                    if output_hidden_states:
+                        all_hidden_states = all_hidden_states + (hidden_states,)
+                    if output_attentions:
+                        all_self_attentions = all_self_attentions + (outputs[2 if use_cache else 1],)
+                        if self.config.add_cross_attention:
+                            all_cross_attentions = all_cross_attentions + (outputs[3 if use_cache else 2],)
                     return AlignableBaseModelOutputWithPastAndCrossAttentions(
                         last_hidden_state=hidden_states,
                         past_key_values=presents,

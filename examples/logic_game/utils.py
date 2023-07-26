@@ -44,12 +44,97 @@ from trainer import Aligner, CACHE_DIR
 from collections import Counter
 import pandas as pd
 
+import networkx as nx
+import ipywidgets as widgets
+from ipywidgets import interact
+
 from transformers.utils import logging
 logging.set_verbosity_info()
 logger = logging.get_logger("transformers")
 
 IGNORE_INDEX = -100
 SEED = 42
+
+def plot_transformer(
+    max_length=10, num_layers=12, highlights=None, xtick_labels=None,
+    vmin=0.80, vmax=1.00
+):
+    data = np.zeros((num_layers, max_length))
+
+    fig, ax = plt.subplots(figsize=(5, 8))
+
+    # Add highlights
+    if highlights is not None:
+        for highlight in highlights:
+            data[highlight[0], highlight[1]] = highlight[2]
+
+    # Plot the heatmap
+    sns.heatmap(
+        data, annot=True, linewidths=1, ax=ax, 
+        cmap="cividis", cbar=False, 
+        vmin=vmin, vmax=vmax # this is rather abitrary to help visualizing!
+    )
+    
+    # Customize the plot
+    ax.set_xlabel('Token')
+    ax.set_ylabel('Layer')
+    ax.set_title('Transformer Block View (residual+mlp)')
+    
+    # Set aspect ratio
+    ax.set_aspect('0.5')
+    
+    # Set x-tick labels if provided
+    if xtick_labels is not None:
+        ax.set_xticklabels(xtick_labels)
+    
+    plt.gca().invert_yaxis()
+
+    plt.show()
+
+def sigmoid_boundary_sigmoid(_input, boundary_x, boundary_y, temperature):
+    return torch.sigmoid((_input - boundary_x) / temperature) * \
+        torch.sigmoid((boundary_y - _input) / temperature)
+
+def plot_attention_graph(max_length=10, num_layers=12, highlight_edges=None):
+    # Initialize an empty directed graph
+    G = nx.DiGraph()
+
+    # Add nodes for each token at each layer
+    for layer in range(num_layers):
+        for token in range(max_length):
+            G.add_node((layer, token))
+
+    # Add edges to represent causal attention
+    for layer in range(1, num_layers):  # Start at 1 because layer 0 has no previous layer
+        for token in range(max_length):
+            for prev_token in range(token + 1):  # +1 because range is exclusive at the upper end
+                G.add_edge((layer - 1, prev_token), (layer, token))
+
+    # Create a figure and a 1x1 subplot grid
+    fig, ax = plt.subplots(figsize=(6, 6))
+
+    # Remove grid and set background color to white
+    ax.grid(False)
+    ax.set_facecolor('white')
+    
+    # Position nodes to line up with heatmap, with the first layer at the top and the last layer at the bottom
+    pos = {(layer, token): (token, layer) for layer in range(num_layers) for token in range(max_length)}
+
+    # Draw the nodes on the subplot
+    nx.draw_networkx_nodes(G, pos, ax=ax, node_color='lightblue', node_size=100)
+
+    # Draw the edges with specified opacity
+    nx.draw_networkx_edges(G, pos, ax=ax, edge_color='gray', alpha=0.2)
+
+    # Draw the highlighted edges in red
+    if highlight_edges is not None:
+        nx.draw_networkx_edges(G, pos, ax=ax, edgelist=highlight_edges, edge_color='red')
+
+    # Draw the node labels
+    nx.draw_networkx_labels(G, pos, ax=ax, font_size=6)
+
+    # Show the plot
+    plt.show()
 
 def extract_output(pred, trigger=''):
     if not trigger:
