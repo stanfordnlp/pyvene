@@ -468,63 +468,6 @@ def fetch_counterfactual_value(base_value_maps, source_value_maps, program, inte
     return intervened_value_maps[fetch_on]
 
 
-def prepare_counterfactual_alignment_data_simple(
-    program,
-    n_sample,
-    aligning_causal_variable,
-    all_vocab, synonyms_pairs, synonyms_dict
-):
-    aligning_causal_variable_map = {
-        "op1": 0,
-        "op2": 0,
-        "op3": 0,
-        "op4": 0,
-        "op5": 0
-    }
-    ##################################
-    #
-    # Try to implement this by yourself!
-    # You can know more about alignment.
-    #
-    ##################################
-    input_output_dict = {
-        "question": [],
-        "source_question": [],
-        "intervention_ids": [],
-        "answers": [],
-        "base_answers": [],
-        "source_answers": []
-    }
-    while len(input_output_dict["question"]) < n_sample:
-        _, inputs, _, value_maps = sample_factual_inputs(
-            program, all_vocab, synonyms_pairs, synonyms_dict
-        )
-        input_words = [inputs[i] for i in range(len(inputs))]
-        input_sentence = ",".join(input_words) 
-        
-        _, source_inputs, _, source_value_maps = sample_factual_inputs(
-            program, all_vocab, synonyms_pairs, synonyms_dict
-        )
-        source_input_words = [source_inputs[i] for i in range(len(source_inputs))]
-        source_input_sentence = ",".join(source_input_words) 
-
-        if input_sentence not in input_output_dict["question"] or \
-            source_input_sentence not in input_output_dict["source_question"]:
-            input_output_dict["question"] += [input_sentence]
-            input_output_dict["source_question"] += [source_input_sentence]
-            answers = fetch_counterfactual_value(
-                value_maps, source_value_maps, program, 
-                aligning_causal_variable, "op5"
-            )
-            input_output_dict["answers"] += [answers]
-            input_output_dict["intervention_ids"] += [
-                aligning_causal_variable_map[aligning_causal_variable]
-            ]
-            input_output_dict["base_answers"] += [value_maps["op5"]]
-            input_output_dict["source_answers"] += [source_value_maps["op5"]]
-    return input_output_dict
-
-
 @dataclass
 class DataCollatorForAlignmentDataset(object):
     """Collate examples for supervised fine-tuning."""
@@ -688,30 +631,108 @@ def make_supervised_data_module(
     )
 
 
+def prepare_counterfactual_alignment_data_simple(
+    program,
+    n_sample,
+    aligning_causal_variable,
+    all_vocab, synonyms_pairs, synonyms_dict
+):
+    aligning_causal_variable_map = {
+        "op1": 0,
+        "op2": 0,
+        "op3": 0,
+        "op4": 0,
+        "op5": 0
+    }
+    ##################################
+    #
+    # Try to implement this by yourself!
+    # You can know more about alignment.
+    #
+    ##################################
+    input_output_dict = {
+        "question": [],
+        "source_question": [],
+        "intervention_ids": [],
+        "answers": [],
+        "base_answers": [],
+        "source_answers": []
+    }
+    while len(input_output_dict["question"]) < n_sample:
+        _, inputs, _, value_maps = sample_factual_inputs(
+            program, all_vocab, synonyms_pairs, synonyms_dict
+        )
+        input_words = [inputs[i] for i in range(len(inputs))]
+        input_sentence = ",".join(input_words) 
+        
+        _, source_inputs, _, source_value_maps = sample_factual_inputs(
+            program, all_vocab, synonyms_pairs, synonyms_dict
+        )
+        source_input_words = [source_inputs[i] for i in range(len(source_inputs))]
+        source_input_sentence = ",".join(source_input_words) 
+        answers = fetch_counterfactual_value(
+            value_maps, source_value_maps, program, 
+            aligning_causal_variable, "op5"
+        )
+        base_answers = value_maps["op5"]
+        source_answers = source_value_maps["op5"]
+        
+        if len(input_output_dict["question"]) < n_sample//2:
+            if base_answers == answers:
+                continue
+        else:
+            if base_answers != answers:
+                continue
+        if input_sentence not in input_output_dict["question"] or \
+            source_input_sentence not in input_output_dict["source_question"]:
+            input_output_dict["question"] += [input_sentence]
+            input_output_dict["source_question"] += [source_input_sentence]
+            input_output_dict["answers"] += [answers]
+            input_output_dict["intervention_ids"] += [
+                aligning_causal_variable_map[aligning_causal_variable]
+            ]
+            input_output_dict["base_answers"] += [value_maps["op5"]]
+            input_output_dict["source_answers"] += [source_value_maps["op5"]]
+    return input_output_dict
+
+
 def make_supervised_counterfactual_data_module(
     program,
     aligning_causal_variable,
     n_alignment_training_examples,
     target_word_beam, 
     token_position_strategy,
-    tokenizer
+    tokenizer,
+    test_size=1000
 ):
     clm_new_token_trigger = "="
     
     all_vocab, synonyms_pairs, synonyms_dict = fetch_metadata(".", use_token=True)
-    counterfactual_input_output_dict = prepare_counterfactual_alignment_data_simple(
-        program[1],
-        n_alignment_training_examples,
-        aligning_causal_variable,
-        all_vocab, synonyms_pairs, synonyms_dict
+    train_cdataset = Dataset.from_dict(
+        prepare_counterfactual_alignment_data_simple(
+            program[1],
+            n_alignment_training_examples,
+            aligning_causal_variable,
+            all_vocab, synonyms_pairs, synonyms_dict
+        )
     )
     
-    raw_cdataset = Dataset.from_dict(counterfactual_input_output_dict)
-    raw_cdataset = raw_cdataset.train_test_split(test_size=1000)
-    test_cdataset = raw_cdataset["test"]
-    raw_cdataset = raw_cdataset["train"].train_test_split(test_size=1000)
-    validation_cdataset = raw_cdataset["test"]
-    train_cdataset = raw_cdataset["train"]
+    validation_cdataset = Dataset.from_dict(
+        prepare_counterfactual_alignment_data_simple(
+            program[1],
+            test_size,
+            aligning_causal_variable,
+            all_vocab, synonyms_pairs, synonyms_dict
+        )
+    )
+    test_cdataset = Dataset.from_dict(
+        prepare_counterfactual_alignment_data_simple(
+            program[1],
+            test_size,
+            aligning_causal_variable,
+            all_vocab, synonyms_pairs, synonyms_dict
+        )
+    )
     
     def counterfactual_preprocess_function(
         target_word_beam,
