@@ -18,6 +18,20 @@ from transformers.utils import logging
 logging.set_verbosity_info()
 logger = logging.get_logger("transformers")
 
+def random_permutation_matrix(n):
+    P = torch.eye(n)
+    perm = torch.randperm(n)
+    P = P[perm]
+    
+    return P
+
+def closeness_to_permutation_loss(R):
+    row_sum_diff = torch.abs(R.sum(dim=1) - 1.0).mean()
+    col_sum_diff = torch.abs(R.sum(dim=0) - 1.0).mean()
+    entry_diff = (R * (1 - R)).mean()
+    loss = .5 * (row_sum_diff + col_sum_diff) + entry_diff
+    return loss
+
 def set_seed(seed: int):
     random.seed(seed)
     np.random.seed(seed)
@@ -462,6 +476,8 @@ class AlignableGPT2LMHeadModel(GPT2LMHeadModel):
             if self.transformer.alignment_config != None:
                 boundary_loss = 1. * self.transformer.intervention_boundaries.sum()
                 loss += boundary_loss
+                # prefer permutation matrix to avoid non-standard basis illusion.
+                loss += closeness_to_permutation_loss(self.transformer.rotate_layer.weight)
                 
         if not return_dict:
             output = (lm_logits,) + transformer_outputs[1:]

@@ -28,8 +28,10 @@ if __name__ == '__main__':
         cmd.add_argument('--n_training_examples', default=22000, type=int)
         cmd.add_argument('--task_name', default="07065a", type=str, help='')
         cmd.add_argument('--alignment_variable', default="op1", type=str, help='')
+        cmd.add_argument('--wandb_project', default="Boundless-DAS-word-logic", type=str, help='')
         cmd.add_argument('--alignment_layer', default=6, type=int)
         cmd.add_argument('--token_position_strategy', default="8_9", type=str, help='')
+        cmd.add_argument('--preload_dataset', default=False, action='store_true')
         
         args = cmd.parse_args(sys.argv[1:])
     except:
@@ -46,17 +48,54 @@ target_word_beam = max(program[1][0][2][:2])
 ###################
 logger.info(f"Loading data for program={args.task_name}")
 token_position_strategy = [int(t) for t in args.token_position_strategy.split("_")]
-counterfactual_data_module = make_supervised_counterfactual_data_module(
-    program,
-    args.alignment_variable,
-    args.n_training_examples,
-    max(program[1][0][2][:2]), 
-    token_position_strategy, # this will overwrite the previous arg!
-    tokenizer=AutoTokenizer.from_pretrained("gpt2")
-)
-train_cdataset = counterfactual_data_module["train_dataset"]
-validation_cdataset = counterfactual_data_module["eval_dataset"]
-test_cdataset = counterfactual_data_module["test_dataset"]
+if args.preload_dataset:
+    logger.info(f"Preloading the created dataset for training to save time...")
+    preload_cache_dir = "./preload_datasets/"
+    train_json = os.path.join(preload_cache_dir, f"train_{program[0]}_{args.alignment_variable}.json")
+    validation_json = os.path.join(preload_cache_dir, f"validation_{program[0]}_{args.alignment_variable}.json")
+    test_json = os.path.join(preload_cache_dir, f"test_{program[0]}_{args.alignment_variable}.json")
+    train_cdataset = load_dataset('json', data_files=train_json)
+    train_cdataset = make_supervised_counterfactual_data_module_single_preload(
+        program,
+        args.alignment_variable,
+        args.n_training_examples,
+        max(program[1][0][2][:2]), 
+        token_position_strategy, # this will overwrite the previous arg!
+        tokenizer=AutoTokenizer.from_pretrained("gpt2"),
+        preload_dataset=train_cdataset
+    )["train"]
+    validation_cdataset = load_dataset('json', data_files=validation_json)
+    validation_cdataset = make_supervised_counterfactual_data_module_single_preload(
+        program,
+        args.alignment_variable,
+        args.n_training_examples,
+        max(program[1][0][2][:2]), 
+        token_position_strategy, # this will overwrite the previous arg!
+        tokenizer=AutoTokenizer.from_pretrained("gpt2"),
+        preload_dataset=validation_cdataset
+    )["train"]
+    test_cdataset = load_dataset('json', data_files=test_json)
+    test_cdataset = make_supervised_counterfactual_data_module_single_preload(
+        program,
+        args.alignment_variable,
+        args.n_training_examples,
+        max(program[1][0][2][:2]), 
+        token_position_strategy, # this will overwrite the previous arg!
+        tokenizer=AutoTokenizer.from_pretrained("gpt2"),
+        preload_dataset=test_cdataset
+    )["train"]
+else:
+    counterfactual_data_module = make_supervised_counterfactual_data_module(
+        program,
+        args.alignment_variable,
+        args.n_training_examples,
+        max(program[1][0][2][:2]), 
+        token_position_strategy, # this will overwrite the previous arg!
+        tokenizer=AutoTokenizer.from_pretrained("gpt2")
+    )
+    train_cdataset = counterfactual_data_module["train_dataset"]
+    validation_cdataset = counterfactual_data_module["eval_dataset"]
+    test_cdataset = counterfactual_data_module["test_dataset"]
 
 left_tokenizer = AutoTokenizer.from_pretrained(
     "gpt2",
@@ -148,14 +187,14 @@ run_name = f"{model_type}.alignment_variable.{args.alignment_variable}.intl.{ali
            f"{args.token_position_strategy}.lr.{args.lr}.seed.{args.seed}"
 if not os.path.exists(args.output_dir):
     os.mkdir(args.output_dir)
-os.environ["WANDB_PROJECT"] = "Boundless-DAS-word-logic"
+os.environ["WANDB_PROJECT"] = args.wandb_project
 output_dir = os.path.join(args.output_dir, run_name)
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 if args.is_wandb:
     import wandb
     run = wandb.init(
-        project="Boundless-DAS-word-logic",
+        project=args.wandb_project,
         name=run_name,
     )
     

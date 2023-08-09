@@ -12,7 +12,7 @@ from tqdm import tqdm
 import json
 import os
 from functools import partial
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 import copy
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Sequence
@@ -47,6 +47,7 @@ import pandas as pd
 import networkx as nx
 import ipywidgets as widgets
 from ipywidgets import interact
+from matplotlib.patches import Rectangle
 
 from transformers.utils import logging
 logging.set_verbosity_info()
@@ -401,6 +402,8 @@ def sample_factual_inputs(program, all_vocab, synonyms_pairs, synonyms_dict):
     op_value_map["op5"] = (op_value_map["op4"] or arg3_value) if op5 == "OR" else \
         (op_value_map["op4"] and arg3_value)
     
+    for k, v in value_map.items():
+        op_value_map[k] = v # this is a more complete map.
     return program, value_map, op_map, op_value_map
 
 def eval_program(program, value_map, synonyms_pairs, synonyms_dict):
@@ -437,9 +440,48 @@ def weakly_correlated_variables(correlation_matrix, threshold):
 
     return weak_set
 
-def fetch_counterfactual_value(base_value_maps, source_value_maps, program, intervention_on, fetch_on):
-    intervened_value_maps = copy.deepcopy(base_value_maps)
-    intervened_value_maps[intervention_on] = source_value_maps[intervention_on]
+def fetch_counterfactual_value_input_only(
+    base_value_maps, 
+    source_value_maps, 
+    program,
+    intervention_on,
+    fetch_on,
+    all_vocab, synonyms_pairs, synonyms_dict
+):
+    intervention_on = int(intervention_on[-1]) # rewrite
+    value_map = copy.deepcopy(base_value_maps)
+    value_map[intervention_on] = source_value_maps[intervention_on]
+    is_op1 = eval(f"'{value_map[program[0][2][0]]}'{program[0][-1][0]}'{value_map[program[0][2][1]]}'")
+    is_op2 = eval(f"'{value_map[program[0][2][1]]}'{program[0][-1][1]}'{value_map[program[0][2][2]]}'")
+    is_synonym = True if ((value_map[program[0][0][0]], value_map[program[0][0][1]]) in synonyms_pairs) or \
+        ((value_map[program[0][0][1]], value_map[program[0][0][0]]) in synonyms_pairs) else False
+    first_level_values = [is_op1, is_op2, is_synonym]
+    arg1_value = first_level_values[program[1][0][0]-5]
+    arg2_value = first_level_values[program[1][0][1]-5]
+    arg3_value = first_level_values[program[-1][0]-5]
+    op4 = program[1][-1]
+    op5 = program[-1][-1]
+    op4_value = (arg1_value or arg2_value) if op4 == "OR" else \
+        (arg1_value and arg2_value)
+    op5_value = (op4_value or arg3_value) if op5 == "OR" else \
+        (op4_value and arg3_value)
+    
+    return {'op1': is_op1, 'op2': is_op2, 'op3': is_synonym, 'op4': op4_value, 'op5': op5_value}[fetch_on]
+
+def fetch_counterfactual_value(
+    base_op_value_maps, source_op_value_maps, program, 
+    intervention_on, fetch_on,
+    all_vocab, synonyms_pairs, synonyms_dict
+):
+    if intervention_on in {"C0", "C1", "C2", "C3", "C4"}:
+        return fetch_counterfactual_value_input_only(
+            base_op_value_maps, source_op_value_maps, program, 
+            intervention_on, fetch_on,
+            all_vocab, synonyms_pairs, synonyms_dict
+        )
+    
+    intervened_value_maps = copy.deepcopy(base_op_value_maps)
+    intervened_value_maps[intervention_on] = source_op_value_maps[intervention_on]
     
     op1 = program[0][-1][0]
     op2 = program[0][-1][1]
@@ -642,7 +684,38 @@ def prepare_counterfactual_alignment_data_simple(
         "op2": 0,
         "op3": 0,
         "op4": 0,
-        "op5": 0
+        "op5": 0,
+        "C0": 0,
+        "C1": 0,
+        "C2": 0,
+        "C3": 0,
+        "C4": 0
+    }
+    ##################################
+    #
+    # Try to implement this by yourself!
+    # You can know more about alignment.
+    #
+    ##################################
+    input_output_dict = {
+        "question": [],
+        "source_question": [],
+        "intervention_ids": [],
+        "answers": [],
+        "base_answers": [],
+        "source_answers": []
+    }
+    aligning_causal_variable_map = {
+        "op1": 0,
+        "op2": 0,
+        "op3": 0,
+        "op4": 0,
+        "op5": 0,
+        "C0": 0,
+        "C1": 0,
+        "C2": 0,
+        "C3": 0,
+        "C4": 0
     }
     ##################################
     #
@@ -659,21 +732,82 @@ def prepare_counterfactual_alignment_data_simple(
         "source_answers": []
     }
     while len(input_output_dict["question"]) < n_sample:
+        
         _, inputs, _, value_maps = sample_factual_inputs(
             program, all_vocab, synonyms_pairs, synonyms_dict
         )
-        input_words = [inputs[i] for i in range(len(inputs))]
-        input_sentence = ",".join(input_words) 
-        
-        _, source_inputs, _, source_value_maps = sample_factual_inputs(
-            program, all_vocab, synonyms_pairs, synonyms_dict
-        )
-        source_input_words = [source_inputs[i] for i in range(len(source_inputs))]
-        source_input_sentence = ",".join(source_input_words) 
+
+        if aligning_causal_variable in {"C0", "C1", "C2", "C3", "C4"}:
+            # we use a more systematic intervention sampling strategy.
+            strategy = random.choice(["change_C", "softkeep_C", "random_C"])
+            aligning_idx = int(aligning_causal_variable[-1])
+            associate_variable = get_associate_variables(program, aligning_causal_variable)
+            associate_idx = int(associate_variable[-1])
+            
+            if is_not_identity_check(program, aligning_causal_variable):
+                if value_maps["op4"] == True:
+                    continue
+                source_inputs = copy.deepcopy(inputs)
+                source_value_maps = copy.deepcopy(value_maps)
+                if random.random() < 0.5:
+                    # semantic soft retrieve.
+                    new_val = random.choice(synonyms_dict[inputs[associate_idx]])
+                    source_inputs[aligning_idx] = new_val
+                    source_value_maps[aligning_idx] = new_val
+                else:
+                    ori_value = source_inputs[aligning_idx]
+                    new_value = reject_sample(all_vocab, exception=[ori_value])
+                    source_inputs[aligning_idx] = new_value
+                    source_value_maps[aligning_idx] = new_value
+            else:
+                if value_maps["op3"] == True:
+                    continue
+                # 1) we keep everything else the same but change C_{target}
+                if strategy == "change_C":
+                    source_inputs = copy.deepcopy(inputs)
+                    source_value_maps = copy.deepcopy(value_maps)
+                    if random.random() < 0.5:
+                        # likely != True -> True
+                        # likely == True -> False
+                        # likely != False -> True
+                        # likely == False -> False
+                        ori_value = source_inputs[aligning_idx]
+                        new_value = reject_sample(all_vocab, exception=[inputs[aligning_idx]])
+                        source_inputs[aligning_idx] = new_value
+                        source_value_maps[aligning_idx] = new_value
+                    else:
+                        # != True -> False
+                        # == False -> True
+                        source_inputs[aligning_idx] = inputs[associate_idx]
+                        source_value_maps[aligning_idx] = value_maps[associate_idx]
+                # 2) we change everything else but not C_{target}
+                elif strategy == "softkeep_C":
+                    _, source_inputs, _, source_value_maps = sample_factual_inputs(
+                        program, all_vocab, synonyms_pairs, synonyms_dict
+                    )
+                    source_inputs[aligning_idx] = inputs[associate_idx]
+                    source_value_maps[aligning_idx] = value_maps[associate_idx]
+                elif strategy == "random_C":
+                    _, source_inputs, _, source_value_maps = sample_factual_inputs(
+                        program, all_vocab, synonyms_pairs, synonyms_dict
+                    )
+            source_value_maps["op5"] = eval_program(program, source_value_maps, synonyms_pairs, synonyms_dict)
+        else:
+            _, source_inputs, _, source_value_maps = sample_factual_inputs(
+                program, all_vocab, synonyms_pairs, synonyms_dict
+            )
+
         answers = fetch_counterfactual_value(
             value_maps, source_value_maps, program, 
-            aligning_causal_variable, "op5"
+            aligning_causal_variable, "op5",
+            all_vocab, synonyms_pairs, synonyms_dict
         )
+        
+        input_words = [inputs[i] for i in range(len(inputs))]
+        input_sentence = ",".join(input_words) 
+        source_input_words = [source_inputs[i] for i in range(len(source_inputs))]
+        source_input_sentence = ",".join(source_input_words) 
+        
         base_answers = value_maps["op5"]
         source_answers = source_value_maps["op5"]
         
@@ -682,7 +816,8 @@ def prepare_counterfactual_alignment_data_simple(
                 continue
         else:
             if base_answers != answers:
-                continue
+                continue        
+        
         if input_sentence not in input_output_dict["question"] or \
             source_input_sentence not in input_output_dict["source_question"]:
             input_output_dict["question"] += [input_sentence]
@@ -693,7 +828,9 @@ def prepare_counterfactual_alignment_data_simple(
             ]
             input_output_dict["base_answers"] += [value_maps["op5"]]
             input_output_dict["source_answers"] += [source_value_maps["op5"]]
+
     return input_output_dict
+
 
 
 def make_supervised_counterfactual_data_module(
@@ -886,3 +1023,552 @@ def make_supervised_counterfactual_data_module(
         test_dataset=test_cdataset, 
         data_collator=None
     )
+
+def make_supervised_counterfactual_data_module_single_preload(
+    program,
+    aligning_causal_variable,
+    n_alignment_training_examples,
+    target_word_beam, 
+    token_position_strategy,
+    tokenizer,
+    preload_dataset
+):
+    clm_new_token_trigger = "="
+    
+    def counterfactual_preprocess_function(
+        target_word_beam,
+        token_position_strategy,
+        no_answer,
+        examples,
+    ):
+        inputs = examples["question"]
+        before_target_inptus = [",".join(_input.split(",")[:target_word_beam]) for _input in inputs]
+        target_word_inptus = [_input.split(",")[target_word_beam] for _input in inputs]
+
+        source_inputs = examples["source_question"]
+        before_target_source_inptus = [
+            ",".join(_input.split(",")[:target_word_beam]) for _input in source_inputs
+        ]
+        target_word_source_inptus = [
+            _input.split(",")[target_word_beam] for _input in source_inputs
+        ]
+
+        targets = examples["answers"]
+
+        if no_answer:
+            base_examples = [s + f"{clm_new_token_trigger}" for s, t in zip(inputs, targets)]
+            source_examples = [s + f"{clm_new_token_trigger}" for s, t in zip(source_inputs, targets)]
+        else:
+            # We added in a '=' to be the trigger word of answer.
+            base_examples = [s + f"{clm_new_token_trigger}" + f"{t}" for s, t in zip(inputs, targets)]
+            # note that the target here is a dummy target for both examples.
+            # it is the counterfactual target which should not match with these
+            # two inputs individually.
+
+            # note that we cancel the eos token as well, as we don't need it.
+            source_examples = [s + f"{clm_new_token_trigger}" + f"{t}" for s, t in zip(source_inputs, targets)]
+
+        examples_tokenized = tokenizer(
+            base_examples,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+        source_examples_tokenized = tokenizer(
+            source_examples,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+        inputs_tokenized = tokenizer(
+            inputs,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+
+        before_target_tokenized = tokenizer(
+            before_target_inptus,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+        target_word_tokenized = tokenizer(
+            target_word_inptus,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+
+        before_target_source_tokenized = tokenizer(
+            before_target_source_inptus,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+        target_word_source_tokenized = tokenizer(
+            target_word_source_inptus,
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+        )
+
+        intervention_pos = []
+        source_intervention_pos = []
+
+        labels = copy.deepcopy(examples_tokenized["input_ids"])
+
+        for i in range(len(inputs_tokenized["input_ids"])):
+            input_len = len(inputs_tokenized["input_ids"][i]) + 1 
+            # let's not predict the trigger.
+            # 1 here is a little hacky... please not follow this.
+            labels_t = torch.tensor(labels[i])
+            labels_t[:input_len] = IGNORE_INDEX
+            labels[i] = labels_t.tolist()
+
+            beam_start_index = len(before_target_tokenized['input_ids'][i])+1
+            beam_end_index = beam_start_index + \
+                len(target_word_tokenized['input_ids'][i])
+
+            beam_start_source_index = len(before_target_source_tokenized['input_ids'][i])+1
+            beam_end_source_index = beam_start_source_index + \
+                len(target_word_source_tokenized['input_ids'][i])
+
+            beam_indices = [i for i in range(beam_start_index, beam_end_index)]
+            beam_source_indices = [i for i in range(beam_start_source_index, beam_end_source_index)]
+            
+            if isinstance(token_position_strategy, list):
+                intervention_pos += [token_position_strategy]
+                source_intervention_pos += [token_position_strategy]
+            elif token_position_strategy == "last_of_beam":
+                intervention_pos += [[beam_indices[-1], beam_indices[-1]+1]]
+                source_intervention_pos += [[beam_source_indices[-1], beam_source_indices[-1]+1]]
+            elif token_position_strategy == "first_of_beam":
+                intervention_pos += [[beam_indices[0], beam_indices[0]+1]]
+                source_intervention_pos += [[beam_source_indices[0], beam_source_indices[0]+1]]
+            else:
+                assert False, f"Strategy {token_position_strategy} Not Implemented."
+
+        examples_tokenized["source_input_ids"] = source_examples_tokenized["input_ids"]
+        examples_tokenized["source_attention_mask"] = source_examples_tokenized["attention_mask"]
+
+        examples_tokenized["labels"] = labels
+        examples_tokenized["intervention_ids"] = examples["intervention_ids"]
+        # Now, this is the most important part!
+        # This is also a novel thing that we introduce in this tutorial, which is for
+        # across position interventions.
+        examples_tokenized["token_range"] = intervention_pos
+        examples_tokenized["source_token_range"] = source_intervention_pos
+
+        return examples_tokenized
+
+    remove_columns=['question', 'source_question', 'answers', 'base_answers', 'source_answers']
+    preload_dataset = preload_dataset.map(
+        partial(counterfactual_preprocess_function, target_word_beam, token_position_strategy, False),
+        batched=True,
+        num_proc=1,
+        load_from_cache_file=False,
+        remove_columns=remove_columns,
+        desc="Running tokenizer on the test dataset",
+    )
+    
+    return preload_dataset
+
+def plot_head_level_attention_heatmaps(attention_data, highlight_heads=[]):
+    fig, axs = plt.subplots(3, 4, figsize=(6, 4))  # Adjust size as needed
+
+    # Ensure data has 3 dimensions (num_heads, seq_len, seq_len)
+    assert len(attention_data.shape) == 3
+
+    for i in range(attention_data.shape[0]):  # Iterate over attention heads
+        ax = axs[i//4, i%4]
+        sns.heatmap(attention_data[i], cmap="YlGnBu", square=True, ax=ax, cbar=False)
+        ax.set_title(f'Head {i+1}')  # Optionally, set title for each subplot
+
+        # If the head is in the highlight list, change the border color and width
+        if i+1 in highlight_heads:
+            rect = Rectangle((0,0), 1, 1, fill=False, color='red', lw=3, transform=ax.transAxes, clip_on=False)
+            ax.add_patch(rect)
+
+    # If the number of heads is less than 12, remove the empty subplots
+    if attention_data.shape[0] < 12:
+        for i in range(attention_data.shape[0], 12):
+            fig.delaxes(axs.flatten()[i])
+
+    plt.tight_layout()  # Ensure the subplots do not overlap
+    plt.show()
+
+    
+def test_for_fetch_counterfactual_value(
+    program,
+    all_vocab, synonyms_pairs, synonyms_dict
+):
+    def s():
+        return random.choice([True, False])
+    for _ in range(100000):
+        base_value_maps = {
+            'op1': s(), 'op2': s(), 
+            'op3': s(), 'op4': None, 
+            'op5': None
+        }
+        source_value_maps = {
+            'op1': s(), 'op2': s(), 
+            'op3': s(), 'op4': None, 
+            'op5': None
+        }
+        eval_l = fetch_counterfactual_value(
+            base_value_maps, source_value_maps, program[1], "op1", "op5",
+            all_vocab, synonyms_pairs, synonyms_dict
+        )
+        l = (source_value_maps['op1'] and base_value_maps['op2']) or base_value_maps['op3']
+        assert l == eval_l
+
+        eval_l = fetch_counterfactual_value(
+            base_value_maps, source_value_maps, program[1], "op2", "op5",
+            all_vocab, synonyms_pairs, synonyms_dict
+        )
+        l = (base_value_maps['op1'] and source_value_maps['op2']) or base_value_maps['op3']
+        assert l == eval_l
+
+        eval_l = fetch_counterfactual_value(
+            base_value_maps, source_value_maps, program[1], "op3", "op5",
+            all_vocab, synonyms_pairs, synonyms_dict
+        )
+        l = (base_value_maps['op1'] and base_value_maps['op2']) or source_value_maps['op3']
+        assert l == eval_l
+
+        eval_l = fetch_counterfactual_value(
+            base_value_maps, source_value_maps, program[1], "op4", "op5",
+            all_vocab, synonyms_pairs, synonyms_dict
+        )
+        l = source_value_maps['op4'] or base_value_maps['op3']
+        assert l == eval_l
+
+        eval_l = fetch_counterfactual_value(
+            base_value_maps, source_value_maps, program[1], "op5", "op5",
+            all_vocab, synonyms_pairs, synonyms_dict
+        )
+        l = source_value_maps['op5']
+        assert l == eval_l
+
+    # these are simplier test cases.
+    base_value_maps = {0: 'ilitary', 1: 'quickShip', 2: 'ilitary', 3: 'kef', 4: 'Several'}
+    source_value_maps = {0: 'ilitary', 1: 'quickShip', 2: 'Several', 3: 'kef', 4: 'kef'}
+    assert fetch_counterfactual_value(
+        base_value_maps, source_value_maps, program[1], "C2", "op1",
+        all_vocab, synonyms_pairs, synonyms_dict
+    ) == True
+
+    base_value_maps = {0: 'ilitary', 1: 'quickShip', 2: 'ilitary', 3: 'kef', 4: 'Several'}
+    source_value_maps = {0: 'ilitary', 1: 'quickShip', 2: 'Several', 3: 'kef', 4: 'kef'}
+    assert fetch_counterfactual_value(
+        base_value_maps, source_value_maps, program[1], "C0", "op1",
+        all_vocab, synonyms_pairs, synonyms_dict
+    ) == False
+
+    base_value_maps = {0: 'ilitary', 1: 'quickShip', 2: 'ilitary', 3: 'kef', 4: 'Several'}
+    source_value_maps = {0: 'ilitary', 1: 'quickShip', 2: 'Several', 3: 'kef', 4: 'kef'}
+    assert fetch_counterfactual_value(
+        base_value_maps, source_value_maps, program[1], "C0", "op2",
+        all_vocab, synonyms_pairs, synonyms_dict
+    ) == True
+
+    base_value_maps = {0: 'ilitary', 1: 'quickShip', 2: 'ilitary', 3: 'kef', 4: 'Several'}
+    source_value_maps = {0: 'Several', 1: 'quickShip', 2: 'Several', 3: 'kef', 4: 'kef'}
+    assert fetch_counterfactual_value(
+        base_value_maps, source_value_maps, program[1], "C0", "op2",
+        all_vocab, synonyms_pairs, synonyms_dict
+    ) == False
+    print("Tests Passed for fetch_counterfactual_value()")
+
+
+def is_not_identity_check(program, causal_variable):
+    causal_variable_int = int(causal_variable[-1])
+    if causal_variable_int in program[0][0]:
+        return True
+    return False
+    
+def get_associate_variables(program, causal_variable):
+    causal_variable_int = int(causal_variable[-1])
+    if causal_variable_int == program[0][0][0]:
+        return f"C{program[0][0][1]}"
+    elif causal_variable_int == program[0][0][1]:
+        return f"C{program[0][0][0]}"
+    elif causal_variable_int == program[0][2][0]:
+        return f"C{program[0][2][1]}"
+    elif causal_variable_int == program[0][2][1]:
+        return random.choice([f"C{program[0][2][0]}", f"C{program[0][2][2]}"])
+    elif causal_variable_int == program[0][2][2]:
+        return f"C{program[0][2][1]}"
+
+def one_good_way_to_prepare_counterfactual_alignment_data(
+    program,
+    n_sample,
+    aligning_causal_variable,
+    all_vocab, synonyms_pairs, synonyms_dict
+):
+    aligning_causal_variable_map = {
+        "op1": 0,
+        "op2": 0,
+        "op3": 0,
+        "op4": 0,
+        "op5": 0,
+        "C0": 0,
+        "C1": 0,
+        "C2": 0,
+        "C3": 0,
+        "C4": 0
+    }
+    ##################################
+    #
+    # Try to implement this by yourself!
+    # You can know more about alignment.
+    #
+    ##################################
+    input_output_dict = {
+        "question": [],
+        "source_question": [],
+        "intervention_ids": [],
+        "answers": [],
+        "base_answers": [],
+        "source_answers": [],
+        "alternative_answers": []
+    }
+    while len(input_output_dict["question"]) < n_sample:
+        
+        _, inputs, _, value_maps = sample_factual_inputs(
+            program, all_vocab, synonyms_pairs, synonyms_dict
+        )
+
+        if aligning_causal_variable in {"C0", "C1", "C2", "C3", "C4"}:
+            # we use a more systematic intervention sampling strategy.
+            strategy = random.choice(["change_C", "softkeep_C"])
+            aligning_idx = int(aligning_causal_variable[-1])
+            associate_variable = get_associate_variables(program, aligning_causal_variable)
+            associate_idx = int(associate_variable[-1])
+                        
+            # 1) we keep everything else the same but change C_{target}
+            if strategy == "change_C":
+                source_inputs = copy.deepcopy(inputs)
+                source_value_maps = copy.deepcopy(value_maps)
+                
+                if random.random() < 0.5:
+                    # likely != True -> True
+                    # likely == True -> False
+                    # likely != False -> True
+                    # likely == False -> False
+                    ori_value = source_inputs[aligning_idx]
+                    new_value = reject_sample(all_vocab, exception=[inputs[aligning_idx]])
+                    source_inputs[aligning_idx] = new_value
+                    source_value_maps[aligning_idx] = new_value
+                    
+                    answers = fetch_counterfactual_value(
+                        value_maps, source_value_maps, program, 
+                        aligning_causal_variable, "op5",
+                        all_vocab, synonyms_pairs, synonyms_dict
+                    )
+                    base_answers = value_maps["op5"]
+                    
+                else:
+                    # != True -> False
+                    # == False -> True
+                    if is_not_identity_check(program, aligning_causal_variable):
+                        # semantic soft retrieve.
+                        new_val = random.choice(synonyms_dict[inputs[associate_idx]])
+                        source_inputs[aligning_idx] = new_val
+                        source_value_maps[aligning_idx] = new_val
+                    else:
+                        source_inputs[aligning_idx] = inputs[associate_idx]
+                        source_value_maps[aligning_idx] = value_maps[associate_idx]
+                        
+            elif strategy == "softkeep_C":
+            # 2) we change everything else but not C_{target}
+                _, source_inputs, _, source_value_maps = sample_factual_inputs(
+                    program, all_vocab, synonyms_pairs, synonyms_dict
+                )
+                if random.random() < 0.5:
+                    # no change label!
+                    source_inputs[aligning_idx] = inputs[aligning_idx]
+                    source_value_maps[aligning_idx] = value_maps[aligning_idx]
+                else:
+                    if is_not_identity_check(program, aligning_causal_variable):
+                        # semantic soft retrieve.
+                        new_val = random.choice(synonyms_dict[inputs[associate_idx]])
+                        source_inputs[aligning_idx] = new_val
+                        source_value_maps[aligning_idx] = new_val
+                    else:
+                        source_inputs[aligning_idx] = inputs[associate_idx]
+                        source_value_maps[aligning_idx] = value_maps[associate_idx]
+                        
+            source_value_maps["op5"] = eval_program(program, source_value_maps, synonyms_pairs, synonyms_dict)
+        else:
+            _, source_inputs, _, source_value_maps = sample_factual_inputs(
+                program, all_vocab, synonyms_pairs, synonyms_dict
+            )
+
+        answers = fetch_counterfactual_value(
+            value_maps, source_value_maps, program, 
+            aligning_causal_variable, "op5",
+            all_vocab, synonyms_pairs, synonyms_dict
+        )
+        
+        input_words = [inputs[i] for i in range(len(inputs))]
+        input_sentence = ",".join(input_words) 
+        source_input_words = [source_inputs[i] for i in range(len(source_inputs))]
+        source_input_sentence = ",".join(source_input_words) 
+        
+        base_answers = value_maps["op5"]
+        source_answers = source_value_maps["op5"]
+        
+        if len(input_output_dict["question"]) < n_sample//2:
+            if base_answers == answers:
+                continue
+        else:
+            if base_answers != answers:
+                continue
+        if input_sentence not in input_output_dict["question"] or \
+            source_input_sentence not in input_output_dict["source_question"]:
+            input_output_dict["question"] += [input_sentence]
+            input_output_dict["source_question"] += [source_input_sentence]
+            input_output_dict["answers"] += [answers]
+            input_output_dict["intervention_ids"] += [
+                aligning_causal_variable_map[aligning_causal_variable]
+            ]
+            input_output_dict["base_answers"] += [value_maps["op5"]]
+            input_output_dict["source_answers"] += [source_value_maps["op5"]]
+            # we want to get alternative answers as if we are intervening
+            # on different causal variables. again, if some variables have
+            # the exact same ctf output, we cannot distinguish them!
+            all_alternative_answers = {}
+            for alternative_var in {"op1", "op2", "op3", "op4", "op5", "C0", "C1", "C2", "C3", "C4"}:
+                alternative_answers = fetch_counterfactual_value(
+                    value_maps, source_value_maps, program, 
+                    alternative_var, "op5",
+                    all_vocab, synonyms_pairs, synonyms_dict
+                )
+                all_alternative_answers[alternative_var] = alternative_answers
+            input_output_dict["alternative_answers"] += [all_alternative_answers]
+
+    return input_output_dict
+
+    
+def bad_way_to_prepare_counterfactual_alignment_data(
+    program,
+    n_sample,
+    aligning_causal_variable,
+    all_vocab, synonyms_pairs, synonyms_dict
+):
+    aligning_causal_variable_map = {
+        "op1": 0,
+        "op2": 0,
+        "op3": 0,
+        "op4": 0,
+        "op5": 0,
+        "C0": 0,
+        "C1": 0,
+        "C2": 0,
+        "C3": 0,
+        "C4": 0
+    }
+    ##################################
+    #
+    # Try to implement this by yourself!
+    # You can know more about alignment.
+    #
+    ##################################
+    input_output_dict = {
+        "question": [],
+        "source_question": [],
+        "intervention_ids": [],
+        "answers": [],
+        "base_answers": [],
+        "source_answers": [],
+        "alternative_answers": []
+    }
+    while len(input_output_dict["question"]) < n_sample:
+        
+        _, inputs, _, value_maps = sample_factual_inputs(
+            program, all_vocab, synonyms_pairs, synonyms_dict
+        )
+        _, source_inputs, _, source_value_maps = sample_factual_inputs(
+            program, all_vocab, synonyms_pairs, synonyms_dict
+        )
+        if aligning_causal_variable in {"C0", "C1", "C2", "C3", "C4"}:
+            if random.random() < 0.5:
+                # we replace the aligning input token with
+                # the one from base to simulate a null intervention.
+                # as a result, base input should not be changed.
+                source_inputs[int(aligning_causal_variable[-1])] = inputs[int(aligning_causal_variable[-1])]
+                source_value_maps[int(aligning_causal_variable[-1])] = value_maps[int(aligning_causal_variable[-1])]
+                source_value_maps["op5"] = eval_program(program, source_value_maps, synonyms_pairs, synonyms_dict)
+
+        answers = fetch_counterfactual_value(
+            value_maps, source_value_maps, program, 
+            aligning_causal_variable, "op5",
+            all_vocab, synonyms_pairs, synonyms_dict
+        )
+        
+        input_words = [inputs[i] for i in range(len(inputs))]
+        input_sentence = ",".join(input_words) 
+        source_input_words = [source_inputs[i] for i in range(len(source_inputs))]
+        source_input_sentence = ",".join(source_input_words) 
+        
+        base_answers = value_maps["op5"]
+        source_answers = source_value_maps["op5"]
+        
+        if len(input_output_dict["question"]) < n_sample//2:
+            if base_answers == answers:
+                continue
+        else:
+            if base_answers != answers:
+                continue
+        if input_sentence not in input_output_dict["question"] or \
+            source_input_sentence not in input_output_dict["source_question"]:
+            input_output_dict["question"] += [input_sentence]
+            input_output_dict["source_question"] += [source_input_sentence]
+            input_output_dict["answers"] += [answers]
+            input_output_dict["intervention_ids"] += [
+                aligning_causal_variable_map[aligning_causal_variable]
+            ]
+            input_output_dict["base_answers"] += [value_maps["op5"]]
+            input_output_dict["source_answers"] += [source_value_maps["op5"]]
+            # we want to get alternative answers as if we are intervening
+            # on different causal variables. again, if some variables have
+            # the exact same ctf output, we cannot distinguish them!
+            all_alternative_answers = {}
+            for alternative_var in {"op1", "op2", "op3", "op4", "op5", "C0", "C1", "C2", "C3", "C4"}:
+                alternative_answers = fetch_counterfactual_value(
+                    value_maps, source_value_maps, program, 
+                    alternative_var, "op5",
+                    all_vocab, synonyms_pairs, synonyms_dict
+                )
+                all_alternative_answers[alternative_var] = alternative_answers
+            input_output_dict["alternative_answers"] += [all_alternative_answers]
+            
+    return input_output_dict
+
+def plot_single_transformer(
+    ax, max_length=10, num_layers=12, highlights=None, xtick_labels=None,
+    vmin=0.80, vmax=1.00, title="Transformer Block View (residual+mlp)"
+):
+    data = np.zeros((num_layers, max_length))
+    
+    # Add highlights
+    if highlights is not None:
+        for highlight in highlights:
+            data[highlight[0], highlight[1]] = highlight[2]
+
+    # Plot the heatmap
+    sns.heatmap(
+        data, annot=True, linewidths=1,
+        cmap="cividis", cbar=False, 
+        vmin=vmin, vmax=vmax, # this is rather abitrary to help visualizing!
+        ax=ax
+    )
+    
+    # Customize the plot
+    ax.set_xlabel('Token')
+    ax.set_ylabel('Layer')
+    ax.set_title(title)
+     
+    # Set aspect ratio
+    ax.set_aspect('0.5')
+    
+    # Set x-tick labels if provided
+    if xtick_labels is not None:
+        ax.set_xticklabels(xtick_labels)
+    
+    ax.invert_yaxis()
