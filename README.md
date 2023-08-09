@@ -37,7 +37,8 @@ Since the release of the paper, we got requests about making a onboarding tutori
 :white_check_mark: 05/31/2023 - Infra updates to decouple trainer, metrics, model loading, dataset loader; Support GPT2 alignment. Initialize the example folder for 
 analyzing finetuned models.   
 :white_check_mark: 06/27/2023 - A full tutorial notebook `tutorial.ipynb` with [a runbook](https://docs.google.com/document/d/1KDHfow4AWfHo9XxmkhCNSME9xdOdvQogGw4gbcwTKPU/edit?usp=sharing) on boundless DAS.    
-:white_check_mark: 07/20/2023 - **New release** Another tutorial on interpreting causal graphs in a word logic puzzle with GPT-2 model in `examples/logic_game/tutorial.ipynb`! We explain the problem and alignment in details, and *we are still on our way to uncover the causal graph*. If you are interested in this problem, feel free to contact us!   
+:white_check_mark: 07/20/2023 - Another tutorial on interpreting causal graphs in a word logic puzzle with GPT-2 model in `examples/logic_game/tutorial.ipynb`! We explain the problem and alignment in details, and *we are still on our way to uncover the causal graph*. If you are interested in this problem, feel free to contact us!   
+:white_check_mark: 07/20/2023 - **Rotation Learning Update** We add into GPT-2 alignable model an additional loss to prefer equally good permutation matrix. Explanations can be found `localist_paradox.ipynb`!   
 ⬜️ Support LLaMA model (>30B) training with model sharding (Soon! with instruction-tuning steps to make sure we are using a good template). 
 
 ## Codebase Structure and How to Contribute
