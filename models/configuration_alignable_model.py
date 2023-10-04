@@ -1,45 +1,34 @@
-from collections import OrderedDict
-from typing import Any, List, Mapping, Optional
+from collections import OrderedDict, namedtuple
+from typing import Any, List, Mapping, Optional 
 
 from transformers import PreTrainedTokenizer, TensorType, is_torch_available
 from transformers.configuration_utils import PretrainedConfig
 
 
-class AlignableLlamaConfig(PretrainedConfig):
-    model_type="llama"
-    def __init__(
-        self,
-        das_layer=15,
-        das_token_range=[80, 81],
-        num_of_das_token=1,
-        das_head=None,
-        das_mode="residual", # mlp_residual, attention_block, head
-        **kwargs
-    ):
-        self.das_layer = das_layer
-        self.das_token_range = das_token_range
-        self.num_of_das_token = num_of_das_token
-        self.das_head = das_head
-        self.das_mode = das_mode
-        
-        super().__init__(**kwargs)
+AlignableRepresentationConfig = namedtuple(
+    "AlignableRepresentationConfig", 
+    "alignable_layer alignable_representation_type alignable_unit max_number_of_units",
+    defaults=(0, "block_output", "pos", 1)
+)
 
 
-class AlignableGPT2Config(PretrainedConfig):
-    model_type="gpt2"
+class AlignableConfig(PretrainedConfig):
     def __init__(
         self,
-        das_layer=6,
-        das_token_range=None,
-        num_of_das_token=1,
-        das_head=None,
-        das_mode="residual", # mlp_residual, attention_block, head
+        alignable_model_type="gpt2",
+        alignable_representations=[
+            # we do distributed search over elements in the sublist.
+            AlignableRepresentationConfig()
+        ],
+        alignable_interventions_type="VanillaIntervention",
+        alignable_low_rank_dimension=None,
+        mode="parallel",
         **kwargs
     ):
-        self.das_layer = das_layer
-        self.das_token_range = das_token_range
-        self.num_of_das_token = num_of_das_token
-        self.das_head = das_head
-        self.das_mode = das_mode
-        
+        self.alignable_model_type = alignable_model_type
+        self.alignable_representations = alignable_representations
+        self.alignable_interventions_type = alignable_interventions_type
+        self.alignable_low_rank_dimension = alignable_low_rank_dimension
+        self.mode = mode
         super().__init__(**kwargs)
+        
