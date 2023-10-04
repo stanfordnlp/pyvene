@@ -1,19 +1,16 @@
 <br />
 <div align="center">
-  <h2 align="center"><img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> align-transformers</h2>
-  <p align="center">
-    <br />
-    <a href="https://arxiv.org/abs/2305.08809"><strong>Read Our Recent Paper »</strong></a>
-    <br />
-  </p>
+  <h1 align="center"><img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> align-transformers</h1>
+  <a href="https://arxiv.org/abs/2305.08809"><strong>Read Our Recent Paper »</strong></a>
 </div>
+
 
 ## <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Finding Alignment of Model Internals with Customizable Interventions**
 We release this generic library for studying model internals encapsulating **causal abstraction and distributed alignment search**[^ii], **path patching**[^pp], **causal scrubbing**[^cs] introduced recently for finding causal alignments with the internals of neural models. This library is designed as a playground of inventing new internvetions, whether trainable or not, to discover causal mechanism of neural models. This library also focuses on scaling these methods to LLMs with billions of parameters.
 
 
 ## Release Notes
-:white_check_mark: 05/17/2023 - Preprint with the initial version of align-transformers is released! Read this for a more formal definition of the method.
+:white_check_mark: 05/17/2023 - Preprint with the initial version of align-transformers is released! Read this for a more formal definition of the method.      
 :white_check_mark: 10/04/2023 - Major infrastruture change to hook-based and customizable interventions. We will release new version of tutorials soon. To reproduce old experiments [our NeurIPS 2023 paper](https://arxiv.org/abs/2305.08809), please use our shelved release version [here](https://github.com/frankaging/align-transformers/releases/tag/NeurIPS-2023). For this repository, we focus on generic alignment libaray from now on.    
 
 
