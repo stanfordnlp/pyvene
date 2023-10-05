@@ -11,9 +11,21 @@ lsm = nn.LogSoftmax(dim=2)
 sm = nn.Softmax(dim=2)
 
 
+#########################################################################
+"""
+Below are functions that you need to modify if you add
+a new model arch type in this library.
+
+We put them in front so it is easier to keep track of
+things that need to be changed.
+"""
+
+
 type_to_module_mapping = {
     "gpt2": gpt2_type_to_module_mapping,
     "gpt2_lm": gpt2_lm_type_to_module_mapping,
+    "llama": llama_type_to_module_mapping,
+    "llama_lm": llama_lm_type_to_module_mapping,
     # new model type goes here after defining the model files
 }
 
@@ -21,9 +33,66 @@ type_to_module_mapping = {
 type_to_dimension_mapping = {
     "gpt2": gpt2_type_to_dimension_mapping,
     "gpt2_lm": gpt2_lm_type_to_module_mapping,
+    "llama": llama_type_to_module_mapping,
+    "llama_lm": llama_lm_type_to_module_mapping,
     # new model type goes here after defining the model files
 }
 
+
+output_to_subcomponent_fn_mapping = {
+    "gpt2": gpt2_output_to_subcomponent,
+    "gpt2_lm": gpt2_output_to_subcomponent,
+    "llama": llama_output_to_subcomponent,
+    "llama_lm": llama_output_to_subcomponent,
+}
+
+
+scatter_intervention_output_fn_mapping = {
+    "gpt2": gpt2_scatter_intervention_output,
+    "gpt2_lm": gpt2_scatter_intervention_output,
+    "llama": llama_scatter_intervention_output,
+    "llama_lm": llama_scatter_intervention_output,
+}
+
+
+def get_internal_model_type(model):
+    """Return the model type"""
+    if "gpt2" in model.config.architectures[0].lower():
+        return "gpt2"
+    elif "llama" in model.config.architectures[0].lower():
+        return "llama"
+
+
+def is_transformer(model):
+    """Determine if this is a transformer model"""
+    if "gpt2" in model.config.architectures[0].lower():
+        return True
+    elif "llama" in model.config.architectures[0].lower():
+        return True
+    return False
+
+        
+def embed_to_distrib(model, embed, log=False, logits=False):
+    """Convert an embedding to a distribution over the vocabulary"""
+    if "gpt2" in get_internal_model_type(model):
+        with torch.inference_mode():
+            vocab = torch.matmul(embed, model.wte.weight.t())
+            if logits:
+                return vocab
+            return lsm(vocab) if log else sm(vocab)
+    elif "llama" in get_internal_model_type(model):
+        assert False, "Support for LLaMA is not here yet"
+            
+            
+"""
+Above are functions that you need to modify if you add
+a new model arch type in this library.
+
+We put them in front so it is easier to keep track of
+things that need to be changed.
+"""
+#########################################################################
+    
 
 def set_seed(seed: int):
     """Set seed. Deprecate soon since it is in the huggingface library"""
@@ -82,16 +151,6 @@ def top_vals(tokenizer, res, n=10):
     for i in range(len(top_values)):
         tok = format_token(tokenizer, top_indices[i].item())
         print(f"{tok:<20} {top_values[i].item()}")
-
-
-def embed_to_distrib(model, embed, log=False, logits=False):
-    """Convert an embedding to a distribution over the vocabulary"""
-    if get_internal_model_type(model) == "gpt2":
-        with torch.inference_mode():
-            vocab = torch.matmul(embed, model.wte.weight.t())
-            if logits:
-                return vocab
-            return lsm(vocab) if log else sm(vocab)
         
 
 def getattr_for_torch_module(
@@ -108,19 +167,6 @@ def getattr_for_torch_module(
         else:
             current_module = getattr(current_module, param)
     return current_module
-
-
-def get_internal_model_type(model):
-    """Return the model type"""
-    if "gpt2" in model.config.architectures[0].lower():
-        return "gpt2"
-    
-
-def is_transformer(model):
-    """Determine if this is a transformer model"""
-    if "gpt2" in model.config.architectures[0].lower():
-        return True
-    return False
     
 
 def get_alignable_dimension(
@@ -301,24 +347,4 @@ def do_intervention(
         intervened_representation = bs_hd_to_bhsd(intervened_representation, d)
 
     return intervened_representation
-
-
-def split_heads(tensor, num_heads, attn_head_size):
-    """
-    Splits hidden_size dim into attn_head_size and num_heads
-    """
-    new_shape = tensor.size()[:-1] + (num_heads, attn_head_size)
-    tensor = tensor.view(new_shape)
-    return tensor.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
-
-
-def create_gpt2(name="gpt2", cache_dir="../.huggingface_cache"):
-    """Creates a GPT2 model, config, and tokenizer from the given name and revision"""
-    from transformers import GPT2Model, GPT2Tokenizer, GPT2Config
-    
-    config = GPT2Config.from_pretrained(name)
-    tokenizer = GPT2Tokenizer.from_pretrained(name)
-    gpt = GPT2Model.from_pretrained(name, config=config, cache_dir=cache_dir)
-    print("loaded model")
-    return config, tokenizer, gpt
 

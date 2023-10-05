@@ -109,48 +109,6 @@ class AlignableModel(nn.Module):
         # Freeze all intervention weights
         pass
         
-
-    def _output_to_subcomponent(
-        self, output, alignable_representations_key,
-    ) -> List[torch.Tensor]:
-        """
-        Helps to get subcomponent of inputs/outputs of a hook
-        
-        For instance, we need to separate QKV from a hidden representation
-        by slicing the original output
-        """
-        alignable_representation_type = self.alignable_representations[
-            alignable_representations_key].alignable_representation_type
-
-        if self.model_type == "gpt2":
-            n_embd = self.model_config.n_embd
-            num_heads = self.model_config.n_head
-            attn_head_size = n_embd // num_heads
-            
-            if alignable_representation_type in {
-                "query_output", "key_output", "value_output",
-                "head_query_output", "head_key_output", "head_value_output",
-            }:
-                qkv = output.split(
-                    n_embd, 
-                    dim=2
-                )
-                if alignable_representation_type in {
-                    "head_query_output", "head_key_output", "head_value_output",
-                }:
-                    qkv = (
-                        split_heads(qkv[0], num_heads, attn_head_size),
-                        split_heads(qkv[1], num_heads, attn_head_size),
-                        split_heads(qkv[2], num_heads, attn_head_size),
-                    ) # each with (batch, head, seq_length, head_features)
-                return qkv[CONST_QKV_INDICES[alignable_representation_type]]
-            elif alignable_representation_type in {"head_attention_value_output"}:
-                return split_heads(output, num_heads, attn_head_size)
-            else:
-                return output
-        else:
-            # Please implement this function for a new model type.
-            assert False, f"This model type = {model_type} is not supported."
     
     def _gather_intervention_output(
         self, output,
@@ -181,6 +139,24 @@ class AlignableModel(nn.Module):
         return selected_output
 
 
+    def _output_to_subcomponent(
+        self, output, alignable_representations_key,
+    ) -> List[torch.Tensor]:
+        """
+        Helps to get subcomponent of inputs/outputs of a hook
+        
+        For instance, we need to separate QKV from a hidden representation
+        by slicing the original output
+        """
+        return output_to_subcomponent_fn_mapping[self.model_type](
+            output, 
+            self.alignable_representations[
+                alignable_representations_key
+            ].alignable_representation_type, 
+            self.model_config
+        )
+
+    
     def _scatter_intervention_output(
         self, output, intervened_representation,
         alignable_representations_key,
@@ -194,55 +170,13 @@ class AlignableModel(nn.Module):
         if isinstance(output, tuple):
             original_output = output[0]
 
-        alignable_representation_type = self.alignable_representations[
-            alignable_representations_key].alignable_representation_type
-
-        if self.model_type == "gpt2":
-            n_embd = self.model_config.n_embd
-            num_heads = self.model_config.n_head
-            attn_head_size = n_embd // num_heads
-            if alignable_representation_type in {
-                "query_output", "key_output", "value_output",
-                
-            }:
-                # replacing [b, s, 3*d] with [b, num_int, d]
-                start_index = QKV_INDICES[alignable_representation_type]*n_embd
-                end_index = (QKV_INDICES[alignable_representation_type]+1)*n_embd
-                for batch_i, locations in enumerate(unit_locations):
-                    original_output[
-                        batch_i, locations, start_index:end_index
-                    ] = intervened_representation[batch_i] # [num_int, d]
-                    
-            elif alignable_representation_type in {
-                "head_query_output", "head_key_output", "head_value_output"}:
-                # replacing [b, s, 3*d] with [b, num_int, s, dh]
-                qkv_start_index = QKV_INDICES[alignable_representation_type]*n_embd
-                for batch_i, locations in enumerate(unit_locations):
-                    for loc_i, loc in enumerate(locations):
-                        h_start_index = qkv_start_index+loc*attn_head_size
-                        h_end_index = qkv_start_index+(loc+1)*attn_head_size
-                        original_output[
-                            batch_i, :, h_start_index:h_end_index
-                        ] = intervened_representation[batch_i, loc_i] # [s, dh]
-                    
-            elif alignable_representation_type in {"head_attention_value_output"}:
-                # replacing [b, s, d] with [b, num_int, s, dh]
-                for batch_i, locations in enumerate(unit_locations):
-                    for loc_i, loc in enumerate(locations):
-                        h_start_index = loc*attn_head_size
-                        h_end_index = (loc+1)*attn_head_size
-                        original_output[
-                            batch_i, :, h_start_index:h_end_index
-                        ] = intervened_representation[batch_i, loc_i] # [s, dh]
-            else:
-                # replacing [b, s, mlp_d/d] with [b, num_int, mlp_d/d]
-                for batch_i, locations in enumerate(unit_locations):
-                    original_output[
-                        batch_i, locations
-                    ] = intervened_representation[batch_i]
-        else:
-            # Please implement this function for a new model type.
-            assert False, f"This model type = {model_type} is not supported."
+        scatter_intervention_output_fn_mapping[self.model_type](
+            original_output, intervened_representation, 
+            self.alignable_representations[
+                alignable_representations_key
+            ].alignable_representation_type,
+            unit_locations, self.model_config
+        )
         return original_output
     
 
