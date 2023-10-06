@@ -6,16 +6,17 @@
 
 [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/The%20capital%20of%20Spain%20is.ipynb)
 
-## <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Aligning Causal Mechanisms with Transformer Model Internals with Interventions**
-We have released a **new** generic library for studying model internals, which encapsulates **causal abstraction and distributed alignment search**[^ii], **path patching**[^pp], and **causal scrubbing**[^cs]. These were introduced recently to find causal alignments with the internals of neural models. This library is designed as a playground for inventing new interventions, whether they're trainable or not, to uncover the causal mechanisms of neural models. Additionally, the library emphasizes scaling these methods to LLMs with billions of parameters.
+# <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Aligning Causal Mechanisms with Transformer Model Internals with Interventions**
+We have released a **new** generic library for studying model internals, which encapsulates **causal abstraction and distributed alignment search**[^ii], **path patching**[^pp], and **causal scrubbing**[^cs]. These methods were introduced recently to find or to help us find causal alignments with the internals of neural models. This library is designed as a playground for inventing new interventions, whether they're trainable or not, to uncover the causal mechanisms of neural models. Additionally, the library emphasizes scaling these methods to LLMs with billions of parameters.
 
 
-## Release Notes
+# Release Notes
 :white_check_mark: 05/17/2023 - Preprint with the initial version of align-transformers is released!  
 :white_check_mark: 10/04/2023 - Major infrastructure change to support hook-based and customizable interventions. To reproduce old experiments in [our NeurIPS 2023 paper](https://arxiv.org/abs/2305.08809), please use our shelved version [here](https://github.com/frankaging/align-transformers/releases/tag/NeurIPS-2023).
 
+# Interventions, Alignments, and Distributed Alignments
 
-## How to Intervene?
+## Interventions
 We've redesigned this library to be flexible and extensible for all types of interventions, causal mechanism alignments, and model varieties. The basic concept is to sample representations we wish to align from various training examples, perform representation interventions, and then observe changes in the model's behavior. These interventions can be trainable (e.g., DAS) or static (e.g., causal scrubbing).
 
 #### Loading models from HuggingFace
@@ -58,6 +59,39 @@ _, counterfactual_outputs = alignable_gpt(
 )
 ```
 
+## Alignments
+What are alignments with model internals? An alignment is defined between a high-level concept or variable and a set of low-level neurons or activations. When we say there is an alignment between them, we basically claim that, when intervening on them respectively, we cannot distinguish them (a.k.a. they have the same causal behaviors under interventions). Here is one simple example:
+```py
+def add_three_numbers(a, b, c):
+    return a + b + c
+```
+The function above forms a very simple high-level causal model for solving a 3-digit sum problem. Let's say, we trained a neural network to solve this problem perfectly. **One concrete alignment problem is** "Can we find the representation of (a + b) in the neural network that we trained to solve this problem?". To solve this problem, we use interventions. 
+
+- **Step 1:** Form Alignment Hypothesis: We hypothesize that a set of neurons N aligns with (a + b).
+- **Step 2:** Counterfactual Testings: If our hypothesis is correct, then swapping neurons N between examples would give us expected counterfactual behaviors. For instance, the values of N for (1+2)+3, when swapping with N for (2+3)+4, the output should be (2+3)+3 or (1+2)+4 depending on the direction of the swap.
+- **Step 2:** Reject Sampling of Hypothesis: Running tests multiple times and aggregating statistics in terms of counterfactual behavior matching. Proposing a new hypothesis based on the results. 
+
+**We will soon provide a tutorial on this.** This library supports this process, you just need to manually inspect how good the matchings are by taking a look at the counterfactual output. [Causal Abstractions of Neural Networks](https://arxiv.org/abs/2106.02997) implements the exact steps if you want to learn more about it.
+
+
+## Distributed Alignments
+One key limitation of the process above is that it **assumes** the alignment is between individual neurons/activations and a high-level variable. **This is often falsifiable**. [Toy Models of Superposition](https://transformer-circuits.pub/2022/toy_model/index.html) explores some of the issues. Basically, one high-level variable may be aligned with a whole layer, or a single neuron may be aligned with a set of high-level variables. In other words, we need distributed alignment, moving away from localist alignment where we assume there exists an almost one-to-one mapping between a neuron and a high-level variable. 
+
+`models.interventions.RotatedSpaceIntervention` in our codebase provides a way to do a distributed alignment search.
+```py
+class RotatedSpaceIntervention(TrainbleIntervention):
+    
+    """Intervention in the rotated space."""
+    def forward(self, base, source):
+        rotated_base = self.rotate_layer(base)
+        rotated_source = self.rotate_layer(source)
+        # interchange
+        rotated_base[:self.interchange_dim] = rotated_source[:self.interchange_dim]
+        # inverse base
+        output = torch.matmul(rotated_base, self.rotate_layer.weight.T)
+        return output
+```
+Instead of activation swapping in the original representation space, we first **rotate** them, and then do the swap followed by un-rotating the intervened representation. Additionally, we try to use SGD to **learn a rotation** that lets us produce expected counterfactual behavior. If we can find such rotation, we claim there is an alignment. `If the cost is between X and Y.ipynb` tutorial covers this with an advanced version of distributed alignment search, [Boundless DAS](https://arxiv.org/abs/2305.08809). There are [recent works](https://www.lesswrong.com/posts/RFtkRXHebkwxygDe2/an-interpretability-illusion-for-activation-patching-of) outlining potential limitations of doing a distributed alignment search as well.
 
 ## A Set of Tutorials
 We released a set of tutorials for aligning causal mechanisms with Transformer model internals using methods such as **causal abstraction and distributed alignment search**[^ii], **path patching**[^pp], **causal scrubbing**[^cs]. 
