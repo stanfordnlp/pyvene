@@ -64,10 +64,12 @@ _, counterfactual_outputs = alignable_gpt(
 ### Alignments
 What are alignments with model internals? An alignment is defined between a high-level concept or variable and a set of low-level neurons or activations. When we say there is an alignment between them, we basically claim that, when intervening on them respectively, we cannot distinguish them (a.k.a. they have the same causal behaviors under interventions). Here is one simple example:
 ```py
-def add_three_numbers(a, b, c):
+def add_three_numbers(a, b, c, source_a_add_b=None):
+    if source_a_add_b:
+        return source_a_add_b + c
     return a + b + c
 ```
-The function above forms a very simple high-level causal model for solving a 3-digit sum problem. Let's say, we trained a neural network to solve this problem perfectly. **One concrete alignment problem is** "Can we find the representation of (a + b) in the neural network that we trained to solve this problem?". To solve this problem, we use interventions. 
+The function above forms a very simple intervenable high-level causal model for solving a 3-digit sum problem (`source_a_add_b` will take in the intermediate result of `(a + b)` from another example). Let's say, we trained a neural network to solve this problem perfectly. **One concrete alignment problem is** "Can we find the representation of (a + b) in the neural network that we trained to solve this problem?". To solve this problem, we use interventions. 
 
 - **Step 1:** Form Alignment Hypothesis: We hypothesize that a set of neurons N aligns with (a + b).
 - **Step 2:** Counterfactual Testings: If our hypothesis is correct, then swapping neurons N between examples would give us expected counterfactual behaviors. For instance, the values of N for (1+2)+3, when swapping with N for (2+3)+4, the output should be (2+3)+3 or (1+2)+4 depending on the direction of the swap.
