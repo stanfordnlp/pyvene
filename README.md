@@ -10,13 +10,14 @@
 We have released a **new** generic library for studying model internals, which encapsulates **causal abstraction and distributed alignment search**[^ii], **path patching**[^pp], and **causal scrubbing**[^cs]. These methods were introduced recently to find or to help us find causal alignments with the internals of neural models. This library is designed as a playground for inventing new interventions, whether they're trainable or not, to uncover the causal mechanisms of neural models. Additionally, the library emphasizes scaling these methods to LLMs with billions of parameters.
 
 
-# Release Notes
+## Release Notes
 :white_check_mark: 05/17/2023 - Preprint with the initial version of align-transformers is released!  
 :white_check_mark: 10/04/2023 - Major infrastructure change to support hook-based and customizable interventions. To reproduce old experiments in [our NeurIPS 2023 paper](https://arxiv.org/abs/2305.08809), please use our shelved version [here](https://github.com/frankaging/align-transformers/releases/tag/NeurIPS-2023).
 
-# Interventions, Alignments, and Distributed Alignments
+## Interventions, Alignments, and Distributed Alignments
+In this section, we discuss topics from interventions to alignments, and more recent distributed alignments.
 
-## Interventions
+### Interventions
 We've redesigned this library to be flexible and extensible for all types of interventions, causal mechanism alignments, and model varieties. The basic concept is to sample representations we wish to align from various training examples, perform representation interventions, and then observe changes in the model's behavior. These interventions can be trainable (e.g., DAS) or static (e.g., causal scrubbing).
 
 #### Loading models from HuggingFace
@@ -58,8 +59,9 @@ _, counterfactual_outputs = alignable_gpt(
     {"sources->base": ([[[4]]], [[[4]]])} # intervene base with sources
 )
 ```
+--- 
 
-## Alignments
+### Alignments
 What are alignments with model internals? An alignment is defined between a high-level concept or variable and a set of low-level neurons or activations. When we say there is an alignment between them, we basically claim that, when intervening on them respectively, we cannot distinguish them (a.k.a. they have the same causal behaviors under interventions). Here is one simple example:
 ```py
 def add_three_numbers(a, b, c):
@@ -73,8 +75,9 @@ The function above forms a very simple high-level causal model for solving a 3-d
 
 **We will soon provide a tutorial on this.** This library supports this process, you just need to manually inspect how good the matchings are by taking a look at the counterfactual output. [Causal Abstractions of Neural Networks](https://arxiv.org/abs/2106.02997) implements the exact steps if you want to learn more about it.
 
+--- 
 
-## Distributed Alignments
+### Distributed Alignments
 One key limitation of the process above is that it **assumes** the alignment is between individual neurons/activations and a high-level variable. **This is often falsifiable**. [Toy Models of Superposition](https://transformer-circuits.pub/2022/toy_model/index.html) explores some of the issues. Basically, one high-level variable may be aligned with a whole layer, or a single neuron may be aligned with a set of high-level variables. In other words, we need distributed alignment, moving away from localist alignment where we assume there exists an almost one-to-one mapping between a neuron and a high-level variable. 
 
 `models.interventions.RotatedSpaceIntervention` in our codebase provides a way to do a distributed alignment search.
