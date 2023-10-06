@@ -1,4 +1,4 @@
-import torch
+import torch, random
 from torch import nn
 import numpy as np
 
@@ -20,67 +20,69 @@ We put them in front so it is easier to keep track of
 things that need to be changed.
 """
 
+import transformers.models as hf_models
+
+global type_to_module_mapping
+global type_to_dimension_mapping
+global output_to_subcomponent_fn_mapping
+global scatter_intervention_output_fn_mapping
+
 
 type_to_module_mapping = {
-    "gpt2": gpt2_type_to_module_mapping,
-    "gpt2_lm": gpt2_lm_type_to_module_mapping,
-    "llama": llama_type_to_module_mapping,
-    "llama_lm": llama_lm_type_to_module_mapping,
+    hf_models.gpt2.modeling_gpt2.GPT2Model: gpt2_type_to_module_mapping,
+    hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel: gpt2_lm_type_to_module_mapping,
+    hf_models.llama.modeling_llama.LlamaModel: llama_type_to_module_mapping,
+    hf_models.llama.modeling_llama.LlamaForCausalLM: llama_lm_type_to_module_mapping,
     # new model type goes here after defining the model files
 }
 
 
 type_to_dimension_mapping = {
-    "gpt2": gpt2_type_to_dimension_mapping,
-    "gpt2_lm": gpt2_lm_type_to_module_mapping,
-    "llama": llama_type_to_module_mapping,
-    "llama_lm": llama_lm_type_to_module_mapping,
+    hf_models.gpt2.modeling_gpt2.GPT2Model: gpt2_type_to_dimension_mapping,
+    hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel: gpt2_lm_type_to_dimension_mapping,
+    hf_models.llama.modeling_llama.LlamaModel: llama_type_to_dimension_mapping,
+    hf_models.llama.modeling_llama.LlamaForCausalLM: llama_lm_type_to_dimension_mapping,
     # new model type goes here after defining the model files
 }
 
 
 output_to_subcomponent_fn_mapping = {
-    "gpt2": gpt2_output_to_subcomponent,
-    "gpt2_lm": gpt2_output_to_subcomponent,
-    "llama": llama_output_to_subcomponent,
-    "llama_lm": llama_output_to_subcomponent,
+    hf_models.gpt2.modeling_gpt2.GPT2Model: gpt2_output_to_subcomponent,
+    hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel: gpt2_output_to_subcomponent,
+    hf_models.llama.modeling_llama.LlamaModel: llama_output_to_subcomponent,
+    hf_models.llama.modeling_llama.LlamaForCausalLM: llama_output_to_subcomponent,
+    # new model type goes here after defining the model files
 }
 
 
 scatter_intervention_output_fn_mapping = {
-    "gpt2": gpt2_scatter_intervention_output,
-    "gpt2_lm": gpt2_scatter_intervention_output,
-    "llama": llama_scatter_intervention_output,
-    "llama_lm": llama_scatter_intervention_output,
+    hf_models.gpt2.modeling_gpt2.GPT2Model: gpt2_scatter_intervention_output,
+    hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel: gpt2_scatter_intervention_output,
+    hf_models.llama.modeling_llama.LlamaModel: llama_scatter_intervention_output,
+    hf_models.llama.modeling_llama.LlamaForCausalLM: llama_scatter_intervention_output,
+    # new model type goes here after defining the model files
 }
 
 
 def get_internal_model_type(model):
     """Return the model type"""
-    if "gpt2" in model.config.architectures[0].lower():
-        return "gpt2"
-    elif "llama" in model.config.architectures[0].lower():
-        return "llama"
+    return type(model)
 
 
 def is_transformer(model):
     """Determine if this is a transformer model"""
-    if "gpt2" in model.config.architectures[0].lower():
-        return True
-    elif "llama" in model.config.architectures[0].lower():
-        return True
-    return False
+    return True
 
         
 def embed_to_distrib(model, embed, log=False, logits=False):
     """Convert an embedding to a distribution over the vocabulary"""
-    if "gpt2" in get_internal_model_type(model):
+    if "gpt2" in model.config.architectures[0].lower():
         with torch.inference_mode():
             vocab = torch.matmul(embed, model.wte.weight.t())
             if logits:
                 return vocab
             return lsm(vocab) if log else sm(vocab)
-    elif "llama" in get_internal_model_type(model):
+    elif "llama" in model.config.architectures[0].lower():
         assert False, "Support for LLaMA is not here yet"
             
             
@@ -269,6 +271,9 @@ def gather_neurons(
 ):
     """Gather intervening neurons"""
     if alignable_unit in {"pos", "h"}:
+        assert tensor_input.shape[0] == \
+                unit_locations.shape[0]
+        
         tensor_output = torch.gather(
             tensor_input, 1, 
             unit_locations.reshape(
@@ -347,4 +352,23 @@ def do_intervention(
         intervened_representation = bs_hd_to_bhsd(intervened_representation, d)
 
     return intervened_representation
+
+
+def simple_output_to_subcomponent(
+    output, alignable_representation_type, model_config
+):
+    """This is an oversimplied version for demo"""
+    return output
+
+
+def simple_scatter_intervention_output(
+    original_output, intervened_representation,
+    alignable_representation_type,
+    unit_locations, model_config
+):
+    """This is an oversimplied version for demo"""
+    for batch_i, locations in enumerate(unit_locations):
+        original_output[
+            batch_i, locations
+        ] = intervened_representation[batch_i]
 

@@ -4,6 +4,8 @@ from typing import Any, List, Mapping, Optional
 from transformers import PreTrainedTokenizer, TensorType, is_torch_available
 from transformers.configuration_utils import PretrainedConfig
 
+from models.interventions import VanillaIntervention
+
 
 AlignableRepresentationConfig = namedtuple(
     "AlignableRepresentationConfig", 
@@ -20,7 +22,7 @@ class AlignableConfig(PretrainedConfig):
             # we do distributed search over elements in the sublist.
             AlignableRepresentationConfig()
         ],
-        alignable_interventions_type="VanillaIntervention",
+        alignable_interventions_type=VanillaIntervention,
         alignable_low_rank_dimension=None,
         mode="parallel",
         **kwargs

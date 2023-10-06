@@ -40,8 +40,9 @@ alignable_config = AlignableConfig(
 ```
 
 #### Turn the model into an alignable object
+Basic idea is to think alignable model as a regular huggingface model except it supports intervenable forward function instead.
 ```py
-alignable = AlignableModel(alignable_config, gpt)
+alignable_gpt = AlignableModel(alignable_config, gpt)
 ```
 
 #### Intervene with examples
@@ -49,7 +50,7 @@ alignable = AlignableModel(alignable_config, gpt)
 base = tokenizer("The capital of Spain is", return_tensors="pt")
 sources = [tokenizer("The capital of Italy is", return_tensors="pt")]
 
-_, counterfactual_outputs = alignable(
+_, counterfactual_outputs = alignable_gpt(
     base,
     sources,
     {"sources->base": ([[[4]]], [[[4]]])} # intervene base with sources
@@ -63,6 +64,11 @@ We will release a set of tutorials focusing on different methods like **causal a
 ### `The capital of Spain is.ipynb` 
 This is a tutorial of doing simple path patching as in **Path Patching**[^pp], **Causal Scrubbing**[^cs]. Thanks to [Aryaman Arora](https://aryaman.io/). This is a set of experiments trying to reproduce some of the experiments in his awesome [nano-causal-interventions](https://github.com/aryamanarora/nano-causal-interventions) repository.
 
+### `If the cost is between X and Y.ipynb` 
+This is a tutorial reproducing one of the main experiment in [the Boundless DAS paper](https://arxiv.org/abs/2305.08809). Different from the first tutorial, this one involves trainable interventions that actively search for alignments with model internals.
+
+### `Hook with new model and intervention types.ipynb` 
+This is a tutorial of integrating new model type with this library as well as customized interventions. We try to add `flan_t5` as well as a simple additive intervention. This tutorial covers a simple experiment as in `The capital of Spain is.ipynb`.
 
 
 ## System Requirements

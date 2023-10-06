@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 from models.layers import RotateLayer, LowRankRotateLayer
 from models.utils import sigmoid_boundary
-
+        
 
 class Intervention(torch.nn.Module, ABC):
 
@@ -29,7 +29,16 @@ class TrainbleIntervention(Intervention):
         self.trainble = True
 
 
+class BasisAgnosticIntervention(Intervention):
+
+    """Intervention that will modify its basis in a uncontrolled manner."""
+    def __init__(self):
+        super().__init__()
+        self.basis_agnostic = True
+
+        
 class VanillaIntervention(Intervention):
+    
     """Intervention the original representations."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__()
@@ -48,7 +57,9 @@ class VanillaIntervention(Intervention):
     def __str__(self):
         return f"VanillaIntervention(embed_dim={self.embed_dim})"
 
+    
 class RotatedSpaceIntervention(TrainbleIntervention):
+    
     """Intervention in the rotated space."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__()
@@ -72,7 +83,9 @@ class RotatedSpaceIntervention(TrainbleIntervention):
     def __str__(self):
         return f"RotatedSpaceIntervention(embed_dim={self.embed_dim})"
     
+    
 class BoundlessRotatedSpaceIntervention(TrainbleIntervention):
+    
     """Intervention in the rotated space with boundary mask."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__()
@@ -81,12 +94,20 @@ class BoundlessRotatedSpaceIntervention(TrainbleIntervention):
             rotate_layer)
 
         self.intervention_boundaries = torch.nn.Parameter(
-            torch.tensor([1.0]), requires_grad=True)
+            torch.tensor([0.5]), requires_grad=True)
         self.temperature = torch.nn.Parameter(torch.tensor(50.0)) 
         self.embed_dim = embed_dim
         self.intervention_population = torch.nn.Parameter(
             torch.arange(0, self.embed_dim), requires_grad=False)
-        self.embed_dim = embed_dim
+        
+    def get_boundary_parameters(self):
+        return self.intervention_boundaries
+
+    def get_temperature(self):
+        return self.temperature
+
+    def set_temperature(self, temp: torch.Tensor):
+        self.temperature.data = temp
         
     def set_interchange_dim(self, interchange_dim):
         """interchange dim is learned and can not be set"""
@@ -94,29 +115,32 @@ class BoundlessRotatedSpaceIntervention(TrainbleIntervention):
 
     def forward(self, base, source):
         batch_size = base.shape[0]
-        
         rotated_base = self.rotate_layer(base)
         rotated_source = self.rotate_layer(source)
         # get boundary
-        intervention_boundaries = torch.cumsum(
-            torch.clamp(self.intervention_boundaries, 1e-3, 1)
-        , dim=0)
+        intervention_boundaries = torch.clamp(
+            self.intervention_boundaries, 1e-3, 1)
         boundary_mask = sigmoid_boundary(
-            self.intervention_population.repeat(batch_size, 1), 0.,
+            self.intervention_population.repeat(batch_size, 1), 
+            0.,
             intervention_boundaries[0] * int(self.embed_dim),
             self.temperature
         )
-        boundary_mask = torch.ones(batch_size).unsqueeze(dim=-1)*boundary_mask
+        boundary_mask = torch.ones(
+            batch_size, device=base.device).unsqueeze(dim=-1)*boundary_mask
         boundary_mask = boundary_mask.to(rotated_base.dtype)
         # interchange
-        output = (1. - boundary_mask)*rotated_base + boundary_mask*rotated_source
-        
+        rotated_output = (1. - boundary_mask)*rotated_base + boundary_mask*rotated_source
+        # inverse output
+        output = torch.matmul(rotated_output, self.rotate_layer.weight.T)
         return output
     
     def __str__(self):
         return f"BoundlessRotatedSpaceIntervention(embed_dim={self.embed_dim})"
     
+    
 class LowRankRotatedSpaceIntervention(TrainbleIntervention):
+    
     """Intervention in the rotated space."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__()
@@ -141,7 +165,9 @@ class LowRankRotatedSpaceIntervention(TrainbleIntervention):
     def __str__(self):
         return f"LowRankRotatedSpaceIntervention(embed_dim={self.embed_dim})"
     
+    
 class PCARotatedSpaceIntervention(RotatedSpaceIntervention):
+    
     """Intervention in the rotated space."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__(embed_dim)

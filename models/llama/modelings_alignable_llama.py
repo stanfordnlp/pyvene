@@ -74,7 +74,7 @@ def split_heads(tensor, num_heads, attn_head_size):
     return tensor.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
 
 
-def create_llama(name="sharpbai/alpaca-7b-merged", cache_dir="../.huggingface_cache"):
+def create_llama(name="sharpbai/alpaca-7b-merged", cache_dir="../../.huggingface_cache"):
     """Creates a LLaMA Causal LM model, config, and tokenizer from the given name and revision"""
     from transformers import LlamaForCausalLM, LlamaTokenizer, LlamaConfig
     
@@ -108,10 +108,15 @@ def llama_scatter_intervention_output(
     alignable_representation_type,
     unit_locations, model_config
 ):
+    assert original_output.shape[0] == \
+            unit_locations.shape[0]
+    assert intervened_representation.shape[0] == \
+            unit_locations.shape[0]
+    
     n_embd = model_config.hidden_size
     num_heads = model_config.num_attention_heads
     attn_head_size = n_embd // num_heads
-
+    
     if alignable_representation_type in {
         "head_query_output", "head_key_output", "head_value_output",
         "head_attention_value_output"}:

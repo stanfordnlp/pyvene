@@ -5,8 +5,8 @@ from typing import List, Optional, Tuple, Union
 from models.utils import *
 import models.interventions
 from models.constants import CONST_QKV_INDICES
-
-
+        
+        
 class AlignableModel(nn.Module):
     """
     Generic alignable model. Alignments are specified in the config.
@@ -21,11 +21,8 @@ class AlignableModel(nn.Module):
         super().__init__()
         # we allow one type intervention per alignment
         self.mode = alignable_config.mode
-        intervention_type = getattr(
-            models.interventions, 
-            alignable_config.alignable_interventions_type
-        )
-        self.alignable_interventions_type = alignable_config.alignable_interventions_type
+        intervention_type = alignable_config.alignable_interventions_type
+        
         ###
         # We instantiate intervention_layers at locations.
         # Note that the layer name mentioned in the config is
@@ -45,6 +42,12 @@ class AlignableModel(nn.Module):
                 get_alignable_dimension(model, representation),
                 proj_dim=alignable_config.alignable_low_rank_dimension
             )
+            if isinstance(
+                intervention, 
+                models.interventions.TrainbleIntervention
+            ):
+                intervention = intervention.bfloat16()
+            
             alignable_module_hook = get_alignable_module_hook(model, representation)
             
             _key = self._get_representation_key(representation)
@@ -92,6 +95,18 @@ class AlignableModel(nn.Module):
         return f"{key_proposal}#{self._key_collision_counter[key_proposal]}"
     
 
+    def set_temperature(self, temp: torch.Tensor):
+        """
+        Set temperature if needed
+        """
+        for k, v in self.interventions.items():
+            if isinstance(
+                v[0], 
+                models.interventions.BoundlessRotatedSpaceIntervention
+            ):
+                v[0].set_temperature(temp)
+    
+    
     def disable_model_gradients(self):
         """
         Disable gradient in the model
@@ -110,6 +125,45 @@ class AlignableModel(nn.Module):
         pass
         
     
+    def set_device(self, device):
+        """
+        Set device of interventions and the model
+        """
+        for k, v in self.interventions.items():
+            if isinstance(
+                v[0], 
+                models.interventions.TrainbleIntervention
+            ):
+                v[0].to(device)
+        self.model.to(device)
+
+
+    def count_parameters(self):
+        """
+        Set device of interventions and the model
+        """
+        total_parameters = 0
+        for k, v in self.interventions.items():
+            if isinstance(
+                v[0], 
+                models.interventions.TrainbleIntervention
+            ):
+                total_parameters += count_parameters(v[0])
+        return total_parameters       
+        
+        
+    def set_zero_grad(self):
+        """
+        Set device of interventions and the model
+        """
+        for k, v in self.interventions.items():
+            if isinstance(
+                v[0], 
+                models.interventions.TrainbleIntervention
+            ):
+                v[0].zero_grad()
+
+    
     def _gather_intervention_output(
         self, output,
         alignable_representations_key,
@@ -127,7 +181,6 @@ class AlignableModel(nn.Module):
             original_output,
             alignable_representations_key
         )
-        
         # gather based on intervention locations
         selected_output = gather_neurons(
             original_output,
@@ -135,7 +188,6 @@ class AlignableModel(nn.Module):
                 alignable_representations_key].alignable_unit,
             unit_locations
         )
-
         return selected_output
 
 
