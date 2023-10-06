@@ -6,16 +6,16 @@
 
 
 ## <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Finding Alignment of Model Internals with Customizable Interventions**
-We release this generic library for studying model internals encapsulating **causal abstraction and distributed alignment search**[^ii], **path patching**[^pp], **causal scrubbing**[^cs] introduced recently for finding causal alignments with the internals of neural models. This library is designed as a playground of inventing new internvetions, whether trainable or not, to discover causal mechanism of neural models. This library also focuses on scaling these methods to LLMs with billions of parameters.
+We release this **new** generic library for studying model internals encapsulating **causal abstraction and distributed alignment search**[^ii], **path patching**[^pp], **causal scrubbing**[^cs] introduced recently for finding causal alignments with the internals of neural models. This library is designed as a playground for inventing new interventions, whether trainable or not, to discover the causal mechanisms of neural models. This library also focuses on scaling these methods to LLMs with billions of parameters.
 
 
 ## Release Notes
 :white_check_mark: 05/17/2023 - Preprint with the initial version of align-transformers is released! Read this for a more formal definition of the method.      
-:white_check_mark: 10/04/2023 - Major infrastruture change to hook-based and customizable interventions. We will release new version of tutorials soon. To reproduce old experiments [our NeurIPS 2023 paper](https://arxiv.org/abs/2305.08809), please use our shelved release version [here](https://github.com/frankaging/align-transformers/releases/tag/NeurIPS-2023). For this repository, we focus on generic alignment libaray from now on.    
+:white_check_mark: 10/04/2023 - Major infrastructure change to hook-based and customizable interventions. To reproduce old experiments [our NeurIPS 2023 paper](https://arxiv.org/abs/2305.08809), please use our shelved release version [here](https://github.com/frankaging/align-transformers/releases/tag/NeurIPS-2023). For this repository, we focus on the generic alignment library from now on.    
 
 
 ## How to Intervene?
-We design this library to be flexible and extensible to all kinds of interventions, causal mechanism alignments and model types. Basic idea is we sample representations that we want to align from different training examples, and do representation interventions and study model's behavior changes. The intervention can be trainable (i.e., DAS) or static (i.e., causal scrubbing).
+We design this library to be flexible and extensible to all kinds of interventions, causal mechanism alignments, and model types. The basic idea is we sample representations that we want to align from different training examples, do representation interventions, and study the model's behavior changes. The intervention can be trainable (i.e., DAS) or static (i.e., causal scrubbing).
 
 #### Loading models from huggingface
 ```py
@@ -40,7 +40,7 @@ alignable_config = AlignableConfig(
 ```
 
 #### Turn the model into an alignable object
-Basic idea is to think alignable model as a regular huggingface model except it supports intervenable forward function instead.
+The basic idea is to think alignable model as a regular huggingface model except it supports an intervenable forward function instead.
 ```py
 alignable_gpt = AlignableModel(alignable_config, gpt)
 ```
@@ -62,13 +62,13 @@ _, counterfactual_outputs = alignable_gpt(
 We will release a set of tutorials focusing on different methods like **causal abstraction and distributed alignment search**[^ii], **path patching**[^pp], **causal scrubbing**[^cs] using this library. 
 
 ### `The capital of Spain is.ipynb` 
-This is a tutorial of doing simple path patching as in **Path Patching**[^pp], **Causal Scrubbing**[^cs]. Thanks to [Aryaman Arora](https://aryaman.io/). This is a set of experiments trying to reproduce some of the experiments in his awesome [nano-causal-interventions](https://github.com/aryamanarora/nano-causal-interventions) repository.
+This is a tutorial for doing simple path patching as in **Path Patching**[^pp], **Causal Scrubbing**[^cs]. Thanks to [Aryaman Arora](https://aryaman.io/). This is a set of experiments trying to reproduce some of the experiments in his awesome [nano-causal-interventions](https://github.com/aryamanarora/nano-causal-interventions) repository.
 
 ### `If the cost is between X and Y.ipynb` 
-This is a tutorial reproducing one of the main experiment in [the Boundless DAS paper](https://arxiv.org/abs/2305.08809). Different from the first tutorial, this one involves trainable interventions that actively search for alignments with model internals.
+This is a tutorial reproducing one of the main experiments in [the Boundless DAS paper](https://arxiv.org/abs/2305.08809). Different from the first tutorial, this one involves trainable interventions that actively search for alignments with model internals.
 
 ### `Hook with new model and intervention types.ipynb` 
-This is a tutorial of integrating new model type with this library as well as customized interventions. We try to add `flan_t5` as well as a simple additive intervention. This tutorial covers a simple experiment as in `The capital of Spain is.ipynb`.
+This is a tutorial on integrating new model types with this library as well as customized interventions. We try to add `flan_t5` as well as a simple additive intervention. This tutorial covers a simple experiment as in `The capital of Spain is.ipynb`.
 
 
 ## System Requirements
@@ -88,11 +88,11 @@ To save memory and speed up the training, we allow `bf16` mode when finding alig
 ## Citation
 If you use this repository, please consider to cite relevant papers from our group:
 ```stex
-  @article{geiger-etal-2023-Boundless-DAS,
+  @article{geiger-etal-2023-DAS,
         title={Finding Alignments Between Interpretable Causal Variables and Distributed Neural Representations}, 
         author={Geiger, Atticus and Wu, Zhengxuan and Potts, Christopher and Icard, Thomas  and Goodman, Noah},
         year={2023},
-        booktitle={NeurIPS}
+        booktitle={arXiv}
   }
 
   @article{wu-etal-2023-Boundless-DAS,
