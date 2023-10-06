@@ -8,3 +8,4 @@ matplotlib
 wandb
 seaborn
 ipywidgets
+plotnine
