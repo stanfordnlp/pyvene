@@ -1,6 +1,6 @@
 import json
 import numpy as np
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Dict
 
 from models.utils import *
 import models.interventions
@@ -95,6 +95,13 @@ class AlignableModel(nn.Module):
         return f"{key_proposal}#{self._key_collision_counter[key_proposal]}"
     
 
+    def get_cached_activations(self):
+        """
+        Return the cached activations with keys
+        """
+        return self.activations
+                
+    
     def set_temperature(self, temp: torch.Tensor):
         """
         Set temperature if needed
@@ -294,9 +301,10 @@ class AlignableModel(nn.Module):
     
     def forward(
         self, 
-        base, # BATCH * SEQ_LEN
-        sources, # NUM_S * BATCH * SEQ_LEN
-        unit_locations, # {KEYS: NUM_S * BATCH * NUM_INT_LOC_SOURCE}
+        base,
+        sources: Optional[List] = None,
+        unit_locations: Optional[Dict] = None,
+        activations_sources: Optional[Dict] = None,
     ):
         """
         Main forward function that serves a wrapper to
@@ -308,20 +316,27 @@ class AlignableModel(nn.Module):
         intervene on our base example.
 
         Parameters:
-        base: The base example.
-        sources: A list of source examples.
-        unit_locations_base: The intervention locations of
+        base:                The base example.
+        sources:             A list of source examples.
+        unit_locations:      The intervention locations of
                              base.
-        unit_locations_sources: The intervention locations of
-                             sources.
-                             
+        activations_sources: A list of representations.
+        
         Return:
         base_output: the non-intervened output of the base
         input.
         counterfactual_outputs: the intervened output of the
         base input.
         """
-        assert len(sources) == len(self.sorted_alignable_keys)
+        # if no source inputs, we are calling a simple forward
+        if sources is None and activations_sources is None:
+            return self.model(**base), None
+        
+        if sources is not None:
+            assert len(sources) == len(self.sorted_alignable_keys)
+        else:
+            assert len(activations_sources) == len(self.sorted_alignable_keys)
+            
         if self.mode == "parallel":
             assert "sources->base" in unit_locations
             unit_locations_sources = unit_locations["sources->base"][0]
@@ -333,7 +348,7 @@ class AlignableModel(nn.Module):
                 assert False, "In parallel mode, base intervention location"\
                               " has to be the same as the sources intervention"\
                               " locations"
-        elif self.mode == "serial":
+        elif activations_sources is None and self.mode == "serial":
             assert "sources->base" not in unit_locations
             assert len(sources) == len(unit_locations)
             
@@ -343,18 +358,24 @@ class AlignableModel(nn.Module):
         with torch.inference_mode():
             base_outputs = self.model(**base)
         
+        all_set_handlers = HandlerList([])
         if self.mode == "parallel":
-            
             # for each source, we hook in getters to cache activations
             # at each aligning representations
-            for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
-                get_handlers = self._intervention_getter(
-                    [alignable_key],
-                    [torch.tensor(unit_locations_sources[key_i], device=device)],
-                )
-                _ = self.model(**sources[key_i])
-                get_handlers.remove()
-            
+            if activations_sources is None:
+                for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
+                    get_handlers = self._intervention_getter(
+                        [alignable_key],
+                        [torch.tensor(unit_locations_sources[key_i], device=device)],
+                    )
+                    _ = self.model(**sources[key_i])
+                    get_handlers.remove()
+            else:
+                # simply patch in the ones passed in
+                self.activations = activations_sources
+                for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
+                    assert alignable_key in self.activations
+                
             # in parallel mode, we swap cached activations all into
             # base at once
             for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
@@ -363,11 +384,12 @@ class AlignableModel(nn.Module):
                     [torch.tensor(unit_locations_sources[key_i], device=device)],
                     [torch.tensor(unit_locations_base[key_i], device=device)],
                 )
+                # for setters, we don't remove them.
+                all_set_handlers.extend(set_handlers)
             counterfactual_outputs = self.model(**base)
-            set_handlers.remove()
+            all_set_handlers.remove()
             
         elif self.mode == "serial":
-            serialized_set_handlers = HandlerList([])
             for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
                 if key_i != len(self.sorted_alignable_keys)-1:
                     unit_locations_key = f"source_{key_i}->source_{key_i+1}"
@@ -379,13 +401,18 @@ class AlignableModel(nn.Module):
                                                              # per source in serial case
                 unit_locations_base = \
                     unit_locations[unit_locations_key][1][0]
-                # get activation from source_i
-                get_handlers = self._intervention_getter(
-                    [alignable_key],
-                    [torch.tensor(unit_locations_source, device=device)],
-                )
-                _ = self.model(**sources[key_i])
-                get_handlers.remove()
+                
+                if activations_sources is None:
+                    # get activation from source_i
+                    get_handlers = self._intervention_getter(
+                        [alignable_key],
+                        [torch.tensor(unit_locations_source, device=device)],
+                    )
+                    _ = self.model(**sources[key_i])
+                    get_handlers.remove()
+                else:
+                    self.activations[alignable_key] = activations_sources[alignable_key]
+                    
                 # set with intervened activation to source_i+1
                 set_handlers = self._intervention_setter(
                     [alignable_key],
@@ -393,9 +420,9 @@ class AlignableModel(nn.Module):
                     [torch.tensor(unit_locations_base, device=device)],
                 )
                 # for setters, we don't remove them.
-                serialized_set_handlers.extend(set_handlers)
+                all_set_handlers.extend(set_handlers)
             counterfactual_outputs = self.model(**base)
-            serialized_set_handlers.remove()
+            all_set_handlers.remove()
                 
         return base_outputs, counterfactual_outputs
     

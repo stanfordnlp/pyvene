@@ -58,6 +58,48 @@ class VanillaIntervention(Intervention):
         return f"VanillaIntervention(embed_dim={self.embed_dim})"
 
     
+class AdditionIntervention(BasisAgnosticIntervention):
+    
+    """Intervention the original representations with activation addition."""
+    def __init__(self, embed_dim, **kwargs):
+        super().__init__()
+        self.interchange_dim = None
+        self.embed_dim = embed_dim
+
+    def set_interchange_dim(self, interchange_dim):
+        self.interchange_dim = interchange_dim
+
+    def forward(self, base, source):
+        # interchange
+        base[:self.interchange_dim] += source[:self.interchange_dim]
+
+        return base
+
+    def __str__(self):
+        return f"AdditionIntervention(embed_dim={self.embed_dim})"
+    
+
+class SubstractionIntervention(BasisAgnosticIntervention):
+    
+    """Intervention the original representations with activation substraction."""
+    def __init__(self, embed_dim, **kwargs):
+        super().__init__()
+        self.interchange_dim = None
+        self.embed_dim = embed_dim
+
+    def set_interchange_dim(self, interchange_dim):
+        self.interchange_dim = interchange_dim
+
+    def forward(self, base, source):
+        # interchange
+        base[:self.interchange_dim] -= source[:self.interchange_dim]
+
+        return base
+
+    def __str__(self):
+        return f"SubstractionIntervention(embed_dim={self.embed_dim})"
+    
+    
 class RotatedSpaceIntervention(TrainbleIntervention):
     
     """Intervention in the rotated space."""

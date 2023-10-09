@@ -94,7 +94,16 @@ We put them in front so it is easier to keep track of
 things that need to be changed.
 """
 #########################################################################
-    
+
+
+def print_forward_hooks(main_module):
+    """Function to print forward hooks of a module and its sub-modules"""
+    for name, submodule in main_module.named_modules():
+        if hasattr(submodule, "_forward_hooks") and submodule._forward_hooks:
+            print(f"Module: {name if name else 'Main Module'}")
+            for hook_id, hook in submodule._forward_hooks.items():
+                print(f"  ID: {hook_id}, Hook: {hook}")
+
 
 def set_seed(seed: int):
     """Set seed. Deprecate soon since it is in the huggingface library"""
