@@ -426,3 +426,150 @@ class AlignableModel(nn.Module):
                 
         return base_outputs, counterfactual_outputs
     
+
+    def generate(
+        self, 
+        base,
+        sources: Optional[List] = None,
+        unit_locations: Optional[Dict] = None,
+        activations_sources: Optional[Dict] = None,
+        **kwargs
+    ):
+        """
+        Intervenable generation function that serves a
+        wrapper to regular model generate calls.
+
+        Currently, we support basic interventions **in the
+        prompt only**. We will support generation interventions
+        in the next release.
+        
+        TODO: Unroll sources and intervene in the generation step.
+
+        Parameters:
+        base:                The base example.
+        sources:             A list of source examples.
+        unit_locations:      The intervention locations of
+                             base.
+        activations_sources: A list of representations.
+        **kwargs:            All other generation parameters.
+        
+        Return:
+        base_output: the non-intervened output of the base
+        input.
+        counterfactual_outputs: the intervened output of the
+        base input.
+        """
+        # if no source inputs, we are calling a simple forward
+        print("WARNING: This is a basic version that will "
+              "intervene on some of the prompt token as well as "
+              "the each generation step."
+             )
+        if sources is None and activations_sources is None:
+            return self.model.generate(
+                inputs=base["input_ids"],
+                **kwargs
+            ), None
+        
+        if sources is not None:
+            assert len(sources) == len(self.sorted_alignable_keys)
+        else:
+            assert len(activations_sources) == len(self.sorted_alignable_keys)
+            
+        if self.mode == "parallel":
+            assert "sources->base" in unit_locations
+            unit_locations_sources = unit_locations["sources->base"][0]
+            unit_locations_base = unit_locations["sources->base"][1]
+            unit_locations_sources = np.array(unit_locations_sources)
+            unit_locations_base = np.array(unit_locations_base)
+            
+            if unit_locations_base.shape != unit_locations_sources.shape:
+                assert False, "In parallel mode, base intervention location"\
+                              " has to be the same as the sources intervention"\
+                              " locations"
+        elif activations_sources is None and self.mode == "serial":
+            assert "sources->base" not in unit_locations
+            assert len(sources) == len(unit_locations)
+            
+        batch_size = base["input_ids"].shape[0]
+        device = base["input_ids"].device
+        # returning un-intervened output without gradients
+        with torch.inference_mode():
+            base_outputs = self.model.generate(
+                inputs=base["input_ids"],
+                **kwargs
+            )
+        
+        all_set_handlers = HandlerList([])
+        if self.mode == "parallel":
+            # for each source, we hook in getters to cache activations
+            # at each aligning representations
+            if activations_sources is None:
+                for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
+                    get_handlers = self._intervention_getter(
+                        [alignable_key],
+                        [torch.tensor(unit_locations_sources[key_i], device=device)],
+                    )
+                    _ = self.model(**sources[key_i])
+                    get_handlers.remove()
+            else:
+                # simply patch in the ones passed in
+                self.activations = activations_sources
+                for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
+                    assert alignable_key in self.activations
+                
+            # in parallel mode, we swap cached activations all into
+            # base at once
+            for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
+                set_handlers = self._intervention_setter(
+                    [alignable_key],
+                    [torch.tensor(unit_locations_sources[key_i], device=device)],
+                    [torch.tensor(unit_locations_base[key_i], device=device)],
+                )
+                # for setters, we don't remove them.
+                all_set_handlers.extend(set_handlers)
+            counterfactual_outputs = self.model.generate(
+                inputs=base["input_ids"],
+                **kwargs
+            )
+            all_set_handlers.remove()
+            
+        elif self.mode == "serial":
+            for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
+                if key_i != len(self.sorted_alignable_keys)-1:
+                    unit_locations_key = f"source_{key_i}->source_{key_i+1}"
+                else:
+                    unit_locations_key = f"source_{key_i}->base"
+
+                unit_locations_source = \
+                    unit_locations[unit_locations_key][0][0] # last one as only one intervention
+                                                             # per source in serial case
+                unit_locations_base = \
+                    unit_locations[unit_locations_key][1][0]
+                
+                if activations_sources is None:
+                    # get activation from source_i
+                    get_handlers = self._intervention_getter(
+                        [alignable_key],
+                        [torch.tensor(unit_locations_source, device=device)],
+                    )
+                    _ = self.model(**sources[key_i])
+                    get_handlers.remove()
+                else:
+                    self.activations[alignable_key] = activations_sources[alignable_key]
+                    
+                # set with intervened activation to source_i+1
+                set_handlers = self._intervention_setter(
+                    [alignable_key],
+                    [torch.tensor(unit_locations_source, device=device)],
+                    [torch.tensor(unit_locations_base, device=device)],
+                )
+                # for setters, we don't remove them.
+                all_set_handlers.extend(set_handlers)
+            counterfactual_outputs = self.model.generate(
+                inputs=base["input_ids"],
+                **kwargs
+            )
+            all_set_handlers.remove()
+                
+        return base_outputs, counterfactual_outputs
+    

@@ -6,7 +6,7 @@
 
 [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/The%20capital%20of%20Spain%20is.ipynb)
 
-# <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Aligning Causal Mechanisms with Transformer Model Internals with Interventions**
+# <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Aligning Causal Mechanisms with Transformer Model Internals**
 We have released a **new** generic library for studying model internals, which encapsulates **causal abstraction and distributed alignment search**[^ii], **path patching**[^pp], and **causal scrubbing**[^cs]. These methods were introduced recently to find or to help us find causal alignments with the internals of neural models. This library is designed as a playground for inventing new interventions, whether they're trainable or not, to uncover the causal mechanisms of neural models. Additionally, the library emphasizes scaling these methods to LLMs with billions of parameters.
 
 
@@ -104,11 +104,17 @@ We released a set of tutorials for doing model interventions and model alignment
 ### `The capital of Spain is.ipynb` 
 (**Intervention Tutorial**) This is a tutorial for doing simple path patching as in **Path Patching**[^pp], **Causal Scrubbing**[^cs]. Thanks to [Aryaman Arora](https://aryaman.io/). This is a set of experiments trying to reproduce some of the experiments in his awesome [nano-causal-interventions](https://github.com/aryamanarora/nano-causal-interventions) repository.
 
-### `If the cost is between X and Y.ipynb` 
-(**Distributed Alignment Tutorial**) This is a tutorial reproducing one of the main experiments in [the Boundless DAS paper](https://arxiv.org/abs/2305.08809). Different from the first tutorial, this one involves trainable interventions that actively search for alignments with model internals.
-
 ### `Hook with new model and intervention types.ipynb` 
 (**Intervention Tutorial**) This is a tutorial on integrating new model types with this library as well as customized interventions. We try to add `flan_t5` as well as a simple additive intervention. This tutorial covers a simple experiment as in `The capital of Spain is.ipynb`.
+
+### `Adding activations to any stream.ipynb` 
+(**Intervention Tutorial**) Besides interchange intervention, you can also add any customized activations to a particular stream in transformer. This is a tutorial adding a word embedding to different streams and make the model predict different things.
+
+### `Intervened language generation.ipynb` 
+(**Intervention Tutorial**) This is a tutorial on how to intervene the TinyStories-33M model to change its story generation. Different from other tutorials, this is a multi-token language generation, closer to other real-world use cases.
+
+### `If the cost is between X and Y.ipynb` 
+(**Distributed Alignment Tutorial**) This is a tutorial reproducing one of the main experiments in [the Boundless DAS paper](https://arxiv.org/abs/2305.08809). Different from the first tutorial, this one involves trainable interventions that actively search for alignments with model internals.
 
 
 ## System Requirements
