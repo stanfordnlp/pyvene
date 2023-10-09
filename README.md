@@ -110,8 +110,8 @@ We released a set of tutorials for doing model interventions and model alignment
 ### `Adding activations to any stream.ipynb` 
 (**Intervention Tutorial**) Besides interchange intervention, you can also add any customized activations to a particular stream in transformer. This is a tutorial adding a word embedding to different streams and make the model predict different things.
 
-### `Intervened language generation.ipynb` 
-(**Intervention Tutorial**) This is a tutorial on how to intervene the TinyStories-33M model to change its story generation. Different from other tutorials, this is a multi-token language generation, closer to other real-world use cases.
+### `Change how TinyStories end with interventions.ipynb` 
+(**Intervention Tutorial**) This is a tutorial on how to intervene the TinyStories-33M model to change its story generation, with sad endings and happy endings. Different from other tutorials, this is a multi-token language generation, closer to other real-world use cases.
 
 ### `If the cost is between X and Y.ipynb` 
 (**Distributed Alignment Tutorial**) This is a tutorial reproducing one of the main experiments in [the Boundless DAS paper](https://arxiv.org/abs/2305.08809). Different from the first tutorial, this one involves trainable interventions that actively search for alignments with model internals.
