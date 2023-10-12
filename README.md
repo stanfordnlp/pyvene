@@ -127,12 +127,6 @@ We released a set of tutorials for doing model interventions and model alignment
 - Transfermers Minimum Version: 4.28.0.dev0
 - Datasets Version: Version: 2.3.2
 
-### `bf16` training with customized pytorch files
-To save memory and speed up the training, we allow `bf16` mode when finding alignments. Since we rely on `torch` orthogonalization library, it does not support `bf16`. So, we did some hacks in the `torch` file to enable this. Modified files are in the `torch3.8_overwrite/*.py` folder. Currently, you need to replace these two files by hand in your environment. Here are two example directories for these two files:
-```
-/lib/python3.8/site-packages/torch/nn/utils/parametrizations.py
-/lib/python3.8/site-packages/torch/nn/init.py
-```
 
 ## Related Works in Discovering Causal Mechanism of LLMs
 If you would like to read more works on this area, here is a list of papers that try to align or discover the causal mechanisms of LLMs. 

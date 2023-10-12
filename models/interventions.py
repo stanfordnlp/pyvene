@@ -120,7 +120,7 @@ class RotatedSpaceIntervention(TrainbleIntervention):
         rotated_base[:self.interchange_dim] = rotated_source[:self.interchange_dim]
         # inverse base
         output = torch.matmul(rotated_base, self.rotate_layer.weight.T)
-        return output
+        return output.to(base.dtype)
     
     def __str__(self):
         return f"RotatedSpaceIntervention(embed_dim={self.embed_dim})"
@@ -175,7 +175,7 @@ class BoundlessRotatedSpaceIntervention(TrainbleIntervention):
         rotated_output = (1. - boundary_mask)*rotated_base + boundary_mask*rotated_source
         # inverse output
         output = torch.matmul(rotated_output, self.rotate_layer.weight.T)
-        return output
+        return output.to(base.dtype)
     
     def __str__(self):
         return f"BoundlessRotatedSpaceIntervention(embed_dim={self.embed_dim})"
