@@ -27,7 +27,7 @@ class RotateLayer(torch.nn.Module):
         self.weight = torch.nn.Parameter(weight, requires_grad=True)
 
     def forward(self, x):
-        return torch.matmul(x, self.weight)
+        return torch.matmul(x.to(self.weight.dtype), self.weight)
 
 
 class LowRankRotateLayer(torch.nn.Module):
@@ -39,4 +39,4 @@ class LowRankRotateLayer(torch.nn.Module):
         torch.nn.init.orthogonal_(self.weight)
 
     def forward(self, x):
-        return torch.matmul(x.float(), self.weight)
+        return torch.matmul(x.to(self.weight.dtype), self.weight)

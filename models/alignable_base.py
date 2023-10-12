@@ -42,12 +42,6 @@ class AlignableModel(nn.Module):
                 get_alignable_dimension(model, representation),
                 proj_dim=alignable_config.alignable_low_rank_dimension
             )
-            if isinstance(
-                intervention, 
-                models.interventions.TrainbleIntervention
-            ):
-                intervention = intervention.bfloat16()
-            
             alignable_module_hook = get_alignable_module_hook(model, representation)
             
             _key = self._get_representation_key(representation)
