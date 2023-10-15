@@ -114,10 +114,11 @@ class RotatedSpaceIntervention(TrainbleIntervention):
         self.interchange_dim = interchange_dim
 
     def forward(self, base, source):
+        assert self.interchange_dim is not None
         rotated_base = self.rotate_layer(base)
         rotated_source = self.rotate_layer(source)
         # interchange
-        rotated_base[:self.interchange_dim] = rotated_source[:self.interchange_dim]
+        rotated_base[..., :self.interchange_dim] = rotated_source[..., :self.interchange_dim]
         # inverse base
         output = torch.matmul(rotated_base, self.rotate_layer.weight.T)
         return output.to(base.dtype)
