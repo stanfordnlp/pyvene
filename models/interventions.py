@@ -50,7 +50,7 @@ class VanillaIntervention(Intervention):
 
     def forward(self, base, source):
         # interchange
-        base[:self.interchange_dim] = source[:self.interchange_dim]
+        base[..., :self.interchange_dim] = source[..., :self.interchange_dim]
 
         return base
 
@@ -71,7 +71,7 @@ class AdditionIntervention(BasisAgnosticIntervention):
 
     def forward(self, base, source):
         # interchange
-        base[:self.interchange_dim] += source[:self.interchange_dim]
+        base[..., :self.interchange_dim] += source[..., :self.interchange_dim]
 
         return base
 
@@ -92,7 +92,7 @@ class SubstractionIntervention(BasisAgnosticIntervention):
 
     def forward(self, base, source):
         # interchange
-        base[:self.interchange_dim] -= source[:self.interchange_dim]
+        base[..., :self.interchange_dim] -= source[..., :self.interchange_dim]
 
         return base
 
