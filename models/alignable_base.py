@@ -242,12 +242,23 @@ class AlignableModel(nn.Module):
         handlers = []
         for key_i, key in enumerate(alignable_keys):
             _, alignable_module_hook = self.interventions[key]
-            def hook_callback(model, input, output=None):
+            def hook_callback(model, args, kwargs, output=None):
+                arg_ptr = None
+                if output is None:
+                    if len(args) == 0: # kwargs based calls
+                        # PR: https://github.com/frankaging/align-transformers/issues/11
+                        # We cannot assume the dict only contain one element
+                        arg_ptr = kwargs[list(kwargs.keys())[0]]
+                    else:
+                        arg_ptr = args
+                else:
+                    arg_ptr = output
+
                 selected_output = self._gather_intervention_output(
-                    input if output is None else output, key, unit_locations[key_i]
+                    arg_ptr, key, unit_locations[key_i]
                 )
                 self.activations[key] = selected_output
-            handlers.append(alignable_module_hook(hook_callback))
+            handlers.append(alignable_module_hook(hook_callback, with_kwargs=True))
 
         return HandlerList(handlers)
     
@@ -262,18 +273,27 @@ class AlignableModel(nn.Module):
         handlers = []
         for key_i, key in enumerate(alignable_keys):
             intervention, alignable_module_hook = self.interventions[key]
-            def hook_callback(model, input, output=None):
+            def hook_callback(model, args, kwargs, output=None):
+                
                 if output is None:
+                    arg_ptr = None
+                    if len(args) == 0: # kwargs based calls
+                        # PR: https://github.com/frankaging/align-transformers/issues/11
+                        # We cannot assume the dict only contain one element
+                        arg_ptr = kwargs[list(kwargs.keys())[0]]
+                    else:
+                        arg_ptr = args
                     # intervene in the module input with a pre forward hook
                     selected_output = self._gather_intervention_output(
-                        input, key, unit_locations_base[key_i]
+                        arg_ptr, 
+                        key, unit_locations_base[key_i]
                     )
                     # intervene with cached activations
                     intervened_representation = do_intervention(
                         selected_output, self.activations[key], intervention)
                     # patched in the intervned activations
-                    input = self._scatter_intervention_output(
-                        input, intervened_representation,
+                    arg_ptr = self._scatter_intervention_output(
+                        arg_ptr, intervened_representation,
                         key, unit_locations_base[key_i]
                     )
                 else:
@@ -288,7 +308,7 @@ class AlignableModel(nn.Module):
                         output, intervened_representation,
                         key, unit_locations_base[key_i]
                     )
-            handlers.append(alignable_module_hook(hook_callback))
+            handlers.append(alignable_module_hook(hook_callback, with_kwargs=True))
             
         return HandlerList(handlers)
         
