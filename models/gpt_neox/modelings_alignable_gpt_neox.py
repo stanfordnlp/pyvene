@@ -44,15 +44,15 @@ gpt_neox_type_to_dimension_mapping = {
     'mlp_output': ("config.hidden_size", ), 
     'mlp_input': ("config.hidden_size", ), 
     'attention_value_output': ("config.hidden_size", ),
-    'head_attention_value_output': ("config.hidden_size/config.num_heads", ),
+    'head_attention_value_output': ("config.hidden_size/config.num_attention_heads", ),
     'attention_output': ("config.hidden_size", ),
     'attention_input': ("config.hidden_size", ),
     # 'query_output': ("config.hidden_size", ),
     # 'key_output': ("config.hidden_size", ),
     # 'value_output': ("config.hidden_size", ),
-    # 'head_query_output': ("config.hidden_size/config.num_heads", ),
-    # 'head_key_output': ("config.hidden_size/config.num_heads", ),
-    # 'head_value_output': ("config.hidden_size/config.num_heads", ),
+    # 'head_query_output': ("config.hidden_size/config.num_attention_heads", ),
+    # 'head_key_output': ("config.hidden_size/config.num_attention_heads", ),
+    # 'head_value_output': ("config.hidden_size/config.num_attention_heads", ),
 }
 
 
