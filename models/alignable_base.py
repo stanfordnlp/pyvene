@@ -19,9 +19,13 @@ class AlignableModel(nn.Module):
         model
     ):
         super().__init__()
-        # we allow one type intervention per alignment
         self.mode = alignable_config.mode
         intervention_type = alignable_config.alignable_interventions_type
+
+        # each representation can get a different intervention type
+        if type(intervention_type) == list:
+            assert len(intervention_type) == len(alignable_config.alignable_representations)
+            assert all([issubclass(t, models.interventions.Intervention) for t in intervention_type])
         
         ###
         # We instantiate intervention_layers at locations.
@@ -37,8 +41,9 @@ class AlignableModel(nn.Module):
         self.alignable_representations = {}
         self.interventions = {}
         self._key_collision_counter = {}
-        for representation in alignable_config.alignable_representations:
-            intervention = intervention_type(
+        for i, representation in enumerate(alignable_config.alignable_representations):
+            intervention_function = intervention_type if type(intervention_type) != list else intervention_type[i]
+            intervention = intervention_function(
                 get_alignable_dimension(model, representation),
                 proj_dim=alignable_config.alignable_low_rank_dimension
             )
