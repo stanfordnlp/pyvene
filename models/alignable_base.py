@@ -41,6 +41,8 @@ class AlignableModel(nn.Module):
         self.alignable_representations = {}
         self.interventions = {}
         self._key_collision_counter = {}
+        self._key_getter_call_counter = {}
+        self._key_setter_call_counter = {}
         for i, representation in enumerate(alignable_config.alignable_representations):
             intervention_function = intervention_type if type(intervention_type) != list else intervention_type[i]
             intervention = intervention_function(
@@ -52,10 +54,15 @@ class AlignableModel(nn.Module):
             _key = self._get_representation_key(representation)
             self.alignable_representations[_key] = representation
             self.interventions[_key] = (intervention, alignable_module_hook)
+            self._key_getter_call_counter[_key] = 0 # we memo how many the hook is called, 
+                                                    # usually, it's a one time call per 
+                                                    # hook unless model generates.
+            self._key_setter_call_counter[_key] = 0
         self.sorted_alignable_keys = sort_alignables_by_topological_order(
             model,
             self.alignable_representations
         )
+        self._intervene_on_prompt = None
         
         # model with cache activations
         self.activations = {}
@@ -93,7 +100,24 @@ class AlignableModel(nn.Module):
             self._key_collision_counter[key_proposal] += 1
         return f"{key_proposal}#{self._key_collision_counter[key_proposal]}"
     
+    
+    def _reset_hook_count(self):
+        """
+        Reset the hook count before any generate call
+        """
+        self._key_getter_call_counter = dict.fromkeys(
+            self._key_getter_call_counter, 0)
+        self._key_setter_call_counter = dict.fromkeys(
+            self._key_setter_call_counter, 0)
 
+    
+    def _cleanup_hooks(self):
+        """
+        Clean up all the remaining hooks before any call
+        """
+        remove_forward_hooks(self.model)
+        
+    
     def get_cached_activations(self):
         """
         Return the cached activations with keys
@@ -248,6 +272,14 @@ class AlignableModel(nn.Module):
         for key_i, key in enumerate(alignable_keys):
             _, alignable_module_hook = self.interventions[key]
             def hook_callback(model, args, kwargs, output=None):
+                if self._intervene_on_prompt:
+                    if self._key_getter_call_counter[key] != 0:
+                        return # no-op on all other call
+                else:
+                    if self._key_getter_call_counter[key] == 0:
+                        self._key_getter_call_counter[key] += 1
+                        return # no-op on first call
+                self._key_getter_call_counter[key] += 1
                 arg_ptr = None
                 if output is None:
                     if len(args) == 0: # kwargs based calls
@@ -279,7 +311,14 @@ class AlignableModel(nn.Module):
         for key_i, key in enumerate(alignable_keys):
             intervention, alignable_module_hook = self.interventions[key]
             def hook_callback(model, args, kwargs, output=None):
-                
+                if self._intervene_on_prompt:
+                    if self._key_setter_call_counter[key] != 0:
+                        return # no-op on all other call
+                else:
+                    if self._key_setter_call_counter[key] == 0:
+                        self._key_setter_call_counter[key] += 1
+                        return # no-op on first call
+                self._key_setter_call_counter[key] += 1
                 if output is None:
                     arg_ptr = None
                     if len(args) == 0: # kwargs based calls
@@ -347,6 +386,8 @@ class AlignableModel(nn.Module):
         counterfactual_outputs: the intervened output of the
         base input.
         """
+        self._cleanup_hooks()
+        
         # if no source inputs, we are calling a simple forward
         if sources is None and activations_sources is None:
             return self.model(**base), None
@@ -452,6 +493,7 @@ class AlignableModel(nn.Module):
         sources: Optional[List] = None,
         unit_locations: Optional[Dict] = None,
         activations_sources: Optional[Dict] = None,
+        intervene_on_prompt: bool = True,
         **kwargs
     ):
         """
@@ -470,6 +512,7 @@ class AlignableModel(nn.Module):
         unit_locations:      The intervention locations of
                              base.
         activations_sources: A list of representations.
+        intervene_on_prompt: Whether only intervene on prompt.
         **kwargs:            All other generation parameters.
         
         Return:
@@ -478,11 +521,15 @@ class AlignableModel(nn.Module):
         counterfactual_outputs: the intervened output of the
         base input.
         """
+        self._cleanup_hooks()
+        
         # if no source inputs, we are calling a simple forward
         print("WARNING: This is a basic version that will "
               "intervene on some of the prompt token as well as "
               "the each generation step."
              )
+        self._intervene_on_prompt = intervene_on_prompt
+        self._reset_hook_count()
         if sources is None and activations_sources is None:
             return self.model.generate(
                 inputs=base["input_ids"],
