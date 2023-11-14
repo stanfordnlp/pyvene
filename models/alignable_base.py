@@ -41,6 +41,11 @@ class AlignableModel(nn.Module):
         self.alignable_representations = {}
         self.interventions = {}
         self._key_collision_counter = {}
+        # Flags and counters below are for interventions in the model.generate
+        # call. We can intervene on the prompt tokens only, on each generated
+        # token, or on a combination of both.
+        self._is_generation = False
+        self._intervene_on_prompt = None
         self._key_getter_call_counter = {}
         self._key_setter_call_counter = {}
         for i, representation in enumerate(alignable_config.alignable_representations):
@@ -62,7 +67,6 @@ class AlignableModel(nn.Module):
             model,
             self.alignable_representations
         )
-        self._intervene_on_prompt = None
         
         # model with cache activations
         self.activations = {}
@@ -272,14 +276,12 @@ class AlignableModel(nn.Module):
         for key_i, key in enumerate(alignable_keys):
             _, alignable_module_hook = self.interventions[key]
             def hook_callback(model, args, kwargs, output=None):
-                if self._intervene_on_prompt:
-                    if self._key_getter_call_counter[key] != 0:
-                        return # no-op on all other call
-                else:
-                    if self._key_getter_call_counter[key] == 0:
+                if self._is_generation:
+                    is_prompt = self._key_getter_call_counter[key] == 0
+                    if not self._intervene_on_prompt or is_prompt:
                         self._key_getter_call_counter[key] += 1
-                        return # no-op on first call
-                self._key_getter_call_counter[key] += 1
+                    if self._intervene_on_prompt ^ is_prompt:
+                        return  # no-op
                 arg_ptr = None
                 if output is None:
                     if len(args) == 0: # kwargs based calls
@@ -311,14 +313,12 @@ class AlignableModel(nn.Module):
         for key_i, key in enumerate(alignable_keys):
             intervention, alignable_module_hook = self.interventions[key]
             def hook_callback(model, args, kwargs, output=None):
-                if self._intervene_on_prompt:
-                    if self._key_setter_call_counter[key] != 0:
-                        return # no-op on all other call
-                else:
-                    if self._key_setter_call_counter[key] == 0:
+                if self._is_generation:
+                    is_prompt = self._key_setter_call_counter[key] == 0
+                    if not self._intervene_on_prompt or is_prompt:
                         self._key_setter_call_counter[key] += 1
-                        return # no-op on first call
-                self._key_setter_call_counter[key] += 1
+                    if self._intervene_on_prompt ^ is_prompt:
+                        return  # no-op
                 if output is None:
                     arg_ptr = None
                     if len(args) == 0: # kwargs based calls
@@ -529,6 +529,7 @@ class AlignableModel(nn.Module):
               "the each generation step."
              )
         self._intervene_on_prompt = intervene_on_prompt
+        self._is_generation = True
         self._reset_hook_count()
         if sources is None and activations_sources is None:
             return self.model.generate(
@@ -636,6 +637,6 @@ class AlignableModel(nn.Module):
                 **kwargs
             )
             all_set_handlers.remove()
-                
+        self._is_generation = False
         return base_outputs, counterfactual_outputs
     
