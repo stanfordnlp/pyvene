@@ -51,7 +51,7 @@ class AlignableModel(nn.Module):
         for i, representation in enumerate(alignable_config.alignable_representations):
             intervention_function = intervention_type if type(intervention_type) != list else intervention_type[i]
             intervention = intervention_function(
-                get_alignable_dimension(model, representation),
+                get_alignable_dimension(get_internal_model_type(model), model.config, representation),
                 proj_dim=alignable_config.alignable_low_rank_dimension
             )
             alignable_module_hook = get_alignable_module_hook(model, representation)
@@ -115,12 +115,21 @@ class AlignableModel(nn.Module):
             self._key_setter_call_counter, 0)
 
     
-    def _cleanup_hooks(self):
+    def _remove_forward_hooks(self):
         """
         Clean up all the remaining hooks before any call
         """
         remove_forward_hooks(self.model)
-        
+    
+    
+    def _cleanup_states(self):
+        """
+        Clean up all old in memo states of interventions
+        """
+        self._is_generation = False
+        self._remove_forward_hooks()
+        self._reset_hook_count()
+    
     
     def get_cached_activations(self):
         """
@@ -234,11 +243,12 @@ class AlignableModel(nn.Module):
         For instance, we need to separate QKV from a hidden representation
         by slicing the original output
         """
-        return output_to_subcomponent_fn_mapping[self.model_type](
+        return output_to_subcomponent(
             output, 
             self.alignable_representations[
                 alignable_representations_key
             ].alignable_representation_type, 
+            self.model_type,
             self.model_config
         )
 
@@ -255,15 +265,24 @@ class AlignableModel(nn.Module):
         # data structure casting
         if isinstance(output, tuple):
             original_output = output[0]
-
-        scatter_intervention_output_fn_mapping[self.model_type](
-            original_output, intervened_representation, 
-            self.alignable_representations[
-                alignable_representations_key
-            ].alignable_representation_type,
-            unit_locations, self.model_config
+        
+        alignable_representation_type = self.alignable_representations[
+            alignable_representations_key
+        ].alignable_representation_type
+        alignable_unit = self.alignable_representations[
+            alignable_representations_key
+        ].alignable_unit
+            
+        replaced_output = scatter_neurons(
+            original_output, 
+            intervened_representation, 
+            alignable_representation_type,
+            alignable_unit,
+            unit_locations, 
+            self.model_type,
+            self.model_config
         )
-        return original_output
+        return replaced_output
     
 
     def _intervention_getter(
@@ -376,8 +395,7 @@ class AlignableModel(nn.Module):
         Parameters:
         base:                The base example.
         sources:             A list of source examples.
-        unit_locations:      The intervention locations of
-                             base.
+        unit_locations:      The intervention locations.
         activations_sources: A list of representations.
         
         Return:
@@ -385,8 +403,25 @@ class AlignableModel(nn.Module):
         input.
         counterfactual_outputs: the intervened output of the
         base input.
+        
+        Notes:
+        unit_locations is a dict where keys are tied with
+        example pairs involved in one intervention as,
+        {
+            "sources->base" : List[]
+        }
+        
+        the shape can be
+        
+        2 * num_intervention * bs * num_max_unit
+        
+        OR
+        
+        2 * num_intervention * num_intervention_level * bs * num_max_unit
+        
+        if we intervene on h.pos which is a nested intervention location.
         """
-        self._cleanup_hooks()
+        self._cleanup_states()
         
         # if no source inputs, we are calling a simple forward
         if sources is None and activations_sources is None:
@@ -401,13 +436,6 @@ class AlignableModel(nn.Module):
             assert "sources->base" in unit_locations
             unit_locations_sources = unit_locations["sources->base"][0]
             unit_locations_base = unit_locations["sources->base"][1]
-            unit_locations_sources = np.array(unit_locations_sources)
-            unit_locations_base = np.array(unit_locations_base)
-            
-            if unit_locations_base.shape != unit_locations_sources.shape:
-                assert False, "In parallel mode, base intervention location"\
-                              " has to be the same as the sources intervention"\
-                              " locations"
         elif activations_sources is None and self.mode == "serial":
             assert "sources->base" not in unit_locations
             assert len(sources) == len(unit_locations)
@@ -426,7 +454,7 @@ class AlignableModel(nn.Module):
                 for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
                     get_handlers = self._intervention_getter(
                         [alignable_key],
-                        [torch.tensor(unit_locations_sources[key_i], device=device)],
+                        [unit_locations_sources[key_i]],
                     )
                     _ = self.model(**sources[key_i])
                     get_handlers.remove()
@@ -441,8 +469,8 @@ class AlignableModel(nn.Module):
             for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
                 set_handlers = self._intervention_setter(
                     [alignable_key],
-                    [torch.tensor(unit_locations_sources[key_i], device=device)],
-                    [torch.tensor(unit_locations_base[key_i], device=device)],
+                    [unit_locations_sources[key_i]],
+                    [unit_locations_base[key_i]],
                 )
                 # for setters, we don't remove them.
                 all_set_handlers.extend(set_handlers)
@@ -466,7 +494,7 @@ class AlignableModel(nn.Module):
                     # get activation from source_i
                     get_handlers = self._intervention_getter(
                         [alignable_key],
-                        [torch.tensor(unit_locations_source, device=device)],
+                        [unit_locations_source],
                     )
                     _ = self.model(**sources[key_i])
                     get_handlers.remove()
@@ -476,8 +504,8 @@ class AlignableModel(nn.Module):
                 # set with intervened activation to source_i+1
                 set_handlers = self._intervention_setter(
                     [alignable_key],
-                    [torch.tensor(unit_locations_source, device=device)],
-                    [torch.tensor(unit_locations_base, device=device)],
+                    [unit_locations_source],
+                    [unit_locations_base],
                 )
                 # for setters, we don't remove them.
                 all_set_handlers.extend(set_handlers)
@@ -521,7 +549,7 @@ class AlignableModel(nn.Module):
         counterfactual_outputs: the intervened output of the
         base input.
         """
-        self._cleanup_hooks()
+        self._cleanup_states()
         
         # if no source inputs, we are calling a simple forward
         print("WARNING: This is a basic version that will "
@@ -530,7 +558,7 @@ class AlignableModel(nn.Module):
              )
         self._intervene_on_prompt = intervene_on_prompt
         self._is_generation = True
-        self._reset_hook_count()
+        
         if sources is None and activations_sources is None:
             return self.model.generate(
                 inputs=base["input_ids"],
@@ -546,13 +574,6 @@ class AlignableModel(nn.Module):
             assert "sources->base" in unit_locations
             unit_locations_sources = unit_locations["sources->base"][0]
             unit_locations_base = unit_locations["sources->base"][1]
-            unit_locations_sources = np.array(unit_locations_sources)
-            unit_locations_base = np.array(unit_locations_base)
-            
-            if unit_locations_base.shape != unit_locations_sources.shape:
-                assert False, "In parallel mode, base intervention location"\
-                              " has to be the same as the sources intervention"\
-                              " locations"
         elif activations_sources is None and self.mode == "serial":
             assert "sources->base" not in unit_locations
             assert len(sources) == len(unit_locations)
@@ -574,7 +595,7 @@ class AlignableModel(nn.Module):
                 for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
                     get_handlers = self._intervention_getter(
                         [alignable_key],
-                        [torch.tensor(unit_locations_sources[key_i], device=device)],
+                        [unit_locations_sources[key_i]],
                     )
                     _ = self.model(**sources[key_i])
                     get_handlers.remove()
@@ -589,8 +610,8 @@ class AlignableModel(nn.Module):
             for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
                 set_handlers = self._intervention_setter(
                     [alignable_key],
-                    [torch.tensor(unit_locations_sources[key_i], device=device)],
-                    [torch.tensor(unit_locations_base[key_i], device=device)],
+                    [unit_locations_sources[key_i]],
+                    [unit_locations_base[key_i]],
                 )
                 # for setters, we don't remove them.
                 all_set_handlers.extend(set_handlers)
@@ -617,7 +638,7 @@ class AlignableModel(nn.Module):
                     # get activation from source_i
                     get_handlers = self._intervention_getter(
                         [alignable_key],
-                        [torch.tensor(unit_locations_source, device=device)],
+                        [unit_locations_source],
                     )
                     _ = self.model(**sources[key_i])
                     get_handlers.remove()
@@ -627,8 +648,8 @@ class AlignableModel(nn.Module):
                 # set with intervened activation to source_i+1
                 set_handlers = self._intervention_setter(
                     [alignable_key],
-                    [torch.tensor(unit_locations_source, device=device)],
-                    [torch.tensor(unit_locations_base, device=device)],
+                    [unit_locations_source],
+                    [unit_locations_base],
                 )
                 # for setters, we don't remove them.
                 all_set_handlers.extend(set_handlers)

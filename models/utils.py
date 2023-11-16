@@ -2,7 +2,7 @@ import torch, random
 from torch import nn
 import numpy as np
 
-from models.constants import CONST_TRANSFORMER_TOPOLOGICAL_ORDER
+from models.constants import CONST_TRANSFORMER_TOPOLOGICAL_ORDER, CONST_QKV_INDICES
 from models.llama.modelings_alignable_llama import *
 from models.gpt2.modelings_alignable_gpt2 import *
 from models.gpt_neo.modelings_alignable_gpt_neo import *
@@ -56,30 +56,14 @@ type_to_dimension_mapping = {
 }
 
 
-output_to_subcomponent_fn_mapping = {
-    hf_models.gpt2.modeling_gpt2.GPT2Model: gpt2_output_to_subcomponent,
-    hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel: gpt2_output_to_subcomponent,
-    hf_models.llama.modeling_llama.LlamaModel: llama_output_to_subcomponent,
-    hf_models.llama.modeling_llama.LlamaForCausalLM: llama_output_to_subcomponent,
-    hf_models.gpt_neo.modeling_gpt_neo.GPTNeoModel: gpt_neo_output_to_subcomponent,
-    hf_models.gpt_neo.modeling_gpt_neo.GPTNeoForCausalLM: gpt_neo_output_to_subcomponent,
-    hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXModel: gpt_neox_output_to_subcomponent,
-    hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXForCausalLM: gpt_neox_output_to_subcomponent,
-    # new model type goes here after defining the model files
-}
+"""
+Above are functions that you need to modify if you add
+a new model arch type in this library.
 
-
-scatter_intervention_output_fn_mapping = {
-    hf_models.gpt2.modeling_gpt2.GPT2Model: gpt2_scatter_intervention_output,
-    hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel: gpt2_scatter_intervention_output,
-    hf_models.llama.modeling_llama.LlamaModel: llama_scatter_intervention_output,
-    hf_models.llama.modeling_llama.LlamaForCausalLM: llama_scatter_intervention_output,
-    hf_models.gpt_neo.modeling_gpt_neo.GPTNeoModel: gpt_neo_scatter_intervention_output,
-    hf_models.gpt_neo.modeling_gpt_neo.GPTNeoForCausalLM: gpt_neo_scatter_intervention_output,
-    hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXModel: gpt_neox_scatter_intervention_output,
-    hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXForCausalLM: gpt_neox_scatter_intervention_output,
-    # new model type goes here after defining the model files
-}
+We put them in front so it is easier to keep track of
+things that need to be changed.
+"""
+#########################################################################
 
 
 def get_internal_model_type(model):
@@ -102,16 +86,6 @@ def embed_to_distrib(model, embed, log=False, logits=False):
             return lsm(vocab) if log else sm(vocab)
     elif "llama" in model.config.architectures[0].lower():
         assert False, "Support for LLaMA is not here yet"
-            
-            
-"""
-Above are functions that you need to modify if you add
-a new model arch type in this library.
-
-We put them in front so it is easier to keep track of
-things that need to be changed.
-"""
-#########################################################################
 
 
 def print_forward_hooks(main_module):
@@ -220,11 +194,12 @@ def getattr_for_torch_module(
     
 
 def get_alignable_dimension(
-    model, representation
+    model_type, model_config, representation
 ) -> int:
     """Based on the representation, get the aligning dimension size"""
+    
     dimension_proposals = type_to_dimension_mapping[
-        get_internal_model_type(model)
+        model_type
     ][
         representation.alignable_representation_type
     ]
@@ -232,21 +207,21 @@ def get_alignable_dimension(
         if "*" in proposal:
             # often constant multiplier with MLP
             dimension = getattr_for_torch_module(
-                model,
+                model_config,
                 proposal.split("*")[0]
             ) * int(proposal.split("*")[1])
         elif "/" in proposal:
             # often split by head number
             dimension = int(getattr_for_torch_module(
-                model,
+                model_config,
                 proposal.split("/")[0]
             ) / getattr_for_torch_module(
-                model,
+                model_config,
                 proposal.split("/")[1]
             ))
         else:
             dimension = getattr_for_torch_module(
-                model,
+                model_config,
                 proposal
             )
         if dimension is not None:
@@ -255,6 +230,43 @@ def get_alignable_dimension(
     assert False
 
 
+def get_representation_dimension_by_type(
+    model_type, model_config, representation_type
+) -> int:
+    """Based on the representation, get the aligning dimension size"""
+    
+    dimension_proposals = type_to_dimension_mapping[
+        model_type
+    ][
+        representation_type
+    ]
+    for proposal in dimension_proposals:
+        if "*" in proposal:
+            # often constant multiplier with MLP
+            dimension = getattr_for_torch_module(
+                model_config,
+                proposal.split("*")[0]
+            ) * int(proposal.split("*")[1])
+        elif "/" in proposal:
+            # often split by head number
+            dimension = int(getattr_for_torch_module(
+                model_config,
+                proposal.split("/")[0]
+            ) / getattr_for_torch_module(
+                model_config,
+                proposal.split("/")[1]
+            ))
+        else:
+            dimension = getattr_for_torch_module(
+                model_config,
+                proposal
+            )
+        if dimension is not None:
+            return dimension
+
+    assert False
+    
+    
 def get_alignable_module_hook(
     model, representation
 ) -> nn.Module:
@@ -312,31 +324,6 @@ class HandlerList():
         return self
 
 
-def gather_neurons(
-    tensor_input,
-    alignable_unit,
-    unit_locations
-):
-    """Gather intervening neurons"""
-    if alignable_unit in {"pos", "h"}:
-        assert tensor_input.shape[0] == \
-                unit_locations.shape[0]
-        
-        tensor_output = torch.gather(
-            tensor_input, 1, 
-            unit_locations.reshape(
-                *unit_locations.shape, 
-                *(1,)*(len(tensor_input.shape)-2)
-            ).expand(
-                -1, -1, *tensor_input.shape[2:]
-            )
-        )
-        
-        return tensor_output
-    else:
-        assert False, f"Not Implemented Gathering with Unit = {alignable_unit}"
-
-        
 def bsd_to_b_sd(tensor):
     """
     Convert a tensor of shape (b, s, d) to (b, s*d).
@@ -370,7 +357,188 @@ def bs_hd_to_bhsd(tensor, d):
     h = hd // d
     return tensor.reshape(b, s, h, d).permute(0, 2, 1, 3)
 
-       
+
+def gather_neurons(
+    tensor_input,
+    alignable_unit,
+    unit_locations_as_list
+):
+    """Gather intervening neurons"""
+    
+    if "." in alignable_unit:
+        unit_locations = (
+            torch.tensor(unit_locations_as_list[0], device=tensor_input.device),
+            torch.tensor(unit_locations_as_list[1], device=tensor_input.device),
+        )
+    else:
+        unit_locations = torch.tensor(unit_locations_as_list, device=tensor_input.device)
+    
+    if alignable_unit in {"pos", "h"}:
+        tensor_output = torch.gather(
+            tensor_input, 1, 
+            unit_locations.reshape(
+                *unit_locations.shape, 
+                *(1,)*(len(tensor_input.shape)-2)
+            ).expand(
+                -1, -1, *tensor_input.shape[2:]
+            )
+        )
+        
+        return tensor_output
+    elif alignable_unit in {"h.pos"}:
+        # we assume unit_locations is a tuple
+        head_unit_locations = unit_locations[0]
+        pos_unit_locations = unit_locations[1]
+        
+        head_tensor_output = torch.gather(
+            tensor_input, 1, 
+            head_unit_locations.reshape(
+                *head_unit_locations.shape, 
+                *(1,)*(len(tensor_input.shape)-2)
+            ).expand(
+                -1, -1, *tensor_input.shape[2:]
+            )
+        ) # b, h, s, d
+        d = head_tensor_output.shape[-1]
+        
+        pos_tensor_input = bhsd_to_bs_hd(head_tensor_output)
+        pos_tensor_output = torch.gather(
+            pos_tensor_input, 1, 
+            pos_unit_locations.reshape(
+                *pos_unit_locations.shape, 
+                *(1,)*(len(pos_tensor_input.shape)-2)
+            ).expand(
+                -1, -1, *pos_tensor_input.shape[2:]
+            )
+        ) # b, num_unit (pos), num_unit (h)*d
+        tensor_output = bs_hd_to_bhsd(pos_tensor_output, d)
+        
+        return tensor_output # b, num_unit (h), num_unit (pos), d
+    elif alignable_unit in {"dim", "pos.dim", "h.dim", "h.pos.dim"}:
+        assert False, f"Not Implemented Gathering with Unit = {alignable_unit}"
+
+
+def split_heads(tensor, num_heads, attn_head_size):
+    """
+    Splits hidden_size dim into attn_head_size and num_heads
+    """
+    new_shape = tensor.size()[:-1] + (num_heads, attn_head_size)
+    tensor = tensor.view(new_shape)
+    return tensor.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
+
+
+def output_to_subcomponent(
+    output, alignable_representation_type, model_type, model_config
+):
+    n_embd = get_representation_dimension_by_type(model_type, model_config, "block_output")
+    attn_head_size = get_representation_dimension_by_type(model_type, model_config, "head_attention_value_output")
+    num_heads = int(n_embd/attn_head_size)
+    
+    # special handling when QKV are not separated by the model.
+    if model_type in {
+        hf_models.gpt2.modeling_gpt2.GPT2Model,
+        hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel
+    }:
+        if alignable_representation_type in {
+            "query_output", "key_output", "value_output",
+            "head_query_output", "head_key_output", "head_value_output",
+        }:
+            qkv = output.split(
+                n_embd, 
+                dim=2
+            )
+            if alignable_representation_type in {
+                "head_query_output", "head_key_output", "head_value_output",
+            }:
+                qkv = (
+                    split_heads(qkv[0], num_heads, attn_head_size),
+                    split_heads(qkv[1], num_heads, attn_head_size),
+                    split_heads(qkv[2], num_heads, attn_head_size),
+                ) # each with (batch, head, seq_length, head_features)
+            return qkv[CONST_QKV_INDICES[alignable_representation_type]]
+        elif alignable_representation_type in {"head_attention_value_output"}:
+            return split_heads(output, num_heads, attn_head_size)
+        else:
+            return output
+    else:
+        if alignable_representation_type in {
+            "head_query_output", "head_key_output", "head_value_output",
+            "head_attention_value_output",
+        }:
+            return split_heads(output, num_heads, attn_head_size)
+        else:
+            return output
+
+        
+def scatter_neurons(
+    tensor_input,
+    replacing_tensor_input,
+    alignable_representation_type,
+    alignable_unit, 
+    unit_locations_as_list,
+    model_type,
+    model_config
+):
+    if "." in alignable_unit:
+        # extra dimension for multi-level intervention
+        unit_locations = (
+            torch.tensor(unit_locations_as_list[0], device=tensor_input.device),
+            torch.tensor(unit_locations_as_list[1], device=tensor_input.device),
+        )
+    else:
+        unit_locations = torch.tensor(unit_locations_as_list, device=tensor_input.device)
+    
+    n_embd = get_representation_dimension_by_type(model_type, model_config, "block_output")
+    attn_head_size = get_representation_dimension_by_type(model_type, model_config, "head_attention_value_output")
+    num_heads = int(n_embd/attn_head_size)
+    
+    # special handling when QKV are not separated by the model.
+    if model_type in {
+        hf_models.gpt2.modeling_gpt2.GPT2Model,
+        hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel
+    }:
+        if ("query" in alignable_representation_type or \
+            "key" in alignable_representation_type or \
+            "value" in alignable_representation_type) and \
+            "attention" not in alignable_representation_type:
+            start_index = CONST_QKV_INDICES[alignable_representation_type]*n_embd
+            end_index = (CONST_QKV_INDICES[alignable_representation_type]+1)*n_embd
+        else:
+            start_index, end_index = None, None
+    else:
+        start_index, end_index = None, None
+
+    if "head" in alignable_representation_type:
+        start_index = 0 if start_index is None else start_index
+        end_index = 0 if end_index is None else end_index
+        # head-based scattering
+        if alignable_unit in {"h.pos"}:
+            # we assume unit_locations is a tuple
+            for head_batch_i, head_locations in enumerate(unit_locations[0]):
+                for head_loc_i, head_loc in enumerate(head_locations):
+                    for pos_loc_i, pos_loc in enumerate(unit_locations[1][head_batch_i]):
+                        h_start_index = start_index+head_loc*attn_head_size
+                        h_end_index = start_index+(head_loc+1)*attn_head_size
+                        tensor_input[
+                            head_batch_i, pos_loc, h_start_index:h_end_index
+                        ] = replacing_tensor_input[head_batch_i, head_loc_i, pos_loc_i] # [dh]
+        else:
+            for batch_i, locations in enumerate(unit_locations):
+                for loc_i, loc in enumerate(locations):
+                    h_start_index = start_index+loc*attn_head_size
+                    h_end_index = start_index+(loc+1)*attn_head_size
+                    tensor_input[
+                        batch_i, :, h_start_index:h_end_index
+                    ] = replacing_tensor_input[batch_i, loc_i] # [s, dh]
+    else:
+        # pos-based scattering
+        for batch_i, locations in enumerate(unit_locations):
+            tensor_input[
+                batch_i, locations, start_index:end_index
+            ] = replacing_tensor_input[batch_i]
+    return tensor_input
+
+
 def do_intervention(
     base_representation,
     source_representation,
@@ -411,7 +579,7 @@ def simple_output_to_subcomponent(
 
 def simple_scatter_intervention_output(
     original_output, intervened_representation,
-    alignable_representation_type,
+    alignable_representation_type, alignable_unit,
     unit_locations, model_config
 ):
     """This is an oversimplied version for demo"""
