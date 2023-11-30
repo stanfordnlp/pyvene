@@ -77,7 +77,7 @@ The function solves a 3-digit sum problem. Let's say, we trained a neural networ
 
 - **Step 1:** Form Alignment Hypothesis: We hypothesize that a set of neurons N aligns with (a + b).
 - **Step 2:** Counterfactual Testings: If our hypothesis is correct, then swapping neurons N between examples would give us expected counterfactual behaviors. For instance, the values of N for (1+2)+3, when swapping with N for (2+3)+4, the output should be (2+3)+3 or (1+2)+4 depending on the direction of the swap.
-- **Step 2:** Reject Sampling of Hypothesis: Running tests multiple times and aggregating statistics in terms of counterfactual behavior matching. Proposing a new hypothesis based on the results. 
+- **Step 3:** Reject Sampling of Hypothesis: Running tests multiple times and aggregating statistics in terms of counterfactual behavior matching. Proposing a new hypothesis based on the results. 
 
 To translate the above steps into API calls with the library, it will be a single call,
 ```py
