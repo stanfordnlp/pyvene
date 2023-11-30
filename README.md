@@ -16,13 +16,14 @@ We have released a **new** generic library for studying model internals, which e
 
 ## Release Notes
 :white_check_mark: 05/17/2023 - Preprint with the initial version of align-transformers is released!  
-:white_check_mark: 10/04/2023 - Major infrastructure change to support hook-based and customizable interventions. To reproduce old experiments in [our NeurIPS 2023 paper](https://arxiv.org/abs/2305.08809), please use our shelved version [here](https://github.com/frankaging/align-transformers/releases/tag/NeurIPS-2023).
+:white_check_mark: 10/04/2023 - Major infrastructure change to support hook-based and customizable interventions. To reproduce old experiments in [our NeurIPS 2023 paper](https://arxiv.org/abs/2305.08809), please use our shelved version [here](https://github.com/frankaging/align-transformers/releases/tag/NeurIPS-2023).   
+:white_check_mark: 11/29/2023 - Released 10 tutorials so far covering different usages (on interventions, alignment, and more) of this library.
 
-## Interventions, Alignments, and Distributed Alignments
-In this section, we discuss topics from interventions to alignments, and more recent distributed alignments.
+## Interventions v.s. Alignments with Model Internals
+In this section, we discuss topics from interventions to alignments with model internals.
 
 ### Interventions
-We've redesigned this library to be flexible and extensible for all types of interventions, causal mechanism alignments, and model varieties. The basic concept is to sample representations we wish to align from various training examples, perform representation interventions, and then observe changes in the model's behavior. These interventions can be trainable (e.g., DAS) or static (e.g., causal scrubbing).
+Intervention is the basic unit of this library. It means manipulating the model's activations, without any assumption of how the model behavior will change. We can zero-out a set of neurons, or swap activations between examples (i.e., interchange interventions). Here, we show how we can intervene in model internals with this library.
 
 #### Loading models from HuggingFace
 ```py
@@ -52,7 +53,7 @@ The basic idea is to consider the alignable model as a regular HuggingFace model
 alignable_gpt = AlignableModel(alignable_config, gpt)
 ```
 
-#### Intervene with examples
+#### Intervene by swapping activations between examples
 ```py
 base = tokenizer("The capital of Spain is", return_tensors="pt")
 sources = [tokenizer("The capital of Italy is", return_tensors="pt")]
@@ -66,27 +67,34 @@ _, counterfactual_outputs = alignable_gpt(
 --- 
 
 ### Alignments
-What are alignments with model internals? An alignment is defined between a high-level concept or variable and a set of low-level neurons or activations. When we say there is an alignment between them, we basically claim that, when intervening on them respectively, we cannot distinguish them (a.k.a. they have the same causal behaviors under interventions). Here is one simple example:
+If the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. This is an alignment. Here is a more concrete example,
 ```py
-def add_three_numbers(a, b, c, source_a_add_b=None):
-    if source_a_add_b:
-        return source_a_add_b + c
-    return a + b + c
+def add_three_numbers(a, b, c):
+    var_x = a + b
+    return var_x + c
 ```
-The function above forms a very simple intervenable high-level causal model for solving a 3-digit sum problem (`source_a_add_b` will take in the intermediate result of `(a + b)` from another example). Let's say, we trained a neural network to solve this problem perfectly. **One concrete alignment problem is** "Can we find the representation of (a + b) in the neural network that we trained to solve this problem?". To solve this problem, we use interventions. 
+The function solves a 3-digit sum problem. Let's say, we trained a neural network to solve this problem perfectly. **One concrete alignment problem is** "Can we find the representation of (a + b) in the neural network?". We can use this library to answer this question. Specifically, we can do the following,
 
 - **Step 1:** Form Alignment Hypothesis: We hypothesize that a set of neurons N aligns with (a + b).
 - **Step 2:** Counterfactual Testings: If our hypothesis is correct, then swapping neurons N between examples would give us expected counterfactual behaviors. For instance, the values of N for (1+2)+3, when swapping with N for (2+3)+4, the output should be (2+3)+3 or (1+2)+4 depending on the direction of the swap.
 - **Step 2:** Reject Sampling of Hypothesis: Running tests multiple times and aggregating statistics in terms of counterfactual behavior matching. Proposing a new hypothesis based on the results. 
 
-**We will soon provide a tutorial on this.** This library supports this process, you just need to manually inspect how good the matchings are by taking a look at the counterfactual output. [Causal Abstractions of Neural Networks](https://arxiv.org/abs/2106.02997) implements the exact steps if you want to learn more about it.
+To translate the above steps into API calls with the library, it will be a single call,
+```py
+alignable.evaluate_alignment(
+    train_dataloader=train_dataloader,
+    compute_metrics=compute_metrics,
+    inputs_collator=inputs_collator
+)
+```
+where you provide testing data (basically interventional data and the counterfactual behavior you are looking for) along with your metrics functions. The library will try to evaluate the alignment with the intervention you specified in the config. You can follow [this tutorial](https://github.com/frankaging/align-transformers/blob/main/tutorials/Generic%20alignment%20training.ipynb) for alignment finding and evaluation with a provided fine-tuned gpt2 model.
 
 --- 
 
-### Distributed Alignments
-One key limitation of the process above is that it **assumes** the alignment is between individual neurons/activations and a high-level variable. **This is often falsifiable**. [Toy Models of Superposition](https://transformer-circuits.pub/2022/toy_model/index.html) explores some of the issues. Basically, one high-level variable may be aligned with a whole layer, or a single neuron may be aligned with a set of high-level variables. In other words, we need distributed alignment, moving away from localist alignment where we assume there exists an almost one-to-one mapping between a neuron and a high-level variable. 
+### Alignments with Trainble Interventions
+The alignment searching process outlined above can be tedious when your neural network is large. For a single hypothesized alignment, you basically need to set up different intervention configs targeting different layers and positions to verify your hypothesis. Instead of doing this brute-force search process, you can turn it into an optimization problem which also has other benefits such as distributed alignments. For details, you can read more here[^ii].
 
-`models.interventions.RotatedSpaceIntervention` in our codebase provides a way to do a distributed alignment search.
+In its crux, we basically want to train an intervention to have our desired counterfactual behaviors in mind. And if we can indeed train such interventions, we claim that causally informative information should live in the intervening representations! Below, we show one type of trainable intervention `models.interventions.RotatedSpaceIntervention` as,
 ```py
 class RotatedSpaceIntervention(TrainbleIntervention):
     
@@ -103,7 +111,7 @@ class RotatedSpaceIntervention(TrainbleIntervention):
 Instead of activation swapping in the original representation space, we first **rotate** them, and then do the swap followed by un-rotating the intervened representation. Additionally, we try to use SGD to **learn a rotation** that lets us produce expected counterfactual behavior. If we can find such rotation, we claim there is an alignment. `If the cost is between X and Y.ipynb` tutorial covers this with an advanced version of distributed alignment search, [Boundless DAS](https://arxiv.org/abs/2305.08809). There are [recent works](https://www.lesswrong.com/posts/RFtkRXHebkwxygDe2/an-interpretability-illusion-for-activation-patching-of) outlining potential limitations of doing a distributed alignment search as well.
 
 ## Tutorials
-We released a set of tutorials for doing model interventions and model alignments.
+We released a set of tutorials for doing model interventions and model alignments. Here are some of them,
 
 ### `The capital of Spain is.ipynb` 
 (**Intervention Tutorial**) This is a tutorial for doing simple path patching as in **Path Patching**[^pp], **Causal Scrubbing**[^cs]. Thanks to [Aryaman Arora](https://aryaman.io/). This is a set of experiments trying to reproduce some of the experiments in his awesome [nano-causal-interventions](https://github.com/aryamanarora/nano-causal-interventions) repository.
@@ -118,14 +126,23 @@ We released a set of tutorials for doing model interventions and model alignment
 (**Intervention Tutorial**) This is a tutorial on how to intervene the TinyStories-33M model to change its story generation, with sad endings and happy endings. Different from other tutorials, this is a multi-token language generation, closer to other real-world use cases.
 
 ### `If the cost is between X and Y.ipynb` 
-(**Distributed Alignment Tutorial**) This is a tutorial reproducing one of the main experiments in [the Boundless DAS paper](https://arxiv.org/abs/2305.08809). Different from the first tutorial, this one involves trainable interventions that actively search for alignments with model internals.
+(**Alignment Tutorial**) This is a tutorial reproducing one of the main experiments in [the Boundless DAS paper](https://arxiv.org/abs/2305.08809). Different from the first tutorial, this one involves trainable interventions that actively search for alignments with model internals.
+
+### `Generic alignment training.ipynb` 
+(**Alignment Tutorial**) This is a tutorial covering the basics of how to train an intervention to find alignments with a gpt2 model finetuned on a logical reasoning task.
+
+### `Subspace interventions.ipynb`
+(**Advanced Intervention Tutorial**) This is a tutorial on doing interventions in the subspace instead of fullspace. For instance, we want different sets of neurons mapping to different high-level concepts in a shared basis.
+
+### `DAS "illusion" exploration.ipynb`
+(**Distributed Alignment Tutorial**) Recently, [a paper](https://openreview.net/forum?id=Ebt7JgMHv1) claims that DAS creates "illusions" with LLMs. Here, we study the "illusion" with a very simple setting, a single-weight matrix. We explore what is the "illusion" found in the paper, how we can fix the "illusion" post-doc, and why the "illusion" is actually less about DAS and more about NN itself.
 
 
 ## System Requirements
 - Python 3.8 is supported.
-- Pytorch Version: 1.13.1
-- Transfermers Minimum Version: 4.28.0.dev0
-- Datasets Version: Version: 2.3.2
+- Pytorch Version: >= 2.0
+- Transformers ToT is recommended
+- Datasets Version ToT is recommended
 
 
 ## Related Works in Discovering Causal Mechanism of LLMs
