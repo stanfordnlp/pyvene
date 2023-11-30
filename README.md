@@ -82,7 +82,7 @@ The function solves a 3-digit sum problem. Let's say, we trained a neural networ
 To translate the above steps into API calls with the library, it will be a single call,
 ```py
 alignable.evaluate_alignment(
-    train_dataloader=train_dataloader,
+    train_dataloader=test_dataloader,
     compute_metrics=compute_metrics,
     inputs_collator=inputs_collator
 )
@@ -109,6 +109,18 @@ class RotatedSpaceIntervention(TrainbleIntervention):
         return output
 ```
 Instead of activation swapping in the original representation space, we first **rotate** them, and then do the swap followed by un-rotating the intervened representation. Additionally, we try to use SGD to **learn a rotation** that lets us produce expected counterfactual behavior. If we can find such rotation, we claim there is an alignment. `If the cost is between X and Y.ipynb` tutorial covers this with an advanced version of distributed alignment search, [Boundless DAS](https://arxiv.org/abs/2305.08809). There are [recent works](https://www.lesswrong.com/posts/RFtkRXHebkwxygDe2/an-interpretability-illusion-for-activation-patching-of) outlining potential limitations of doing a distributed alignment search as well.
+
+You can now also make a single API call to train your intervention,
+```py
+alignable.find_alignment(
+    train_dataloader=train_dataloader,
+    compute_loss=compute_loss,
+    compute_metrics=compute_metrics,
+    inputs_collator=inputs_collator
+)
+```
+where you need to pass in a trainable dataset, and your customized loss and metrics function. The trainable interventions can later be saved on to your disk.
+
 
 ## Tutorials
 We released a set of tutorials for doing model interventions and model alignments. Here are some of them,
