@@ -9,8 +9,9 @@ from models.interventions import VanillaIntervention
 
 AlignableRepresentationConfig = namedtuple(
     "AlignableRepresentationConfig", 
-    "alignable_layer alignable_representation_type alignable_unit max_number_of_units",
-    defaults=(0, "block_output", "pos", 1)
+    "alignable_layer alignable_representation_type "\
+    "alignable_unit max_number_of_units alignable_low_rank_dimension subspace_partition",
+    defaults=(0, "block_output", "pos", 1, None, None)
 )
 
 
@@ -23,14 +24,12 @@ class AlignableConfig(PretrainedConfig):
             AlignableRepresentationConfig()
         ],
         alignable_interventions_type=VanillaIntervention,
-        alignable_low_rank_dimension=None,
         mode="parallel",
         **kwargs
     ):
         self.alignable_model_type = alignable_model_type
         self.alignable_representations = alignable_representations
         self.alignable_interventions_type = alignable_interventions_type
-        self.alignable_low_rank_dimension = alignable_low_rank_dimension
         self.mode = mode
         super().__init__(**kwargs)
         

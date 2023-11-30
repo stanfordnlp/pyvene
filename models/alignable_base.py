@@ -5,7 +5,13 @@ from typing import List, Optional, Tuple, Union, Dict
 from models.utils import *
 import models.interventions
 from models.constants import CONST_QKV_INDICES
-        
+
+from torch import optim
+from transformers import (
+    get_linear_schedule_with_warmup
+)
+from tqdm import tqdm, trange
+
         
 class AlignableModel(nn.Module):
     """
@@ -48,11 +54,18 @@ class AlignableModel(nn.Module):
         self._intervene_on_prompt = None
         self._key_getter_call_counter = {}
         self._key_setter_call_counter = {}
+        
+        # In case interventions sharing weights, we need to partition subspace as well.
+        self._intervention_shared_weights = {}
+        self._intervention_shared_weights_dimension_occupancy = {}
+        
         for i, representation in enumerate(alignable_config.alignable_representations):
             intervention_function = intervention_type if type(intervention_type) != list else intervention_type[i]
             intervention = intervention_function(
                 get_alignable_dimension(get_internal_model_type(model), model.config, representation),
-                proj_dim=alignable_config.alignable_low_rank_dimension
+                proj_dim=representation.alignable_low_rank_dimension,
+                # we can partition the subspace, and intervene on subspace
+                subspace_partition=representation.subspace_partition
             )
             alignable_module_hook = get_alignable_module_hook(model, representation)
             
@@ -70,6 +83,11 @@ class AlignableModel(nn.Module):
         
         # model with cache activations
         self.activations = {}
+        """
+        Activations in the future list is ALWAYS causally before
+        the vanilla activation list. This field becomes crucial
+        if we intervene at the same place multiple times.
+        """
         self.model = model
         self.model_config = model.config
         self.model_type = get_internal_model_type(model)
@@ -129,8 +147,23 @@ class AlignableModel(nn.Module):
         self._is_generation = False
         self._remove_forward_hooks()
         self._reset_hook_count()
+        self.activations.clear()
     
     
+    def get_trainable_parameters(self):
+        """
+        Return trainable params as key value pairs
+        """
+        ret_params = []
+        for k, v in self.interventions.items():
+            if isinstance(
+                v[0], 
+                models.interventions.TrainbleIntervention
+            ):
+                ret_params += [p for p in v[0].parameters()]
+        return ret_params
+    
+
     def get_cached_activations(self):
         """
         Return the cached activations with keys
@@ -180,7 +213,14 @@ class AlignableModel(nn.Module):
                 v[0].to(device)
         self.model.to(device)
 
-
+        
+    def get_device(self):
+        """
+        Get device of interventions and the model
+        """
+        return self.model.device
+        
+        
     def count_parameters(self):
         """
         Set device of interventions and the model
@@ -323,7 +363,7 @@ class AlignableModel(nn.Module):
         
     def _intervention_setter(
         self, alignable_keys, unit_locations_source, 
-        unit_locations_base
+        unit_locations_base, subspaces,
     ) -> HandlerList: 
         """
         Create a list of setter handlers that will set activations
@@ -353,7 +393,10 @@ class AlignableModel(nn.Module):
                     )
                     # intervene with cached activations
                     intervened_representation = do_intervention(
-                        selected_output, self.activations[key], intervention)
+                        selected_output, self.activations[key], 
+                        intervention, 
+                        subspaces[key_i] if subspaces is not None else None,
+                    )
                     # patched in the intervned activations
                     arg_ptr = self._scatter_intervention_output(
                         arg_ptr, intervened_representation,
@@ -365,7 +408,10 @@ class AlignableModel(nn.Module):
                     )
                     # intervene with cached activations
                     intervened_representation = do_intervention(
-                        selected_output, self.activations[key], intervention)
+                        selected_output, self.activations[key], 
+                        intervention, 
+                        subspaces[key_i] if subspaces is not None else None,
+                    )
                     # patched in the intervned activations
                     output = self._scatter_intervention_output(
                         output, intervened_representation,
@@ -382,6 +428,7 @@ class AlignableModel(nn.Module):
         sources: Optional[List] = None,
         unit_locations: Optional[Dict] = None,
         activations_sources: Optional[Dict] = None,
+        subspaces: Optional[List] = None,
     ):
         """
         Main forward function that serves a wrapper to
@@ -397,6 +444,7 @@ class AlignableModel(nn.Module):
         sources:             A list of source examples.
         unit_locations:      The intervention locations.
         activations_sources: A list of representations.
+        subspace:            Subspace interventions.
         
         Return:
         base_output: the non-intervened output of the base
@@ -405,6 +453,8 @@ class AlignableModel(nn.Module):
         base input.
         
         Notes:
+        
+        1) unit_locations
         unit_locations is a dict where keys are tied with
         example pairs involved in one intervention as,
         {
@@ -420,6 +470,27 @@ class AlignableModel(nn.Module):
         2 * num_intervention * num_intervention_level * bs * num_max_unit
         
         if we intervene on h.pos which is a nested intervention location.
+        
+        2) subspaces
+        subspaces is a list of indices indicating which subspace will
+        this intervention target given an example in the batch. 
+        
+        An intervention could be initialized with subspace parition as,
+        [[... subspace_1 ...], [... subspace_2 ...], [rest]]
+        
+        An intervention may be targeting a specific partition.
+        
+        This input field should look like something like,
+        [
+            [[subspace indices], [subspace indices]], <- for the first intervention
+            None,                                     <- for the second intervention
+            [[subspace indices], [subspace indices]]
+        ]
+        
+        Only setter (where do_intervention is called) needs this field.
+        
+        *We assume base and source targetting the same subspace for now.
+        *We assume only a single space is targeted for now (although 2d list is provided).
         """
         self._cleanup_states()
         
@@ -471,6 +542,7 @@ class AlignableModel(nn.Module):
                     [alignable_key],
                     [unit_locations_sources[key_i]],
                     [unit_locations_base[key_i]],
+                    [subspaces[key_i]] if subspaces is not None else None,
                 )
                 # for setters, we don't remove them.
                 all_set_handlers.extend(set_handlers)
@@ -496,8 +568,12 @@ class AlignableModel(nn.Module):
                         [alignable_key],
                         [unit_locations_source],
                     )
-                    _ = self.model(**sources[key_i])
+                    _ = self.model(**sources[key_i]) # this is when previous setter and THEN the getter get called
                     get_handlers.remove()
+                    # remove existing setters after getting the curr intervened reprs
+                    if len(all_set_handlers) > 0:
+                        all_set_handlers.remove()
+                        all_set_handlers = HandlerList([])
                 else:
                     self.activations[alignable_key] = activations_sources[alignable_key]
                     
@@ -506,6 +582,7 @@ class AlignableModel(nn.Module):
                     [alignable_key],
                     [unit_locations_source],
                     [unit_locations_base],
+                    [subspaces[key_i]] if subspaces is not None else None,
                 )
                 # for setters, we don't remove them.
                 all_set_handlers.extend(set_handlers)
@@ -612,6 +689,7 @@ class AlignableModel(nn.Module):
                     [alignable_key],
                     [unit_locations_sources[key_i]],
                     [unit_locations_base[key_i]],
+                    [subspaces[key_i]] if subspaces is not None else None,
                 )
                 # for setters, we don't remove them.
                 all_set_handlers.extend(set_handlers)
@@ -640,8 +718,12 @@ class AlignableModel(nn.Module):
                         [alignable_key],
                         [unit_locations_source],
                     )
-                    _ = self.model(**sources[key_i])
+                    _ = self.model(**sources[key_i]) # this is when previous setter and THEN the getter get called
                     get_handlers.remove()
+                    # remove existing setters after getting the curr intervened reprs
+                    if len(all_set_handlers) > 0:
+                        all_set_handlers.remove()
+                        all_set_handlers = HandlerList([])
                 else:
                     self.activations[alignable_key] = activations_sources[alignable_key]
                     
@@ -650,6 +732,7 @@ class AlignableModel(nn.Module):
                     [alignable_key],
                     [unit_locations_source],
                     [unit_locations_base],
+                    [subspaces[key_i]] if subspaces is not None else None,
                 )
                 # for setters, we don't remove them.
                 all_set_handlers.extend(set_handlers)
@@ -660,4 +743,244 @@ class AlignableModel(nn.Module):
             all_set_handlers.remove()
         self._is_generation = False
         return base_outputs, counterfactual_outputs
+    
+
+    def _batch_process_unit_location(
+        self,
+        inputs
+    ):
+        """
+        Convert original data batch according
+        to the alignable settings.
+
+        The function respects inputs in the following
+        data format.
+
+
+        Each location list in the raw input as,
+
+        [[i, j, ...], [m, n, ...], ...] batched
+        where i, j are the unit index, the outter
+        list is for the batch
+
+
+        Possible fields in the input:
+
+        inputs["source_0->base.0.pos"] -> batched
+        inputs["source_0->base.1.pos"] -> batched
+        AND
+        inputs["source_0->source_1.0.pos"] -> batched
+        inputs["source_0->source_1.1.pos"] -> batched
+        ...
+
+        multiple source locations are included in case
+        there are multiple sources.
+
+        We also need to consider whether we are doing
+        parallel or serial interventions.
+
+        We also need to consider the granularity. In case
+        we are intervening h.pos, which is a specific location
+        in a specific head:
+
+        inputs["source_0->base.0.pos"] -> batched
+        inputs["source_0->source_1.0.h"] -> batched
+
+        inputs["source_0->base.0.pos"] -> batched
+        inputs["source_0->source_1.0.pos"] -> batched
+        """
+        batched_location_dict = {}
+
+
+        _source_ind = []
+        for k, _ in inputs.items():
+            if "->" in k:
+                for sub_k in k.split("->"):
+                    if "source" in sub_k:
+                        _source_ind += [int(sub_k.split("_")[1])]
+        _max_source_ind = max(_source_ind)
+
+        # we assume source_0 -> source_1, ..., source_last -> base
+        # each pair uses an intervention
+
+        if self.mode == "parallel":
+            # all source into base at once but may engage different locations
+            _curr_source_ind = 0
+            _parallel_aggr_left = []
+            _parallel_aggr_right = []
+            for _, rep in self.alignable_representations.items():
+                _curr_source_ind_inc = _curr_source_ind + 1
+                _prefix = f"source_{_curr_source_ind}->base"
+                _prefix_left = f"{_prefix}.0"
+                _prefix_right = f"{_prefix}.1"
+                _sub_loc_aggr_left = [] # 3d
+                _sub_loc_aggr_right = [] # 3d
+                for sub_loc in rep.alignable_unit.split("."):
+                    _sub_loc_aggr_left += [
+                        inputs[f"{_prefix_left}.{sub_loc}"]]
+                    _sub_loc_aggr_right += [
+                        inputs[f"{_prefix_right}.{sub_loc}"]]
+                if len(rep.alignable_unit.split(".")) == 1:
+                    _sub_loc_aggr_left = _sub_loc_aggr_left[0]
+                    _sub_loc_aggr_right = _sub_loc_aggr_right[0]
+                _parallel_aggr_left += [_sub_loc_aggr_left] # 3D or 4D
+                _parallel_aggr_right += [_sub_loc_aggr_right] # 3D or 4D
+                _curr_source_ind += 1
+
+            batched_location_dict["sources->base"] = (
+                _parallel_aggr_left,
+                _parallel_aggr_right
+            )
+
+        else:
+            # source into another source and finally to the base engaging different locations
+            _curr_source_ind = 0
+            for _, rep in self.alignable_representations.items():
+                _curr_source_ind_inc = _curr_source_ind + 1
+                _prefix = f"source_{_curr_source_ind}->base" if _curr_source_ind+1 == \
+                    len(self.alignable_representations) else \
+                    f"source_{_curr_source_ind}->source{_curr_source_ind_inc}"
+                _prefix_left = f"{_prefix}.0"
+                _prefix_right = f"{_prefix}.1"
+                _sub_loc_aggr_left = [] # 3d
+                _sub_loc_aggr_right = [] # 3d
+                for sub_loc in rep.alignable_unit.split("."):
+                    _sub_loc_aggr_left += [
+                        inputs[f"{_prefix_left}.{sub_loc}"]]
+                    _sub_loc_aggr_right += [
+                        inputs[f"{_prefix_right}.{sub_loc}"]]
+                if len(rep.alignable_unit.split(".")) == 1:
+                    _sub_loc_aggr_left = _sub_loc_aggr_left[0]
+                    _sub_loc_aggr_right = _sub_loc_aggr_right[0]
+                _curr_source_ind += 1
+                batched_location_dict[_prefix] = (
+                    [_sub_loc_aggr_left], # 3D or 4D
+                    [_sub_loc_aggr_right] # 3D or 4D
+                )
+
+        return batched_location_dict
+
+    
+    def find_alignment(
+        self,
+        train_dataloader,
+        compute_loss,
+        compute_metrics,
+        inputs_collator,
+        **kwargs,
+    ):
+        """
+        The method find alignment.
+        
+        a.k.a. training the intervention
+
+        Notes:
+        1) we use Adam, and linear lr scheduling.
+        2) you can pass in lr or using default 1e-3
+        """
+        # preprocess basic kwargs
+        lr = kwargs["lr"] if "lr" in kwargs else 1e-3
+        epochs = kwargs["epochs"] if "epochs" in kwargs else 10
+        warm_up_steps = kwargs["warm_up_steps"] if "warm_up_steps" in kwargs else 0.1
+        gradient_accumulation_steps = kwargs["gradient_accumulation_steps"] \
+            if "gradient_accumulation_steps" in kwargs else 1
+
+        # some deeper kwargs
+        t_total = int(len(train_dataloader) * epochs)
+        warm_up_steps = 0.1 * t_total
+        target_total_step = len(train_dataloader) * epochs
+        optimizer_params = [
+            {'params': self.get_trainable_parameters()}
+        ]
+        optimizer = kwargs["optimizer"] if "optimizer" in kwargs else \
+            optim.Adam(optimizer_params, lr=lr)           
+        scheduler = kwargs["scheduler"] if "scheduler" in kwargs else \
+            get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warm_up_steps,
+                num_training_steps=t_total)
+
+        # in case we need additional temp scheduling
+        temperature_start = 50.0
+        temperature_end = 0.1
+        temperature_schedule = torch.linspace(
+            temperature_start, temperature_end, target_total_step
+        ).to(torch.bfloat16).to(self.get_device())
+
+        # train main loop
+        remove_forward_hooks(self.model)
+        self.model.eval() # train enables drop-off but no grads
+        epoch_iterator = trange(
+            0, int(epochs), desc="Epoch"
+        )
+        total_step = 0
+        for epoch in epoch_iterator:
+            for step, inputs in enumerate(train_dataloader):
+                if inputs_collator is not None:
+                    inputs = inputs_collator(inputs)
+                b_s = inputs["input_ids"].shape[0]
+                unit_location_dict = self._batch_process_unit_location(
+                    inputs
+                )
+                _, counterfactual_outputs = self(
+                    {"input_ids": inputs["input_ids"]},
+                    [{"input_ids": inputs["source_input_ids"]}],
+                    unit_location_dict
+                )
+                eval_metrics = compute_metrics(
+                    [counterfactual_outputs.logits], [inputs['labels']]
+                )
+
+                # loss and backprop
+                loss = compute_loss(
+                    counterfactual_outputs.logits, inputs["labels"]
+                )
+                loss_str = round(loss.item(), 2)
+                epoch_iterator.set_postfix({'loss': loss_str, 'acc': eval_metrics})
+
+                if gradient_accumulation_steps > 1:
+                    loss = loss / gradient_accumulation_steps
+                if total_step % gradient_accumulation_steps == 0:
+                    if not (gradient_accumulation_steps > 1 and total_step == 0):
+                        loss.backward()
+                        optimizer.step()
+                        scheduler.step()
+                        self.set_zero_grad()
+                        self.set_temperature(temperature_schedule[total_step])
+                total_step += 1
+
+
+    def evaluate_alignment(
+        self,
+        eval_dataloader,
+        compute_metrics,
+        inputs_collator,
+        **kwargs,
+    ):
+        """
+        The method evaluate alignment.
+        """
+
+        all_metrics = []
+        all_num_examples = []
+        torch.cuda.empty_cache()
+        with torch.no_grad():
+            for inputs in tqdm(eval_dataloader, desc="Evaluating", leave=False):
+                if inputs_collator is not None:
+                    inputs = inputs_collator(inputs)
+                b_s = inputs["input_ids"].shape[0]
+                unit_location_dict = self._batch_process_unit_location(
+                    inputs,
+                )
+                _, counterfactual_outputs = self(
+                    {"input_ids": inputs["input_ids"]},
+                    [{"input_ids": inputs["source_input_ids"]}],
+                    unit_location_dict
+                )
+                eval_metrics = compute_metrics(
+                    [counterfactual_outputs.logits], [inputs['labels']]
+                )
+                all_metrics += [eval_metrics]
+                all_num_examples += [b_s]
+        result = weighted_average(all_metrics, all_num_examples)
+
+        return result
     

@@ -301,7 +301,9 @@ def sort_alignables_by_topological_order(
         for k, _ in alignable_representations.items():
             l = int(k.split('.')[1]) + 1
             r = CONST_TRANSFORMER_TOPOLOGICAL_ORDER.index(k.split('.')[3])
-            scores[k] = l*r
+            # incoming order in case they are ordered
+            o = int(k.split('#')[1]) + 1
+            scores[k] = l*r*o
         sorted_keys = sorted(scores.keys(), key=lambda x: scores[x])
         return sorted_keys
     assert False
@@ -311,7 +313,10 @@ class HandlerList():
     """General class to set hooks and set off hooks"""
     def __init__(self, handlers):
         self.handlers = handlers
-
+        
+    def __len__(self):
+        return len(self.handlers)
+        
     def remove(self):
         for handler in self.handlers:
             handler.remove()
@@ -542,7 +547,8 @@ def scatter_neurons(
 def do_intervention(
     base_representation,
     source_representation,
-    intervention
+    intervention,
+    subspaces
 ):
     """Do the actual intervention"""
     d = base_representation.shape[-1]
@@ -556,11 +562,17 @@ def do_intervention(
         # b, num_unit (h), s, d -> b, s, num_unit*d
         base_representation_f = bhsd_to_bs_hd(base_representation)
         source_representation_f = bhsd_to_bs_hd(source_representation)
-
-    intervened_representation = intervention(
-        base_representation_f, source_representation_f
-    )
-
+    
+    if subspaces is None:
+        intervened_representation = intervention(
+            base_representation_f, source_representation_f, 
+        )
+    else:
+        # subspace is needed for the intervention
+        intervened_representation = intervention(
+            base_representation_f, source_representation_f, subspaces
+        )
+        
     # unflatten
     if len(base_representation.shape) == 3:
         intervened_representation = b_sd_to_bsd(intervened_representation, d)
@@ -588,3 +600,10 @@ def simple_scatter_intervention_output(
             batch_i, locations
         ] = intervened_representation[batch_i]
 
+
+def weighted_average(values, weights):
+    if len(values) != len(weights):
+        raise ValueError("The length of values and weights must be the same.")
+
+    total = sum(v * w for v, w in zip(values, weights))
+    return total / sum(weights)

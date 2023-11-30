@@ -75,3 +75,12 @@ def create_gpt2(name="gpt2", cache_dir="../../.huggingface_cache"):
     print("loaded model")
     return config, tokenizer, gpt
 
+def create_gpt2_lm(name="gpt2", cache_dir="../../.huggingface_cache"):
+    """Creates a GPT2 LM, config, and tokenizer from the given name and revision"""
+    from transformers import GPT2LMHeadModel, GPT2Tokenizer, GPT2Config
+    
+    config = GPT2Config.from_pretrained(name)
+    tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+    gpt = GPT2LMHeadModel.from_pretrained(name, config=config, cache_dir=cache_dir)
+    print("loaded model")
+    return config, tokenizer, gpt
