@@ -599,6 +599,7 @@ class AlignableModel(nn.Module):
         unit_locations: Optional[Dict] = None,
         activations_sources: Optional[Dict] = None,
         intervene_on_prompt: bool = True,
+        subspaces: Optional[List] = None,
         **kwargs
     ):
         """
@@ -923,7 +924,8 @@ class AlignableModel(nn.Module):
                 _, counterfactual_outputs = self(
                     {"input_ids": inputs["input_ids"]},
                     [{"input_ids": inputs["source_input_ids"]}],
-                    unit_location_dict
+                    unit_location_dict,
+                    subspaces= inputs["subspaces"] if "subspaces" in inputs else None
                 )
                 eval_metrics = compute_metrics(
                     [counterfactual_outputs.logits], [inputs['labels']]
@@ -973,7 +975,8 @@ class AlignableModel(nn.Module):
                 _, counterfactual_outputs = self(
                     {"input_ids": inputs["input_ids"]},
                     [{"input_ids": inputs["source_input_ids"]}],
-                    unit_location_dict
+                    unit_location_dict,
+                    subspaces= inputs["subspaces"] if "subspaces" in inputs else None
                 )
                 eval_metrics = compute_metrics(
                     [counterfactual_outputs.logits], [inputs['labels']]

@@ -213,7 +213,7 @@ class LowRankRotatedSpaceIntervention(TrainbleIntervention):
         self.interchange_dim = None
         self.embed_dim = embed_dim
         self.subspace_partition = kwargs["subspace_partition"] \
-            if "subspace_partition" in kwargs["subspace_partition"] else None
+            if "subspace_partition" in kwargs else None
         
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
@@ -229,13 +229,13 @@ class LowRankRotatedSpaceIntervention(TrainbleIntervention):
             batched_weights = []
             for example_i in range(len(subspaces)):
                 sel_subspace_partition = self.subspace_partition[subspaces[example_i][0]]
-                LHS = diff[example_i, ..., sel_subspace_partition[0]:sel_subspace_partition[1]]
+                LHS = diff[example_i, sel_subspace_partition[0]:sel_subspace_partition[1]].unsqueeze(dim=1)
                 RHS = self.rotate_layer.weight[..., sel_subspace_partition[0]:sel_subspace_partition[1]].T
                 batched_subspace += [LHS]
                 batched_weights += [RHS]
             batched_subspace = torch.stack(batched_subspace, dim=0)
             batched_weights = torch.stack(batched_weights, dim=0)
-            output = base + torch.bmm(batched_subspace, batched_weights)
+            output = base + torch.bmm(batched_subspace, batched_weights).squeeze(dim=1)
         else:
             output = base + torch.matmul((rotated_source - rotated_base), self.rotate_layer.weight.T)
         return output.to(base.dtype)
