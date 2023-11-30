@@ -10,7 +10,7 @@
 [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/Change%20how%20TinyStories%20end%20with%20interventions.ipynb) [**Intervened TinyStories Generation**]
 
 
-# <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Aligning Causal Mechanisms with Transformer Model Internals**
+# <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Intervene on Transformer Activations to Trace Causal Mechanism**
 We have released a **new** generic library for studying model internals, which encapsulates **causal abstraction and distributed alignment search**[^ii], **path patching**[^pp], and **causal scrubbing**[^cs]. These methods were introduced recently to find or to help us find causal alignments with the internals of neural models. This library is designed as a playground for inventing new interventions, whether they're trainable or not, to uncover the causal mechanisms of neural models. Additionally, the library emphasizes scaling these methods to LLMs with billions of parameters.
 
 
