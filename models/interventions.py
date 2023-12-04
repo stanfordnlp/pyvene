@@ -21,7 +21,7 @@ class Intervention(torch.nn.Module, ABC):
         pass
     
     
-class TrainbleIntervention(Intervention):
+class TrainableIntervention(Intervention):
 
     """Intervention the original representations."""
     def __init__(self):
@@ -37,7 +37,7 @@ class BasisAgnosticIntervention(Intervention):
         self.basis_agnostic = True
 
         
-class SharedWeightsTrainbleIntervention(TrainbleIntervention):
+class SharedWeightsTrainableIntervention(TrainableIntervention):
 
     """Intervention the original representations."""
     def __init__(self):
@@ -108,7 +108,7 @@ class SubstractionIntervention(BasisAgnosticIntervention):
         return f"SubstractionIntervention(embed_dim={self.embed_dim})"
     
     
-class RotatedSpaceIntervention(TrainbleIntervention):
+class RotatedSpaceIntervention(TrainableIntervention):
     
     """Intervention in the rotated space."""
     def __init__(self, embed_dim, **kwargs):
@@ -145,7 +145,7 @@ class RotatedSpaceIntervention(TrainbleIntervention):
         return f"RotatedSpaceIntervention(embed_dim={self.embed_dim})"
 
     
-class BoundlessRotatedSpaceIntervention(TrainbleIntervention):
+class BoundlessRotatedSpaceIntervention(TrainableIntervention):
     
     """Intervention in the rotated space with boundary mask."""
     def __init__(self, embed_dim, **kwargs):
@@ -203,7 +203,7 @@ class BoundlessRotatedSpaceIntervention(TrainbleIntervention):
         return f"BoundlessRotatedSpaceIntervention(embed_dim={self.embed_dim})"
     
     
-class LowRankRotatedSpaceIntervention(TrainbleIntervention):
+class LowRankRotatedSpaceIntervention(TrainableIntervention):
     
     """Intervention in the rotated space."""
     def __init__(self, embed_dim, **kwargs):

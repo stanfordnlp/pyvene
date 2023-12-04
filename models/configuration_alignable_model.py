@@ -10,8 +10,8 @@ from models.interventions import VanillaIntervention
 AlignableRepresentationConfig = namedtuple(
     "AlignableRepresentationConfig", 
     "alignable_layer alignable_representation_type "\
-    "alignable_unit max_number_of_units alignable_low_rank_dimension subspace_partition",
-    defaults=(0, "block_output", "pos", 1, None, None)
+    "alignable_unit max_number_of_units alignable_low_rank_dimension subspace_partition group_key",
+    defaults=(0, "block_output", "pos", 1, None, None, None)
 )
 
 

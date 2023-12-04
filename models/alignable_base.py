@@ -22,7 +22,8 @@ class AlignableModel(nn.Module):
     def __init__(
         self, 
         alignable_config,
-        model
+        model,
+        **kwargs
     ):
         super().__init__()
         self.mode = alignable_config.mode
@@ -55,10 +56,9 @@ class AlignableModel(nn.Module):
         self._key_getter_call_counter = {}
         self._key_setter_call_counter = {}
         
-        # In case interventions sharing weights, we need to partition subspace as well.
-        self._intervention_shared_weights = {}
-        self._intervention_shared_weights_dimension_occupancy = {}
-        
+        # We want to associate interventions with a group to do group-wise interventions.
+        self._intervention_group = {}
+        _any_group_key = False
         for i, representation in enumerate(alignable_config.alignable_representations):
             intervention_function = intervention_type if type(intervention_type) != list else intervention_type[i]
             intervention = intervention_function(
@@ -76,10 +76,35 @@ class AlignableModel(nn.Module):
                                                     # usually, it's a one time call per 
                                                     # hook unless model generates.
             self._key_setter_call_counter[_key] = 0
-        self.sorted_alignable_keys = sort_alignables_by_topological_order(
-            model,
-            self.alignable_representations
-        )
+            if representation.group_key is not None:
+                _any_group_key = True
+        
+        """
+        We later use _intervention_group to run actual interventions.
+        The order the group by group; and there should not be dependency
+        between groups.
+        """
+        if _any_group_key:
+            # In case they are grouped, we would expect the execution order is given
+            # by the source inputs.
+            for _, representation in enumerate(alignable_config.alignable_representations):
+                assert representation.group_key is not None
+                if representation.group_key in self._intervention_group:
+                    self._intervention_group[representation.group_key].append(_key)
+                else:
+                    self._intervention_group[representation.group_key] = [_key]
+        else:
+            _sort_fn = kwargs["alignables_sort_fn"] \
+                if "alignables_sort_fn" in kwargs else sort_alignables_by_topological_order
+            self.sorted_alignable_keys = _sort_fn(
+                model,
+                self.alignable_representations
+            )
+            # assign each key to an unique group based on topological order
+            _group_key_inc = 0
+            for _key in self.sorted_alignable_keys:
+                self._intervention_group[_group_key_inc] = [_key]
+                _group_key_inc += 1
         
         # model with cache activations
         self.activations = {}
@@ -497,11 +522,6 @@ class AlignableModel(nn.Module):
         # if no source inputs, we are calling a simple forward
         if sources is None and activations_sources is None:
             return self.model(**base), None
-        
-        if sources is not None:
-            assert len(sources) == len(self.sorted_alignable_keys)
-        else:
-            assert len(activations_sources) == len(self.sorted_alignable_keys)
             
         if self.mode == "parallel":
             assert "sources->base" in unit_locations
@@ -509,7 +529,6 @@ class AlignableModel(nn.Module):
             unit_locations_base = unit_locations["sources->base"][1]
         elif activations_sources is None and self.mode == "serial":
             assert "sources->base" not in unit_locations
-            assert len(sources) == len(unit_locations)
             
         batch_size = base["input_ids"].shape[0]
         device = base["input_ids"].device
@@ -522,13 +541,27 @@ class AlignableModel(nn.Module):
             # for each source, we hook in getters to cache activations
             # at each aligning representations
             if activations_sources is None:
-                for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
-                    get_handlers = self._intervention_getter(
-                        [alignable_key],
-                        [unit_locations_sources[key_i]],
-                    )
-                    _ = self.model(**sources[key_i])
+                # if there is only one source example, we assume we use that
+                # to intervene multiple times. getters can be parallel.
+                if len(sources) == 1:
+                    for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
+                        get_handlers = self._intervention_getter(
+                            [alignable_key],
+                            [unit_locations_sources[key_i]],
+                        )
+                    _ = self.model(**sources[0])
                     get_handlers.remove()
+                elif len(sources) == len(self.sorted_alignable_keys):
+                    for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
+                        get_handlers = self._intervention_getter(
+                            [alignable_key],
+                            [unit_locations_sources[key_i]],
+                        )
+
+                        _ = self.model(**sources[key_i])
+                        get_handlers.remove()
+                else:
+                    assert False
             else:
                 # simply patch in the ones passed in
                 self.activations = activations_sources
@@ -670,13 +703,27 @@ class AlignableModel(nn.Module):
             # for each source, we hook in getters to cache activations
             # at each aligning representations
             if activations_sources is None:
-                for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
-                    get_handlers = self._intervention_getter(
-                        [alignable_key],
-                        [unit_locations_sources[key_i]],
-                    )
-                    _ = self.model(**sources[key_i])
+                # if there is only one source example, we assume we use that
+                # to intervene multiple times. getters can be parallel.
+                if len(sources) == 1:
+                    for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
+                        get_handlers = self._intervention_getter(
+                            [alignable_key],
+                            [unit_locations_sources[key_i]],
+                        )
+                    _ = self.model(**sources[0])
                     get_handlers.remove()
+                elif len(sources) == len(self.sorted_alignable_keys):
+                    for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
+                        get_handlers = self._intervention_getter(
+                            [alignable_key],
+                            [unit_locations_sources[key_i]],
+                        )
+
+                        _ = self.model(**sources[key_i])
+                        get_handlers.remove()
+                else:
+                    assert False
             else:
                 # simply patch in the ones passed in
                 self.activations = activations_sources
