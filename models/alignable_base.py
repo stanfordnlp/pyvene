@@ -1,5 +1,6 @@
 import json
 import numpy as np
+from collections import OrderedDict
 from typing import List, Optional, Tuple, Union, Dict
 
 from models.utils import *
@@ -59,6 +60,7 @@ class AlignableModel(nn.Module):
         # We want to associate interventions with a group to do group-wise interventions.
         self._intervention_group = {}
         _any_group_key = False
+        _original_key_order = []
         for i, representation in enumerate(alignable_config.alignable_representations):
             intervention_function = intervention_type if type(intervention_type) != list else intervention_type[i]
             intervention = intervention_function(
@@ -76,9 +78,32 @@ class AlignableModel(nn.Module):
                                                     # usually, it's a one time call per 
                                                     # hook unless model generates.
             self._key_setter_call_counter[_key] = 0
+            _original_key_order += [_key]
             if representation.group_key is not None:
                 _any_group_key = True
         
+        # the key order is independent of group, it is used to read out intervention locations.
+        if "alignables_sort_fn" in kwargs:
+            self.sorted_alignable_keys = kwargs["alignables_sort_fn"](
+                model,
+                self.alignable_representations
+            )
+        else:
+            # keep the original order
+            self.sorted_alignable_keys = _original_key_order
+        
+        # check it follows topological order
+        if not check_sorted_alignables_by_topological_order(
+                model,
+                self.alignable_representations,
+                self.sorted_alignable_keys
+            ):
+            raise ValueError(
+                "The alignable_representations in your config must follow the "
+                "topological order of model components. E.g., layer 2 intervention "
+                "cannot appear before layer 1 in transformers."
+            )
+
         """
         We later use _intervention_group to run actual interventions.
         The order the group by group; and there should not be dependency
@@ -87,24 +112,31 @@ class AlignableModel(nn.Module):
         if _any_group_key:
             # In case they are grouped, we would expect the execution order is given
             # by the source inputs.
-            for _, representation in enumerate(alignable_config.alignable_representations):
+            _validate_group_keys = []
+            for _key in self.sorted_alignable_keys:
+                representation = self.alignable_representations[_key]
                 assert representation.group_key is not None
                 if representation.group_key in self._intervention_group:
                     self._intervention_group[representation.group_key].append(_key)
                 else:
                     self._intervention_group[representation.group_key] = [_key]
+                _validate_group_keys += [representation.group_key]
+            for i in range(len(_validate_group_keys)-1):
+                if _validate_group_keys[i] > _validate_group_keys[i+1]:
+                    print("This is not a valid group key order:\n", _validate_group_keys)
+                    raise ValueError(
+                        "Must be ascending order. "
+                        "Interventions would be performed in order within group as well"
+                    )
         else:
-            _sort_fn = kwargs["alignables_sort_fn"] \
-                if "alignables_sort_fn" in kwargs else sort_alignables_by_topological_order
-            self.sorted_alignable_keys = _sort_fn(
-                model,
-                self.alignable_representations
-            )
             # assign each key to an unique group based on topological order
             _group_key_inc = 0
             for _key in self.sorted_alignable_keys:
                 self._intervention_group[_group_key_inc] = [_key]
                 _group_key_inc += 1
+        # sort group key with ascending order
+        self._intervention_group = OrderedDict(
+            sorted(self._intervention_group.items()))
         
         # model with cache activations
         self.activations = {}
@@ -387,7 +419,7 @@ class AlignableModel(nn.Module):
     
         
     def _intervention_setter(
-        self, alignable_keys, unit_locations_source, 
+        self, alignable_keys, 
         unit_locations_base, subspaces,
     ) -> HandlerList: 
         """
@@ -445,8 +477,128 @@ class AlignableModel(nn.Module):
             handlers.append(alignable_module_hook(hook_callback, with_kwargs=True))
             
         return HandlerList(handlers)
-        
     
+    
+    def _input_validation(
+        self,
+        base,
+        sources,
+        unit_locations,
+        activations_sources,
+    ):
+        if self.mode == "parallel":
+            assert "sources->base" in unit_locations
+        elif activations_sources is None and self.mode == "serial":
+            assert "sources->base" not in unit_locations
+    
+        if sources is not None:
+            assert len(sources) == len(self._intervention_group)
+        else:
+            assert len(activations_sources) == len(self._intervention_group)
+
+
+    def _wait_for_forward_with_parallel_intervention(
+        self,
+        sources,
+        unit_locations,
+        activations_sources: Optional[Dict] = None,
+        subspaces: Optional[List] = None,
+    ):
+        all_set_handlers = HandlerList([])
+        unit_locations_sources = unit_locations["sources->base"][0]
+        unit_locations_base = unit_locations["sources->base"][1]
+        # for each source, we hook in getters to cache activations
+        # at each aligning representations
+        if activations_sources is None:
+            assert len(sources) == len(self._intervention_group)
+            for group_id, alignable_keys in self._intervention_group.items():
+                group_get_handlers = HandlerList([])
+                for alignable_key in alignable_keys:
+                    get_handlers = self._intervention_getter(
+                        [alignable_key],
+                        [unit_locations_sources[self.sorted_alignable_keys.index(alignable_key)]],
+                    )
+                    group_get_handlers.extend(get_handlers)
+                # call once per group. each intervention is by its own group by default.
+                _ = self.model(**sources[group_id])
+                group_get_handlers.remove()
+        else:
+            # simply patch in the ones passed in
+            self.activations = activations_sources
+            for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
+                assert alignable_key in self.activations
+
+        # in parallel mode, we swap cached activations all into
+        # base at once
+        for group_id, alignable_keys in self._intervention_group.items():
+            for alignable_key in alignable_keys:
+                set_handlers = self._intervention_setter(
+                    [alignable_key],
+                    [unit_locations_base[self.sorted_alignable_keys.index(alignable_key)]],
+                    # assume same group targeting the same subspace
+                    [subspaces[
+                        self.sorted_alignable_keys.index(alignable_key)]] \
+                    if subspaces is not None else None,
+                )
+                # for setters, we don't remove them.
+                all_set_handlers.extend(set_handlers)
+        return all_set_handlers
+    
+    
+    def _wait_for_forward_with_serial_intervention(
+        self,
+        sources,
+        unit_locations,
+        activations_sources: Optional[Dict] = None,
+        subspaces: Optional[List] = None,
+    ):
+        all_set_handlers = HandlerList([])
+        for group_id, alignable_keys in self._intervention_group.items():
+            for alignable_key_id, alignable_key in enumerate(alignable_keys):
+                if group_id != len(self._intervention_group)-1:
+                    unit_locations_key = f"source_{group_id}->source_{group_id+1}"
+                else:
+                    unit_locations_key = f"source_{group_id}->base"
+                unit_locations_source = \
+                    unit_locations[
+                    unit_locations_key][0][alignable_key_id] # last one as only one intervention
+                                                             # per source in serial case
+                unit_locations_base = \
+                    unit_locations[
+                    unit_locations_key][1][alignable_key_id]
+
+                if activations_sources is None:
+                    # get activation from source_i
+                    get_handlers = self._intervention_getter(
+                        [alignable_key],
+                        [unit_locations_source],
+                    )
+                else:
+                    self.activations[alignable_key] = activations_sources[alignable_key]
+            # call once per group. each intervention is by its own group by default.
+            if activations_sources is None:
+                _ = self.model(**sources[group_id]) # this is when previous setter and THEN the getter get called
+                get_handlers.remove()
+                # remove existing setters after getting the curr intervened reprs
+                if len(all_set_handlers) > 0:
+                    all_set_handlers.remove()
+                    all_set_handlers = HandlerList([]) 
+
+            for alignable_key in alignable_keys:
+                # set with intervened activation to source_i+1
+                set_handlers = self._intervention_setter(
+                    [alignable_key],
+                    [unit_locations_base],
+                    # assume the order
+                    [subspaces[
+                        self.sorted_alignable_keys.index(alignable_key)]] \
+                    if subspaces is not None else None,
+                )
+                # for setters, we don't remove them.
+                all_set_handlers.extend(set_handlers)
+        return all_set_handlers
+    
+
     def forward(
         self, 
         base,
@@ -516,6 +668,9 @@ class AlignableModel(nn.Module):
         
         *We assume base and source targetting the same subspace for now.
         *We assume only a single space is targeted for now (although 2d list is provided).
+        
+        Since we now support group-based intervention, the number of sources
+        should be equal to the total number of groups.
         """
         self._cleanup_states()
         
@@ -523,104 +678,36 @@ class AlignableModel(nn.Module):
         if sources is None and activations_sources is None:
             return self.model(**base), None
             
-        if self.mode == "parallel":
-            assert "sources->base" in unit_locations
-            unit_locations_sources = unit_locations["sources->base"][0]
-            unit_locations_base = unit_locations["sources->base"][1]
-        elif activations_sources is None and self.mode == "serial":
-            assert "sources->base" not in unit_locations
-            
-        batch_size = base["input_ids"].shape[0]
-        device = base["input_ids"].device
+        self._input_validation(
+            base,
+            sources,
+            unit_locations,
+            activations_sources,
+        )
+        
         # returning un-intervened output without gradients
         with torch.inference_mode():
             base_outputs = self.model(**base)
         
-        all_set_handlers = HandlerList([])
+        # intervene
         if self.mode == "parallel":
-            # for each source, we hook in getters to cache activations
-            # at each aligning representations
-            if activations_sources is None:
-                # if there is only one source example, we assume we use that
-                # to intervene multiple times. getters can be parallel.
-                if len(sources) == 1:
-                    for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
-                        get_handlers = self._intervention_getter(
-                            [alignable_key],
-                            [unit_locations_sources[key_i]],
-                        )
-                    _ = self.model(**sources[0])
-                    get_handlers.remove()
-                elif len(sources) == len(self.sorted_alignable_keys):
-                    for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
-                        get_handlers = self._intervention_getter(
-                            [alignable_key],
-                            [unit_locations_sources[key_i]],
-                        )
-
-                        _ = self.model(**sources[key_i])
-                        get_handlers.remove()
-                else:
-                    assert False
-            else:
-                # simply patch in the ones passed in
-                self.activations = activations_sources
-                for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
-                    assert alignable_key in self.activations
-                
-            # in parallel mode, we swap cached activations all into
-            # base at once
-            for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
-                set_handlers = self._intervention_setter(
-                    [alignable_key],
-                    [unit_locations_sources[key_i]],
-                    [unit_locations_base[key_i]],
-                    [subspaces[key_i]] if subspaces is not None else None,
-                )
-                # for setters, we don't remove them.
-                all_set_handlers.extend(set_handlers)
-            counterfactual_outputs = self.model(**base)
-            all_set_handlers.remove()
-            
+            set_handlers_to_remove = self._wait_for_forward_with_parallel_intervention(
+                sources,
+                unit_locations,
+                activations_sources,
+                subspaces,
+            )
         elif self.mode == "serial":
-            for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
-                if key_i != len(self.sorted_alignable_keys)-1:
-                    unit_locations_key = f"source_{key_i}->source_{key_i+1}"
-                else:
-                    unit_locations_key = f"source_{key_i}->base"
-
-                unit_locations_source = \
-                    unit_locations[unit_locations_key][0][0] # last one as only one intervention
-                                                             # per source in serial case
-                unit_locations_base = \
-                    unit_locations[unit_locations_key][1][0]
-                
-                if activations_sources is None:
-                    # get activation from source_i
-                    get_handlers = self._intervention_getter(
-                        [alignable_key],
-                        [unit_locations_source],
-                    )
-                    _ = self.model(**sources[key_i]) # this is when previous setter and THEN the getter get called
-                    get_handlers.remove()
-                    # remove existing setters after getting the curr intervened reprs
-                    if len(all_set_handlers) > 0:
-                        all_set_handlers.remove()
-                        all_set_handlers = HandlerList([])
-                else:
-                    self.activations[alignable_key] = activations_sources[alignable_key]
-                    
-                # set with intervened activation to source_i+1
-                set_handlers = self._intervention_setter(
-                    [alignable_key],
-                    [unit_locations_source],
-                    [unit_locations_base],
-                    [subspaces[key_i]] if subspaces is not None else None,
-                )
-                # for setters, we don't remove them.
-                all_set_handlers.extend(set_handlers)
-            counterfactual_outputs = self.model(**base)
-            all_set_handlers.remove()
+            set_handlers_to_remove = self._wait_for_forward_with_serial_intervention(
+                sources,
+                unit_locations,
+                activations_sources,
+                subspaces,
+            )
+        
+        # run intervened forward
+        counterfactual_outputs = self.model(**base)
+        set_handlers_to_remove.remove()
                 
         return base_outputs, counterfactual_outputs
     
@@ -661,12 +748,7 @@ class AlignableModel(nn.Module):
         base input.
         """
         self._cleanup_states()
-        
-        # if no source inputs, we are calling a simple forward
-        print("WARNING: This is a basic version that will "
-              "intervene on some of the prompt token as well as "
-              "the each generation step."
-             )
+
         self._intervene_on_prompt = intervene_on_prompt
         self._is_generation = True
         
@@ -676,21 +758,13 @@ class AlignableModel(nn.Module):
                 **kwargs
             ), None
         
-        if sources is not None:
-            assert len(sources) == len(self.sorted_alignable_keys)
-        else:
-            assert len(activations_sources) == len(self.sorted_alignable_keys)
-            
-        if self.mode == "parallel":
-            assert "sources->base" in unit_locations
-            unit_locations_sources = unit_locations["sources->base"][0]
-            unit_locations_base = unit_locations["sources->base"][1]
-        elif activations_sources is None and self.mode == "serial":
-            assert "sources->base" not in unit_locations
-            assert len(sources) == len(unit_locations)
-            
-        batch_size = base["input_ids"].shape[0]
-        device = base["input_ids"].device
+        self._input_validation(
+            base,
+            sources,
+            unit_locations,
+            activations_sources,
+        )
+
         # returning un-intervened output without gradients
         with torch.inference_mode():
             base_outputs = self.model.generate(
@@ -698,100 +772,32 @@ class AlignableModel(nn.Module):
                 **kwargs
             )
         
-        all_set_handlers = HandlerList([])
+        # intervene
         if self.mode == "parallel":
-            # for each source, we hook in getters to cache activations
-            # at each aligning representations
-            if activations_sources is None:
-                # if there is only one source example, we assume we use that
-                # to intervene multiple times. getters can be parallel.
-                if len(sources) == 1:
-                    for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
-                        get_handlers = self._intervention_getter(
-                            [alignable_key],
-                            [unit_locations_sources[key_i]],
-                        )
-                    _ = self.model(**sources[0])
-                    get_handlers.remove()
-                elif len(sources) == len(self.sorted_alignable_keys):
-                    for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
-                        get_handlers = self._intervention_getter(
-                            [alignable_key],
-                            [unit_locations_sources[key_i]],
-                        )
-
-                        _ = self.model(**sources[key_i])
-                        get_handlers.remove()
-                else:
-                    assert False
-            else:
-                # simply patch in the ones passed in
-                self.activations = activations_sources
-                for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
-                    assert alignable_key in self.activations
-                
-            # in parallel mode, we swap cached activations all into
-            # base at once
-            for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
-                set_handlers = self._intervention_setter(
-                    [alignable_key],
-                    [unit_locations_sources[key_i]],
-                    [unit_locations_base[key_i]],
-                    [subspaces[key_i]] if subspaces is not None else None,
-                )
-                # for setters, we don't remove them.
-                all_set_handlers.extend(set_handlers)
-            counterfactual_outputs = self.model.generate(
-                inputs=base["input_ids"],
-                **kwargs
+            set_handlers_to_remove = self._wait_for_forward_with_parallel_intervention(
+                sources,
+                unit_locations,
+                activations_sources,
+                subspaces,
             )
-            all_set_handlers.remove()
-            
         elif self.mode == "serial":
-            for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
-                if key_i != len(self.sorted_alignable_keys)-1:
-                    unit_locations_key = f"source_{key_i}->source_{key_i+1}"
-                else:
-                    unit_locations_key = f"source_{key_i}->base"
-
-                unit_locations_source = \
-                    unit_locations[unit_locations_key][0][0] # last one as only one intervention
-                                                             # per source in serial case
-                unit_locations_base = \
-                    unit_locations[unit_locations_key][1][0]
-                
-                if activations_sources is None:
-                    # get activation from source_i
-                    get_handlers = self._intervention_getter(
-                        [alignable_key],
-                        [unit_locations_source],
-                    )
-                    _ = self.model(**sources[key_i]) # this is when previous setter and THEN the getter get called
-                    get_handlers.remove()
-                    # remove existing setters after getting the curr intervened reprs
-                    if len(all_set_handlers) > 0:
-                        all_set_handlers.remove()
-                        all_set_handlers = HandlerList([])
-                else:
-                    self.activations[alignable_key] = activations_sources[alignable_key]
-                    
-                # set with intervened activation to source_i+1
-                set_handlers = self._intervention_setter(
-                    [alignable_key],
-                    [unit_locations_source],
-                    [unit_locations_base],
-                    [subspaces[key_i]] if subspaces is not None else None,
-                )
-                # for setters, we don't remove them.
-                all_set_handlers.extend(set_handlers)
-            counterfactual_outputs = self.model.generate(
-                inputs=base["input_ids"],
-                **kwargs
+            set_handlers_to_remove = self._wait_for_forward_with_serial_intervention(
+                sources,
+                unit_locations,
+                activations_sources,
+                subspaces,
             )
-            all_set_handlers.remove()
+        
+        # run intervened generate
+        counterfactual_outputs = self.model.generate(
+            inputs=base["input_ids"],
+            **kwargs
+        )
+        set_handlers_to_remove.remove()
         self._is_generation = False
+        
         return base_outputs, counterfactual_outputs
-    
+
 
     def _batch_process_unit_location(
         self,
