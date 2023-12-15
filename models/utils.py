@@ -291,9 +291,10 @@ def get_alignable_module_hook(
     return module_hook
 
 
-def sort_alignables_by_topological_order(
+def check_sorted_alignables_by_topological_order(
     model,
-    alignable_representations
+    alignable_representations,
+    sorted_alignable_keys
 ):
     """Sort the intervention with topology in transformer arch"""
     if is_transformer(model):
@@ -304,8 +305,8 @@ def sort_alignables_by_topological_order(
             # incoming order in case they are ordered
             o = int(k.split('#')[1]) + 1
             scores[k] = l*r*o
-        sorted_keys = sorted(scores.keys(), key=lambda x: scores[x])
-        return sorted_keys
+        sorted_keys_by_topological_order = sorted(scores.keys(), key=lambda x: scores[x])
+        return sorted_alignable_keys == sorted_keys_by_topological_order
     assert False
     
 
