@@ -215,7 +215,7 @@ class AlignableModel(nn.Module):
         for k, v in self.interventions.items():
             if isinstance(
                 v[0], 
-                models.interventions.TrainbleIntervention
+                models.interventions.TrainableIntervention
             ):
                 ret_params += [p for p in v[0].parameters()]
         return ret_params
@@ -265,7 +265,7 @@ class AlignableModel(nn.Module):
         for k, v in self.interventions.items():
             if isinstance(
                 v[0], 
-                models.interventions.TrainbleIntervention
+                models.interventions.TrainableIntervention
             ):
                 v[0].to(device)
         self.model.to(device)
@@ -286,7 +286,7 @@ class AlignableModel(nn.Module):
         for k, v in self.interventions.items():
             if isinstance(
                 v[0], 
-                models.interventions.TrainbleIntervention
+                models.interventions.TrainableIntervention
             ):
                 total_parameters += count_parameters(v[0])
         return total_parameters       
@@ -299,7 +299,7 @@ class AlignableModel(nn.Module):
         for k, v in self.interventions.items():
             if isinstance(
                 v[0], 
-                models.interventions.TrainbleIntervention
+                models.interventions.TrainableIntervention
             ):
                 v[0].zero_grad()
 
