@@ -195,13 +195,13 @@ def lower_bound_alignment_example_sampler(
             [1,2],
             [1,3],
             [2,2],
+            [2,3],
         ]
     elif ctf_label_str == "No":
         ctf_label = tokenizer.convert_tokens_to_ids("No")
         base_source_regions = [
             [1,1],
             [2,1],
-            [2,3],
             [3,1],
             [3,2],
             [3,3]
