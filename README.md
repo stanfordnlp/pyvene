@@ -6,7 +6,7 @@
 
 ### Tutorials
 [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/The%20capital%20of%20Spain%20is.ipynb) [**Activation Patching**]     
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/Change%20how%20TinyStories%20end%20with%20interventions.ipynb) [**Intervened TinyStories Generation**]
+[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/Change%20how%20TinyStories%20end%20with%20interventions.ipynb) [**Intervened TinyStories Generation**]    
 [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/Indirect%20object%20identification%20(IOI)%20circuit%20with%20DAS.ipynb) [**IOI Circuit with DAS**]
 
 
