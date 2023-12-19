@@ -6,8 +6,8 @@
 
 ### Tutorials
 [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/The%20capital%20of%20Spain%20is.ipynb) [**Activation Patching**]     
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/If%20the%20cost%20is%20between%20X%20and%20Y.ipynb) [**Distributed Alignment Search**]     
 [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/Change%20how%20TinyStories%20end%20with%20interventions.ipynb) [**Intervened TinyStories Generation**]
+[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/Indirect%20object%20identification%20(IOI)%20circuit%20with%20DAS.ipynb) [**IOI Circuit with DAS**]
 
 
 # <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Intervene on Transformer Activations to Trace Causal Mechanism**
@@ -128,26 +128,14 @@ We released a set of tutorials for doing model interventions and model alignment
 ### `The capital of Spain is.ipynb` 
 (**Intervention Tutorial**) This is a tutorial for doing simple path patching as in **Path Patching**[^pp], **Causal Scrubbing**[^cs]. Thanks to [Aryaman Arora](https://aryaman.io/). This is a set of experiments trying to reproduce some of the experiments in his awesome [nano-causal-interventions](https://github.com/aryamanarora/nano-causal-interventions) repository.
 
-### `Hook with new model and intervention types.ipynb` 
-(**Intervention Tutorial**) This is a tutorial on integrating new model types with this library as well as customized interventions. We try to add `flan_t5` as well as a simple additive intervention. This tutorial covers a simple experiment as in `The capital of Spain is.ipynb`.
-
-### `Adding activations to any stream.ipynb` 
-(**Intervention Tutorial**) Besides interchange intervention, you can also add any customized activations to a particular stream in transformer. This is a tutorial adding a word embedding to different streams and make the model predict different things.
-
 ### `Change how TinyStories end with interventions.ipynb` 
 (**Intervention Tutorial**) This is a tutorial on how to intervene the TinyStories-33M model to change its story generation, with sad endings and happy endings. Different from other tutorials, this is a multi-token language generation, closer to other real-world use cases.
-
-### `If the cost is between X and Y.ipynb` 
-(**Alignment Tutorial**) This is a tutorial reproducing one of the main experiments in [the Boundless DAS paper](https://arxiv.org/abs/2305.08809). Different from the first tutorial, this one involves trainable interventions that actively search for alignments with model internals.
 
 ### `Generic alignment training.ipynb` 
 (**Alignment Tutorial**) This is a tutorial covering the basics of how to train an intervention to find alignments with a gpt2 model finetuned on a logical reasoning task.
 
-### `Subspace interventions.ipynb`
-(**Advanced Intervention Tutorial**) This is a tutorial on doing interventions in the subspace instead of fullspace. For instance, we want different sets of neurons mapping to different high-level concepts in a shared basis.
-
-### `DAS "illusion" exploration.ipynb`
-(**Distributed Alignment Tutorial**) Recently, [a paper](https://openreview.net/forum?id=Ebt7JgMHv1) claims that DAS creates "illusions" with LLMs. Here, we study the "illusion" with a very simple setting, a single-weight matrix. We explore what is the "illusion" found in the paper, how we can fix the "illusion" post-doc, and why the "illusion" is actually less about DAS and more about NN itself.
+### `Indirect object identification (IOI) circuit with DAS.ipynb` 
+(**Alignment Tutorial**) This is a tutorial reproducing key components (i.e., name mover heads, name position information) for the indirect object identification (IOI) circuit introduced by Wang et al. (2023).
 
 
 ## System Requirements
