@@ -2,7 +2,7 @@ import torch
 from abc import ABC, abstractmethod
 
 from models.layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotateLayer
-from models.utils import sigmoid_boundary
+from models.basic_utils import sigmoid_boundary
         
 
 class Intervention(torch.nn.Module, ABC):

@@ -1,3 +1,4 @@
+.huggingface_cache/
 playground.ipynb
 */.cache_dir
 */*/.cache_dir
