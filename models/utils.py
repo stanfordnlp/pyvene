@@ -407,6 +407,8 @@ def gather_neurons(
         ) # b, h, s, d
         d = head_tensor_output.shape[-1]
         
+        
+        
         pos_tensor_input = bhsd_to_bs_hd(head_tensor_output)
         pos_tensor_output = torch.gather(
             pos_tensor_input, 1, 
@@ -418,7 +420,7 @@ def gather_neurons(
             )
         ) # b, num_unit (pos), num_unit (h)*d
         tensor_output = bs_hd_to_bhsd(pos_tensor_output, d)
-        
+
         return tensor_output # b, num_unit (h), num_unit (pos), d
     elif alignable_unit in {"dim", "pos.dim", "h.dim", "h.pos.dim"}:
         assert False, f"Not Implemented Gathering with Unit = {alignable_unit}"
@@ -462,7 +464,7 @@ def output_to_subcomponent(
                     split_heads(qkv[2], num_heads, attn_head_size),
                 ) # each with (batch, head, seq_length, head_features)
             return qkv[CONST_QKV_INDICES[alignable_representation_type]]
-        elif alignable_representation_type in {"head_attention_value_output"}:
+        elif alignable_representation_type in {"head_attention_value_output"}:          
             return split_heads(output, num_heads, attn_head_size)
         else:
             return output
