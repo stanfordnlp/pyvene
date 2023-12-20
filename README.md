@@ -11,8 +11,8 @@
 [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/advance_tutorials/DAS_with_IOI.ipynb) [**IOI Circuit with DAS**]    
 
 
-# <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Intervene on Transformer Activations to Trace Causal Mechanism**
-We have released a **new** generic library for studying model internals, which encapsulates **causal abstraction and distributed alignment search**[^ii], **path patching**[^pp], and **causal scrubbing**[^cs]. These methods were introduced recently to find or to help us find causal alignments with the internals of neural models. This library is designed as a playground for inventing new interventions, whether they're trainable or not, to uncover the causal mechanisms of neural models. Additionally, the library emphasizes scaling these methods to LLMs with billions of parameters.
+# <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Intervene on NN's Activations to Trace Causal Mechanism**
+We have released a **new** generic library for studying model internals, which encapsulates **causal abstraction and distributed alignment search**[^ii], **path patching**[^pp], and **causal scrubbing**[^cs]. These methods were introduced recently to find or to help us find causal alignments with the internals of neural models. This library is designed as a playground for inventing new interventions, whether they're trainable or not, to uncover the causal mechanisms of neural models. Additionally, the library emphasizes scaling these methods to LLMs with billions of parameters. This library focuses on Transformer-based models yet is extensible to other NN types as well (e.g., [MLP](https://github.com/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/NonTransformer_MLP_Intervention.ipynb)).
 
 
 ## Release Notes
