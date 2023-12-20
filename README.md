@@ -92,12 +92,12 @@ where you provide testing data (basically interventional data and the counterfac
 
 --- 
 
-### Alignments with Trainble Interventions
+### Alignments with Trainable Interventions
 The alignment searching process outlined above can be tedious when your neural network is large. For a single hypothesized alignment, you basically need to set up different intervention configs targeting different layers and positions to verify your hypothesis. Instead of doing this brute-force search process, you can turn it into an optimization problem which also has other benefits such as distributed alignments. For details, you can read more here[^ii].
 
 In its crux, we basically want to train an intervention to have our desired counterfactual behaviors in mind. And if we can indeed train such interventions, we claim that causally informative information should live in the intervening representations! Below, we show one type of trainable intervention `models.interventions.RotatedSpaceIntervention` as,
 ```py
-class RotatedSpaceIntervention(TrainbleIntervention):
+class RotatedSpaceIntervention(TrainableIntervention):
     
     """Intervention in the rotated space."""
     def forward(self, base, source):
