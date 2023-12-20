@@ -6,11 +6,6 @@ model module defined in the huggingface library.
 We also want to let the intervention library know how to
 config the dimensions of intervention based on model config
 defined in the huggingface library.
-
-There are two customized functions that need to be defined
-in order to do head-level interventions:
-- _output_to_subcomponent
-- _scatter_intervention_output
 """
 
 

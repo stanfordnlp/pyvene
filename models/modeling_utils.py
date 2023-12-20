@@ -305,12 +305,17 @@ def split_heads(tensor, num_heads, attn_head_size):
 
 def output_to_subcomponent(
     output, alignable_representation_type, model_type, model_config
-):
-    n_embd = get_representation_dimension_by_type(model_type, model_config, "block_output")
-    attn_head_size = get_representation_dimension_by_type(model_type, model_config, "head_attention_value_output")
-    num_heads = int(n_embd/attn_head_size)
+):   
+    if "head" in alignable_representation_type or alignable_representation_type in {
+        "query_output", "key_output", "value_output"
+    }:
+        n_embd = get_representation_dimension_by_type(model_type, model_config, "block_output")
+        attn_head_size = get_representation_dimension_by_type(model_type, model_config, "head_attention_value_output")
+        num_heads = int(n_embd/attn_head_size)
+    else:
+        pass # this is likely to be non-transformer model for advance usages
     
-    # special handling when QKV are not separated by the model.
+    # special handling when QKV are not separated by the model
     if model_type in {
         hf_models.gpt2.modeling_gpt2.GPT2Model,
         hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel
@@ -364,9 +369,14 @@ def scatter_neurons(
     else:
         unit_locations = torch.tensor(unit_locations_as_list, device=tensor_input.device)
     
-    n_embd = get_representation_dimension_by_type(model_type, model_config, "block_output")
-    attn_head_size = get_representation_dimension_by_type(model_type, model_config, "head_attention_value_output")
-    num_heads = int(n_embd/attn_head_size)
+    if "head" in alignable_representation_type or alignable_representation_type in {
+        "query_output", "key_output", "value_output"
+    }:
+        n_embd = get_representation_dimension_by_type(model_type, model_config, "block_output")
+        attn_head_size = get_representation_dimension_by_type(model_type, model_config, "head_attention_value_output")
+        num_heads = int(n_embd/attn_head_size)
+    else:
+        pass # this is likely to be non-transformer model for advance usages
     
     # special handling when QKV are not separated by the model.
     if model_type in {
