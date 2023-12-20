@@ -4,6 +4,47 @@ import numpy as np
 from models.alignable_modelcard import *
 
 
+def get_internal_model_type(model):
+    """Return the model type"""
+    return type(model)
+
+
+def is_transformer(model):
+    """Determine if this is a transformer model"""
+    return True
+
+
+def print_forward_hooks(main_module):
+    """Function to print forward hooks of a module and its sub-modules"""
+    for name, submodule in main_module.named_modules():
+        if hasattr(submodule, "_forward_hooks") and submodule._forward_hooks:
+            print(f"Module: {name if name else 'Main Module'}")
+            for hook_id, hook in submodule._forward_hooks.items():
+                print(f"  ID: {hook_id}, Hook: {hook}")
+
+        if hasattr(submodule, "_forward_pre_hooks") and submodule._forward_hooks:
+            print(f"Module: {name if name else 'Main Module'}")
+            for hook_id, hook in submodule._forward_pre_hooks.items():
+                print(f"  ID: {hook_id}, Hook: {hook}")
+                
+
+def remove_forward_hooks(main_module: nn.Module):
+    """Function to remove all forward and pre-forward hooks from a module and its sub-modules."""
+    
+    # Remove forward hooks
+    for _, submodule in main_module.named_modules():
+        if hasattr(submodule, "_forward_hooks"):
+            hooks = list(submodule._forward_hooks.keys())  # Get a list of hook IDs
+            for hook_id in hooks:
+                submodule._forward_hooks.pop(hook_id)
+        
+        # Remove pre-forward hooks
+        if hasattr(submodule, "_forward_pre_hooks"):
+            pre_hooks = list(submodule._forward_pre_hooks.keys())  # Get a list of pre-hook IDs
+            for pre_hook_id in pre_hooks:
+                submodule._forward_pre_hooks.pop(pre_hook_id)
+
+
 def getattr_for_torch_module(
     model,
     parameter_name

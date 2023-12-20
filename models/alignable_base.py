@@ -57,19 +57,32 @@ class AlignableModel(nn.Module):
         self._intervene_on_prompt = None
         self._key_getter_call_counter = {}
         self._key_setter_call_counter = {}
+        self._intervention_pointers = {}
         
         # We want to associate interventions with a group to do group-wise interventions.
         self._intervention_group = {}
         _any_group_key = False
         _original_key_order = []
         for i, representation in enumerate(alignable_config.alignable_representations):
-            intervention_function = intervention_type if type(intervention_type) != list else intervention_type[i]
-            intervention = intervention_function(
-                get_alignable_dimension(get_internal_model_type(model), model.config, representation),
-                proj_dim=representation.alignable_low_rank_dimension,
-                # we can partition the subspace, and intervene on subspace
-                subspace_partition=representation.subspace_partition
-            )
+            if alignable_config.alignable_interventions is not None \
+                and alignable_config.alignable_interventions[0] is not None:
+                # we leave this option open but not sure if it is a desired one
+                intervention = alignable_config.alignable_interventions[i]
+            else:
+                intervention_function = intervention_type if type(intervention_type) != list else intervention_type[i]
+                if representation.intervention_link_key in self._intervention_pointers:
+                    intervention = self._intervention_pointers[representation.intervention_link_key]
+                else:
+                    intervention = intervention_function(
+                        get_alignable_dimension(get_internal_model_type(model), model.config, representation),
+                        proj_dim=representation.alignable_low_rank_dimension,
+                        # we can partition the subspace, and intervene on subspace
+                        subspace_partition=representation.subspace_partition
+                    )
+                    # we cache the intervention for sharing if the key is not None
+                    if representation.intervention_link_key is not None:
+                        self._intervention_pointers[representation.intervention_link_key] = intervention
+                        
             alignable_module_hook = get_alignable_module_hook(model, representation)
             
             _key = self._get_representation_key(representation)
@@ -423,6 +436,7 @@ class AlignableModel(nn.Module):
         self, alignable_keys, 
         unit_locations_base, subspaces,
     ) -> HandlerList: 
+        
         """
         Create a list of setter handlers that will set activations
         """
@@ -491,7 +505,8 @@ class AlignableModel(nn.Module):
             assert "sources->base" in unit_locations
         elif activations_sources is None and self.mode == "serial":
             assert "sources->base" not in unit_locations
-    
+        
+        # sources may contain None, but length should match
         if sources is not None:
             assert len(sources) == len(self._intervention_group)
         else:
@@ -513,6 +528,8 @@ class AlignableModel(nn.Module):
         if activations_sources is None:
             assert len(sources) == len(self._intervention_group)
             for group_id, alignable_keys in self._intervention_group.items():
+                if sources[group_id] is None:
+                    continue # smart jump for advance usage only
                 group_get_handlers = HandlerList([])
                 for alignable_key in alignable_keys:
                     get_handlers = self._intervention_getter(
@@ -526,23 +543,25 @@ class AlignableModel(nn.Module):
         else:
             # simply patch in the ones passed in
             self.activations = activations_sources
-            for key_i, alignable_key in enumerate(self.sorted_alignable_keys):
-                assert alignable_key in self.activations
+            for _, passed_in_alignable_key in enumerate(self.activations):
+                assert passed_in_alignable_key in self.sorted_alignable_keys
 
         # in parallel mode, we swap cached activations all into
         # base at once
         for group_id, alignable_keys in self._intervention_group.items():
             for alignable_key in alignable_keys:
-                set_handlers = self._intervention_setter(
-                    [alignable_key],
-                    [unit_locations_base[self.sorted_alignable_keys.index(alignable_key)]],
-                    # assume same group targeting the same subspace
-                    [subspaces[
-                        self.sorted_alignable_keys.index(alignable_key)]] \
-                    if subspaces is not None else None,
-                )
-                # for setters, we don't remove them.
-                all_set_handlers.extend(set_handlers)
+                # skip in case smart jump
+                if alignable_key in self.activations:
+                    set_handlers = self._intervention_setter(
+                        [alignable_key],
+                        [unit_locations_base[self.sorted_alignable_keys.index(alignable_key)]],
+                        # assume same group targeting the same subspace
+                        [subspaces[
+                            self.sorted_alignable_keys.index(alignable_key)]] \
+                        if subspaces is not None else None,
+                    )
+                    # for setters, we don't remove them.
+                    all_set_handlers.extend(set_handlers)
         return all_set_handlers
     
     
@@ -555,6 +574,8 @@ class AlignableModel(nn.Module):
     ):
         all_set_handlers = HandlerList([])
         for group_id, alignable_keys in self._intervention_group.items():
+            if sources[group_id] is None:
+                continue # smart jump for advance usage only
             for alignable_key_id, alignable_key in enumerate(alignable_keys):
                 if group_id != len(self._intervention_group)-1:
                     unit_locations_key = f"source_{group_id}->source_{group_id+1}"
@@ -562,12 +583,13 @@ class AlignableModel(nn.Module):
                     unit_locations_key = f"source_{group_id}->base"
                 unit_locations_source = \
                     unit_locations[
-                    unit_locations_key][0][alignable_key_id] # last one as only one intervention
-                                                             # per source in serial case
+                    unit_locations_key][0][alignable_key_id]
+                if unit_locations_source is None:
+                    continue # smart jump for advance usage only
+
                 unit_locations_base = \
                     unit_locations[
                     unit_locations_key][1][alignable_key_id]
-
                 if activations_sources is None:
                     # get activation from source_i
                     get_handlers = self._intervention_getter(
@@ -576,7 +598,7 @@ class AlignableModel(nn.Module):
                     )
                 else:
                     self.activations[alignable_key] = activations_sources[alignable_key]
-            # call once per group. each intervention is by its own group by default.
+            # call once per group. each intervention is by its own group by default
             if activations_sources is None:
                 _ = self.model(**sources[group_id]) # this is when previous setter and THEN the getter get called
                 get_handlers.remove()
@@ -586,17 +608,19 @@ class AlignableModel(nn.Module):
                     all_set_handlers = HandlerList([]) 
 
             for alignable_key in alignable_keys:
-                # set with intervened activation to source_i+1
-                set_handlers = self._intervention_setter(
-                    [alignable_key],
-                    [unit_locations_base],
-                    # assume the order
-                    [subspaces[
-                        self.sorted_alignable_keys.index(alignable_key)]] \
-                    if subspaces is not None else None,
-                )
-                # for setters, we don't remove them.
-                all_set_handlers.extend(set_handlers)
+                # skip in case smart jump
+                if alignable_key in self.activations:
+                    # set with intervened activation to source_i+1
+                    set_handlers = self._intervention_setter(
+                        [alignable_key],
+                        [unit_locations_base],
+                        # assume the order
+                        [subspaces[
+                            self.sorted_alignable_keys.index(alignable_key)]] \
+                        if subspaces is not None else None,
+                    )
+                    # for setters, we don't remove them.
+                    all_set_handlers.extend(set_handlers)
         return all_set_handlers
     
 
