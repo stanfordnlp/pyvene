@@ -64,7 +64,8 @@ class VanillaIntervention(Intervention):
             base, source, 
             "interchange", 
             self.interchange_dim,
-            subspaces
+            subspaces,
+            subspace_partition=self.subspace_partition
         )
 
     def __str__(self):
