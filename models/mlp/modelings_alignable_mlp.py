@@ -35,7 +35,7 @@ for k, v in mlp_type_to_module_mapping.items():
 mlp_classifier_type_to_dimension_mapping = mlp_type_to_dimension_mapping
 
 
-def create_mlp_classifier(config, tokenizer_name=None):
+def create_mlp_classifier(config, tokenizer_name=None, cache_dir="../../.huggingface_cache"):
     """Creates a MLP model, config, and tokenizer from the given name and revision"""
     from transformers import AutoTokenizer
     from models.mlp.modelings_mlp import MLPForClassification
@@ -44,7 +44,7 @@ def create_mlp_classifier(config, tokenizer_name=None):
     if tokenizer_name is not None:
         tokenizer = AutoTokenizer.from_pretrained(
             tokenizer_name,
-            cache_dir="../../.huggingface_cache"
+            cache_dir=cache_dir
         )
     mlp = MLPForClassification(
         config=config

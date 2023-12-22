@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple, Union, Dict
 
 from models.basic_utils import *
 from models.modeling_utils import *
+from models.intervention_utils import *
 import models.interventions
 from models.constants import CONST_QKV_INDICES
 
@@ -58,19 +59,34 @@ class AlignableModel(nn.Module):
         self._key_getter_call_counter = {}
         self._key_setter_call_counter = {}
         self._intervention_pointers = {}
+        self._intervention_reverse_link = {}
+        
+        # hooks are stateful internally, meaning that it's aware of how many times
+        # it is called during the execution.
+        # TODO: this could be merged with call counter above later.
+        self._intervention_state = {}
         
         # We want to associate interventions with a group to do group-wise interventions.
         self._intervention_group = {}
         _any_group_key = False
         _original_key_order = []
         for i, representation in enumerate(alignable_config.alignable_representations):
+            _key = self._get_representation_key(representation)
+            
             if alignable_config.alignable_interventions is not None \
                 and alignable_config.alignable_interventions[0] is not None:
                 # we leave this option open but not sure if it is a desired one
                 intervention = alignable_config.alignable_interventions[i]
             else:
                 intervention_function = intervention_type if type(intervention_type) != list else intervention_type[i]
+                intervention = intervention_function(
+                    get_alignable_dimension(get_internal_model_type(model), model.config, representation),
+                    proj_dim=representation.alignable_low_rank_dimension,
+                    # we can partition the subspace, and intervene on subspace
+                    subspace_partition=representation.subspace_partition
+                )
                 if representation.intervention_link_key in self._intervention_pointers:
+                    self._intervention_reverse_link[_key] = f"link#{representation.intervention_link_key}"
                     intervention = self._intervention_pointers[representation.intervention_link_key]
                 else:
                     intervention = intervention_function(
@@ -82,16 +98,16 @@ class AlignableModel(nn.Module):
                     # we cache the intervention for sharing if the key is not None
                     if representation.intervention_link_key is not None:
                         self._intervention_pointers[representation.intervention_link_key] = intervention
+                        self._intervention_reverse_link[_key] = f"link#{representation.intervention_link_key}"
                         
             alignable_module_hook = get_alignable_module_hook(model, representation)
-            
-            _key = self._get_representation_key(representation)
             self.alignable_representations[_key] = representation
             self.interventions[_key] = (intervention, alignable_module_hook)
             self._key_getter_call_counter[_key] = 0 # we memo how many the hook is called, 
                                                     # usually, it's a one time call per 
                                                     # hook unless model generates.
             self._key_setter_call_counter[_key] = 0
+            self._intervention_state[_key] = InterventionState(_key)
             _original_key_order += [_key]
             if representation.group_key is not None:
                 _any_group_key = True
@@ -152,8 +168,10 @@ class AlignableModel(nn.Module):
         self._intervention_group = OrderedDict(
             sorted(self._intervention_group.items()))
         
-        # model with cache activations
+        # cached swap-in activations
         self.activations = {}
+        # cached swapped activations (hot)
+        self.hot_activations = {}
         """
         Activations in the future list is ALWAYS causally before
         the vanilla activation list. This field becomes crucial
@@ -202,7 +220,8 @@ class AlignableModel(nn.Module):
             self._key_getter_call_counter, 0)
         self._key_setter_call_counter = dict.fromkeys(
             self._key_setter_call_counter, 0)
-
+        for k, _ in self._intervention_state.items():
+            self._intervention_state[k].reset()
     
     def _remove_forward_hooks(self):
         """
@@ -219,6 +238,7 @@ class AlignableModel(nn.Module):
         self._remove_forward_hooks()
         self._reset_hook_count()
         self.activations.clear()
+        self.hot_activations.clear()
     
     
     def get_trainable_parameters(self):
@@ -240,7 +260,14 @@ class AlignableModel(nn.Module):
         Return the cached activations with keys
         """
         return self.activations
-                
+              
+        
+    def get_cached_hot_activations(self):
+        """
+        Return the cached hot activations with linked keys
+        """
+        return self.hot_activations
+    
     
     def set_temperature(self, temp: torch.Tensor):
         """
@@ -326,22 +353,35 @@ class AlignableModel(nn.Module):
         """
         Gather intervening activations from the output based on indices
         """
-        original_output = output
-        # data structure casting
-        if isinstance(output, tuple):
-            original_output = output[0]
-        # gather subcomponent
-        original_output = self._output_to_subcomponent(
-            original_output,
-            alignable_representations_key
-        )
-        # gather based on intervention locations
-        selected_output = gather_neurons(
-            original_output,
-            self.alignable_representations[
-                alignable_representations_key].alignable_unit,
-            unit_locations
-        )
+        
+        if alignable_representations_key in self._intervention_reverse_link and \
+            self._intervention_reverse_link[alignable_representations_key] in self.hot_activations:
+            # hot gather
+            # clone is needed here by acting as a different module
+            # to avoid gradient conflict.
+            # 
+            # enable the following line when an error is hit
+            # torch.autograd.set_detect_anomaly(True)
+            selected_output = self.hot_activations[
+                self._intervention_reverse_link[alignable_representations_key]].clone()
+        else:
+            # cold gather
+            original_output = output
+            # data structure casting
+            if isinstance(output, tuple):
+                original_output = output[0]
+            # gather subcomponent
+            original_output = self._output_to_subcomponent(
+                original_output,
+                alignable_representations_key
+            )
+            # gather based on intervention locations
+            selected_output = gather_neurons(
+                original_output,
+                self.alignable_representations[
+                    alignable_representations_key].alignable_unit,
+                unit_locations
+            )
         return selected_output
 
 
@@ -422,11 +462,14 @@ class AlignableModel(nn.Module):
                         arg_ptr = args
                 else:
                     arg_ptr = output
-
+                
                 selected_output = self._gather_intervention_output(
                     arg_ptr, key, unit_locations[key_i]
                 )
                 self.activations[key] = selected_output
+                # set version for stateful models
+                self._intervention_state[key].inc_getter_version()
+                
             handlers.append(alignable_module_hook(hook_callback, with_kwargs=True))
 
         return HandlerList(handlers)
@@ -442,8 +485,10 @@ class AlignableModel(nn.Module):
         """
         handlers = []
         for key_i, key in enumerate(alignable_keys):
+            
             intervention, alignable_module_hook = self.interventions[key]
             def hook_callback(model, args, kwargs, output=None):
+                
                 if self._is_generation:
                     is_prompt = self._key_setter_call_counter[key] == 0
                     if not self._intervene_on_prompt or is_prompt:
@@ -458,7 +503,6 @@ class AlignableModel(nn.Module):
                         arg_ptr = kwargs[list(kwargs.keys())[0]]
                     else:
                         arg_ptr = args
-                    # intervene in the module input with a pre forward hook
                     selected_output = self._gather_intervention_output(
                         arg_ptr, 
                         key, unit_locations_base[key_i]
@@ -467,7 +511,7 @@ class AlignableModel(nn.Module):
                     intervened_representation = do_intervention(
                         selected_output, self.activations[key], 
                         intervention, 
-                        subspaces[key_i] if subspaces is not None else None,
+                        subspaces[key_i] if subspaces is not None else None
                     )
                     # patched in the intervned activations
                     arg_ptr = self._scatter_intervention_output(
@@ -489,6 +533,13 @@ class AlignableModel(nn.Module):
                         output, intervened_representation,
                         key, unit_locations_base[key_i]
                     )
+
+                # setter can produce hot activations for shared subspace interventions if linked
+                if key in self._intervention_reverse_link:
+                    self.hot_activations[self._intervention_reverse_link[key]] = output
+                # set version for stateful models
+                self._intervention_state[key].inc_setter_version()
+
             handlers.append(alignable_module_hook(hook_callback, with_kwargs=True))
             
         return HandlerList(handlers)
@@ -512,7 +563,33 @@ class AlignableModel(nn.Module):
         else:
             assert len(activations_sources) == len(self._intervention_group)
 
+    
+    def _flatten_input_dict_as_batch(self, input_dict):
+        # we also accept grouped sources, will batch them and provide partition info.
+        if not isinstance(input_dict, dict):
+            assert isinstance(input_dict, list)
+            flatten_input_dict = {}
+            for k, v in input_dict[0].items():
+                flatten_input_dict[k] = {}
+            for i in range(0, len(input_dict)):
+                for k, v in input_dict[i].items():
+                    flatten_input_dict[k] += [v]
+            for k, v in flatten_input_dict.items():
+                # flatten as one single batch
+                flatten_input_dict[k] = torch.cat(v, dim=0)
+        else:
+            flatten_input_dict = input_dict
+        return flatten_input_dict
+    
+    
+    def _get_partition_size(self, input_dict):
+        if not isinstance(input_dict, dict):
+            assert isinstance(input_dict, list)
+            return len(input_dict)
+        else:
+            return 1
 
+        
     def _wait_for_forward_with_parallel_intervention(
         self,
         sources,
@@ -558,7 +635,7 @@ class AlignableModel(nn.Module):
                         # assume same group targeting the same subspace
                         [subspaces[
                             self.sorted_alignable_keys.index(alignable_key)]] \
-                        if subspaces is not None else None,
+                        if subspaces is not None else None
                     )
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)
@@ -600,7 +677,8 @@ class AlignableModel(nn.Module):
                     self.activations[alignable_key] = activations_sources[alignable_key]
             # call once per group. each intervention is by its own group by default
             if activations_sources is None:
-                _ = self.model(**sources[group_id]) # this is when previous setter and THEN the getter get called
+                # this is when previous setter and THEN the getter get called
+                _ = self.model(**sources[group_id])
                 get_handlers.remove()
                 # remove existing setters after getting the curr intervened reprs
                 if len(all_set_handlers) > 0:
@@ -617,7 +695,7 @@ class AlignableModel(nn.Module):
                         # assume the order
                         [subspaces[
                             self.sorted_alignable_keys.index(alignable_key)]] \
-                        if subspaces is not None else None,
+                        if subspaces is not None else None
                     )
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)

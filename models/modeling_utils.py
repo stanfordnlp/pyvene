@@ -9,9 +9,35 @@ def get_internal_model_type(model):
     return type(model)
 
 
+def is_stateless(model):
+    """
+    Determine if the model is stateful (e.g., rnn) 
+    or stateless (e.g., transformer)
+    """
+    return True
+
+
+def is_gru(model):
+    """Determine if this is a transformer model"""
+    if type(model) == GRUModel or \
+        type(model) == GRULMHeadModel or \
+        type(model) == GRUForClassification:
+        return True
+    return False
+
+
+def is_mlp(model):
+    """Determine if this is a mlp model"""
+    if type(model) == MLPModel or type(model) == MLPForClassification:
+        return True
+    return False
+
+
 def is_transformer(model):
     """Determine if this is a transformer model"""
-    return True
+    if not is_gru and not is_mlp:
+        return True
+    return False
 
 
 def print_forward_hooks(main_module):
@@ -166,16 +192,21 @@ def check_sorted_alignables_by_topological_order(
 ):
     """Sort the intervention with topology in transformer arch"""
     if is_transformer(model):
-        scores = {}
-        for k, _ in alignable_representations.items():
-            l = int(k.split('.')[1]) + 1
-            r = CONST_TRANSFORMER_TOPOLOGICAL_ORDER.index(k.split('.')[3])
-            # incoming order in case they are ordered
-            o = int(k.split('#')[1]) + 1
-            scores[k] = l*r*o
-        sorted_keys_by_topological_order = sorted(scores.keys(), key=lambda x: scores[x])
-        return sorted_alignable_keys == sorted_keys_by_topological_order
-    assert False
+        TOPOLOGICAL_ORDER = CONST_TRANSFORMER_TOPOLOGICAL_ORDER
+    elif is_mlp(model):
+        TOPOLOGICAL_ORDER = CONST_MLP_TOPOLOGICAL_ORDER
+    elif is_gru(model):
+        TOPOLOGICAL_ORDER = CONST_GRU_TOPOLOGICAL_ORDER
+    
+    scores = {}
+    for k, _ in alignable_representations.items():
+        l = int(k.split('.')[1]) + 1
+        r = TOPOLOGICAL_ORDER.index(k.split('.')[3])
+        # incoming order in case they are ordered
+        o = int(k.split('#')[1]) + 1
+        scores[k] = l*r*o
+    sorted_keys_by_topological_order = sorted(scores.keys(), key=lambda x: scores[x])
+    return sorted_alignable_keys == sorted_keys_by_topological_order
     
 
 class HandlerList():
@@ -275,8 +306,6 @@ def gather_neurons(
         ) # b, h, s, d
         d = head_tensor_output.shape[-1]
         
-        
-        
         pos_tensor_input = bhsd_to_bs_hd(head_tensor_output)
         pos_tensor_output = torch.gather(
             pos_tensor_input, 1, 
@@ -290,6 +319,9 @@ def gather_neurons(
         tensor_output = bs_hd_to_bhsd(pos_tensor_output, d)
 
         return tensor_output # b, num_unit (h), num_unit (pos), d
+    elif alignable_unit in {"t"}:
+        # for stateful models, intervention location is guarded outside gather
+        return tensor_input
     elif alignable_unit in {"dim", "pos.dim", "h.dim", "h.pos.dim"}:
         assert False, f"Not Implemented Gathering with Unit = {alignable_unit}"
 
@@ -339,6 +371,19 @@ def output_to_subcomponent(
             return qkv[CONST_QKV_INDICES[alignable_representation_type]]
         elif alignable_representation_type in {"head_attention_value_output"}:          
             return split_heads(output, num_heads, attn_head_size)
+        else:
+            return output
+    elif model_type in {
+        GRUModel, GRULMHeadModel, GRUForClassification
+    }:
+        if alignable_representation_type in {
+            'reset_x2h_output', 'new_x2h_output', 'reset_h2h_output',
+            'reset_h2h_output', 'update_h2h_output', 'new_h2h_output',
+        }:
+            n_embd = get_representation_dimension_by_type(model_type, model_config, "cell_output")
+            start_index = CONST_RUN_INDICES[alignable_representation_type]*n_embd
+            end_index = (CONST_RUN_INDICES[alignable_representation_type]+1)*n_embd
+            return output[..., start_index:end_index]
         else:
             return output
     else:
@@ -391,37 +436,54 @@ def scatter_neurons(
             end_index = (CONST_QKV_INDICES[alignable_representation_type]+1)*n_embd
         else:
             start_index, end_index = None, None
+    elif model_type in {
+        GRUModel, GRULMHeadModel, GRUForClassification
+    }:
+        if alignable_representation_type in {
+            'reset_x2h_output', 'new_x2h_output', 'reset_h2h_output',
+            'reset_h2h_output', 'update_h2h_output', 'new_h2h_output',
+        }:
+            n_embd = get_representation_dimension_by_type(model_type, model_config, "cell_output")
+            start_index = CONST_RUN_INDICES[alignable_representation_type]*n_embd
+            end_index = (CONST_RUN_INDICES[alignable_representation_type]+1)*n_embd
+        else:
+            start_index, end_index = None, None
     else:
         start_index, end_index = None, None
-
-    if "head" in alignable_representation_type:
-        start_index = 0 if start_index is None else start_index
-        end_index = 0 if end_index is None else end_index
-        # head-based scattering
-        if alignable_unit in {"h.pos"}:
-            # we assume unit_locations is a tuple
-            for head_batch_i, head_locations in enumerate(unit_locations[0]):
-                for head_loc_i, head_loc in enumerate(head_locations):
-                    for pos_loc_i, pos_loc in enumerate(unit_locations[1][head_batch_i]):
-                        h_start_index = start_index+head_loc*attn_head_size
-                        h_end_index = start_index+(head_loc+1)*attn_head_size
-                        tensor_input[
-                            head_batch_i, pos_loc, h_start_index:h_end_index
-                        ] = replacing_tensor_input[head_batch_i, head_loc_i, pos_loc_i] # [dh]
-        else:
-            for batch_i, locations in enumerate(unit_locations):
-                for loc_i, loc in enumerate(locations):
-                    h_start_index = start_index+loc*attn_head_size
-                    h_end_index = start_index+(loc+1)*attn_head_size
-                    tensor_input[
-                        batch_i, :, h_start_index:h_end_index
-                    ] = replacing_tensor_input[batch_i, loc_i] # [s, dh]
+    
+    if alignable_unit == "t":
+        # time series models, e.g., gru
+        tensor_input[..., start_index:end_index] = \
+            replacing_tensor_input[..., start_index:end_index]
     else:
-        # pos-based scattering
-        for batch_i, locations in enumerate(unit_locations):
-            tensor_input[
-                batch_i, locations, start_index:end_index
-            ] = replacing_tensor_input[batch_i]
+        if "head" in alignable_representation_type:
+            start_index = 0 if start_index is None else start_index
+            end_index = 0 if end_index is None else end_index
+            # head-based scattering
+            if alignable_unit in {"h.pos"}:
+                # we assume unit_locations is a tuple
+                for head_batch_i, head_locations in enumerate(unit_locations[0]):
+                    for head_loc_i, head_loc in enumerate(head_locations):
+                        for pos_loc_i, pos_loc in enumerate(unit_locations[1][head_batch_i]):
+                            h_start_index = start_index+head_loc*attn_head_size
+                            h_end_index = start_index+(head_loc+1)*attn_head_size
+                            tensor_input[
+                                head_batch_i, pos_loc, h_start_index:h_end_index
+                            ] = replacing_tensor_input[head_batch_i, head_loc_i, pos_loc_i] # [dh]
+            else:
+                for batch_i, locations in enumerate(unit_locations):
+                    for loc_i, loc in enumerate(locations):
+                        h_start_index = start_index+loc*attn_head_size
+                        h_end_index = start_index+(loc+1)*attn_head_size
+                        tensor_input[
+                            batch_i, :, h_start_index:h_end_index
+                        ] = replacing_tensor_input[batch_i, loc_i] # [s, dh]
+        else:
+            # pos-based scattering
+            for batch_i, locations in enumerate(unit_locations):
+                tensor_input[
+                    batch_i, locations, start_index:end_index
+                ] = replacing_tensor_input[batch_i]
     return tensor_input
 
 
@@ -433,17 +495,24 @@ def do_intervention(
 ):
     """Do the actual intervention"""
     d = base_representation.shape[-1]
-
+    
     # flatten
-    if len(base_representation.shape) == 3:
+    original_base_shape = base_representation.shape
+    if len(original_base_shape) == 2:
+        # no pos dimension, e.g., gru
+        base_representation_f = base_representation
+        source_representation_f = source_representation
+    elif len(original_base_shape) == 3:
         # b, num_unit (pos), d -> b, num_unit*d
         base_representation_f = bsd_to_b_sd(base_representation)
         source_representation_f = bsd_to_b_sd(source_representation)
-    elif len(base_representation.shape) == 4:
+    elif len(original_base_shape) == 4:
         # b, num_unit (h), s, d -> b, s, num_unit*d
         base_representation_f = bhsd_to_bs_hd(base_representation)
         source_representation_f = bhsd_to_bs_hd(source_representation)
-    
+    else:
+        assert False # what's going on?
+        
     if subspaces is None:
         intervened_representation = intervention(
             base_representation_f, source_representation_f, 
@@ -455,11 +524,16 @@ def do_intervention(
         )
         
     # unflatten
-    if len(base_representation.shape) == 3:
+    if len(original_base_shape) == 2:
+        # no pos dimension, e.g., gru
+        pass
+    elif len(original_base_shape) == 3:
         intervened_representation = b_sd_to_bsd(intervened_representation, d)
-    elif len(base_representation.shape) == 4:
+    elif len(original_base_shape) == 4:
         intervened_representation = bs_hd_to_bhsd(intervened_representation, d)
-
+    else:
+        assert False # what's going on?
+        
     return intervened_representation
 
 

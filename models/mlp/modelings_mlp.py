@@ -35,6 +35,7 @@ class MLPConfig(PretrainedConfig):
         self.problem_type = problem_type
         super().__init__(**kwargs)
         
+        
 class MLPModelOutput(ModelOutput):
     last_hidden_state: torch.FloatTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
@@ -73,7 +74,7 @@ class MLPModel(PreTrainedModel):
             self.wpe = nn.Embedding(config.max_position_embeddings, self.h_dim)
         self.dropout = nn.Dropout(config.pdrop)
         
-        self.h = nn.ModuleList([MLPBlock(config) for i in range(config.n_layer)])
+        self.h = nn.ModuleList([MLPBlock(config) for _ in range(config.n_layer)])
 
         self.post_init()
 
