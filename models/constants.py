@@ -21,11 +21,54 @@ CONST_TRANSFORMER_TOPOLOGICAL_ORDER = [
 ]
 
 
+CONST_MLP_TOPOLOGICAL_ORDER = [
+    'block_input',
+    'mlp_activation',
+    'block_output',
+]
+
+
+CONST_GRU_TOPOLOGICAL_ORDER = [
+    'cell_input',
+    'x2h_output',
+    'h2h_output',
+    'reset_x2h_output',
+    'update_x2h_output',
+    'new_x2h_output',
+    'reset_h2h_output',
+    'update_h2h_output',
+    'new_h2h_output',
+    'reset_gate_input',
+    'update_gate_input',
+    'new_gate_input',
+    'reset_gate_output',
+    'update_gate_output',
+    'new_gate_output',
+    'cell_output',
+]
+
+
 CONST_QKV_INDICES = {
     "query_output": 0, 
     "key_output": 1, 
     "value_output": 2,
     "head_query_output": 0, 
     "head_key_output": 1, 
-    "head_value_output": 2
+    "head_value_output": 2,
+    "reset_x2h_output": 0, 
+    "update_x2h_output": 1, 
+    "new_x2h_output": 2,
+    "reset_h2h_output": 0, 
+    "update_h2h_output": 1, 
+    "new_h2h_output": 2,
 }
+
+CONST_RUN_INDICES = {
+    "reset_x2h_output": 0, 
+    "update_x2h_output": 1, 
+    "new_x2h_output": 2,
+    "reset_h2h_output": 0, 
+    "update_h2h_output": 1, 
+    "new_h2h_output": 2,
+}
+

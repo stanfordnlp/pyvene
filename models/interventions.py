@@ -28,7 +28,10 @@ class TrainableIntervention(Intervention):
     def __init__(self):
         super().__init__()
         self.trainble = True
-
+    
+    def tie_weight(self, linked_intervention):
+        pass
+        
 
 class BasisAgnosticIntervention(Intervention):
 
@@ -138,7 +141,7 @@ class RotatedSpaceIntervention(TrainableIntervention):
         
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
-
+    
     def forward(self, base, source, subspaces=None):
         if subspaces is None:
             assert self.interchange_dim is not None
@@ -269,9 +272,9 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention):
         return f"LowRankRotatedSpaceIntervention(embed_dim={self.embed_dim})"
 
     
-class PCARotatedSpaceIntervention(RotatedSpaceIntervention):
+class PCARotatedSpaceIntervention(BasisAgnosticIntervention):
     
-    """Intervention in the rotated space."""
+    """Intervention in the pca space."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__(embed_dim)
         self.pca_components = torch.nn.Parameter(torch.tensor(
