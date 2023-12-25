@@ -14,14 +14,6 @@
 # <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Intervene on NN's Activations to Trace Causal Mechanism**
 We have released a **new** generic library for studying model internals, which encapsulates **interchange intervention**[^ii], **path patching**[^pp], or **causal scrubbing**[^cs]. These methods were introduced recently to find or to help us find causal alignments with the internals of neural models. This library is designed as a playground for inventing new interventions, whether they're trainable or not, to uncover the causal mechanisms of neural models. Additionally, the library emphasizes scaling these methods to LLMs with billions of parameters. **This library focuses on Transformer-based models yet is extensible to other NN types as well (e.g., see our tutorials about [MLP](https://github.com/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/NonTransformer_MLP_Intervention.ipynb), [GRU](https://github.com/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/NonTransformer_GRU_Intervention.ipynb)).**
 
-
-## Release Notes
-:white_check_mark: 05/17/2023 - Initial version of this library is released with [our NeurIPS 2023 paper](https://arxiv.org/abs/2305.08809).  
-:white_check_mark: 10/04/2023 - Major infrastructure change to support hook-based and customizable interventions.   
-:white_check_mark: 11/29/2023 - Released 10 tutorials so far covering different usages (on interventions, alignment, and more) of this library.      
-:white_check_mark: 12/25/2023 - Now support non-Transformer model, such as MLPs and GRUs. More tutorials are released.
-
-
 ## Interventions v.s. Alignments with Model Internals
 In this section, we discuss topics from interventions to alignments with model internals.
 
