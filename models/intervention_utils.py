@@ -5,11 +5,7 @@ class InterventionState(object):
     
     def __init__(self, key, **kwargs):
         self.key = key
-        self.state_dict = {
-            "key": key,
-            "getter_version": 0, 
-            "setter_version": 0, 
-        }
+        self.reset()
 
     def inc_getter_version(self):
         self.state_dict["getter_version"] += 1

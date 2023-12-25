@@ -31,7 +31,7 @@ class AlignableModel(nn.Module):
         super().__init__()
         self.mode = alignable_config.mode
         intervention_type = alignable_config.alignable_interventions_type
-
+        self.is_model_stateless = is_stateless(model)
         # each representation can get a different intervention type
         if type(intervention_type) == list:
             assert len(intervention_type) == len(alignable_config.alignable_representations)
@@ -78,7 +78,8 @@ class AlignableModel(nn.Module):
                 # we leave this option open but not sure if it is a desired one
                 intervention = alignable_config.alignable_interventions[i]
             else:
-                intervention_function = intervention_type if type(intervention_type) != list else intervention_type[i]
+                intervention_function = intervention_type \
+                    if type(intervention_type) != list else intervention_type[i]
                 intervention = intervention_function(
                     get_alignable_dimension(get_internal_model_type(model), model.config, representation),
                     proj_dim=representation.alignable_low_rank_dimension,
@@ -86,11 +87,13 @@ class AlignableModel(nn.Module):
                     subspace_partition=representation.subspace_partition
                 )
                 if representation.intervention_link_key in self._intervention_pointers:
-                    self._intervention_reverse_link[_key] = f"link#{representation.intervention_link_key}"
+                    self._intervention_reverse_link[_key] = \
+                        f"link#{representation.intervention_link_key}"
                     intervention = self._intervention_pointers[representation.intervention_link_key]
                 else:
                     intervention = intervention_function(
-                        get_alignable_dimension(get_internal_model_type(model), model.config, representation),
+                        get_alignable_dimension(
+                            get_internal_model_type(model), model.config, representation),
                         proj_dim=representation.alignable_low_rank_dimension,
                         # we can partition the subspace, and intervene on subspace
                         subspace_partition=representation.subspace_partition
@@ -98,7 +101,8 @@ class AlignableModel(nn.Module):
                     # we cache the intervention for sharing if the key is not None
                     if representation.intervention_link_key is not None:
                         self._intervention_pointers[representation.intervention_link_key] = intervention
-                        self._intervention_reverse_link[_key] = f"link#{representation.intervention_link_key}"
+                        self._intervention_reverse_link[_key] = \
+                            f"link#{representation.intervention_link_key}"
                         
             alignable_module_hook = get_alignable_module_hook(model, representation)
             self.alignable_representations[_key] = representation
@@ -172,6 +176,9 @@ class AlignableModel(nn.Module):
         self.activations = {}
         # cached swapped activations (hot)
         self.hot_activations = {}
+        
+        # temp fields should not be accessed outside
+        self._batched_setter_activation_select = {}
         """
         Activations in the future list is ALWAYS causally before
         the vanilla activation list. This field becomes crucial
@@ -239,6 +246,7 @@ class AlignableModel(nn.Module):
         self._reset_hook_count()
         self.activations.clear()
         self.hot_activations.clear()
+        self._batched_setter_activation_select.clear()
     
     
     def get_trainable_parameters(self):
@@ -452,21 +460,35 @@ class AlignableModel(nn.Module):
                         self._key_getter_call_counter[key] += 1
                     if self._intervene_on_prompt ^ is_prompt:
                         return  # no-op
-                arg_ptr = None
                 if output is None:
                     if len(args) == 0: # kwargs based calls
                         # PR: https://github.com/frankaging/align-transformers/issues/11
                         # We cannot assume the dict only contain one element
-                        arg_ptr = kwargs[list(kwargs.keys())[0]]
+                        output = kwargs[list(kwargs.keys())[0]]
                     else:
-                        arg_ptr = args
-                else:
-                    arg_ptr = output
+                        output = args
                 
                 selected_output = self._gather_intervention_output(
-                    arg_ptr, key, unit_locations[key_i]
+                    output, key, unit_locations[key_i]
                 )
-                self.activations[key] = selected_output
+                
+                if self.is_model_stateless:
+                    # WARNING: might be worth to check the below assertion at runtime, 
+                    # but commenting it out for now just to avoid confusion.
+                    # assert key not in self.activations
+                    self.activations[key] = selected_output
+                else:
+                    state_select_flag = []
+                    for unit_location in unit_locations[key_i]:
+                        if self._intervention_state[key].getter_version() in unit_location:
+                            state_select_flag += [True]
+                        else:
+                            state_select_flag += [False]
+                    # for stateful model (e.g., gru), we save extra activations and metadata to do
+                    # stateful interventions.
+                    self.activations.setdefault(key, []).append(
+                        (selected_output, state_select_flag)
+                    )
                 # set version for stateful models
                 self._intervention_state[key].inc_getter_version()
                 
@@ -474,6 +496,68 @@ class AlignableModel(nn.Module):
 
         return HandlerList(handlers)
     
+        
+    def _tidy_stateful_activations(
+        self,
+    ):
+        _need_tidify = False
+        for _, v in self.activations.items():
+            if isinstance(v[0], tuple) and isinstance(v[0][1], list):
+                _need_tidify = True
+                break
+        if _need_tidify:
+            for k, v in self.activations.items():
+                self._tidify_activations = [[] for _ in range(v[0][0].shape[0])]
+                for t in range(len(v)):
+                    activations_at_t = v[t][0] # a batched tensor
+                    states_at_t = torch.tensor(v[t][1]).bool().to(activations_at_t.device) # a batched bools
+                    selected_activations = activations_at_t[states_at_t]
+                    selected_indices = torch.nonzero(states_at_t).squeeze()
+                    if len(selected_indices.shape) == 0:
+                        selected_indices = selected_indices.unsqueeze(0)
+                    for index, activation in zip(selected_indices, selected_activations):
+                        self._tidify_activations[index].append(activation)
+                self.activations[k] = self._tidify_activations
+
+                
+    def _reconcile_stateful_cached_activations(
+        self, key, intervening_activations, intervening_unit_locations,
+    ):
+        """Based on the key, we consolidate activations based on key's state"""
+        cached_activations = self.activations[key]
+        if self.is_model_stateless:
+            # nothing to reconcile if stateless
+            return cached_activations
+
+        state_select_flag = []
+        for unit_location in intervening_unit_locations:
+            if self._intervention_state[key].setter_version() in unit_location:
+                state_select_flag += [True]
+            else:
+                state_select_flag += [False]
+        state_select_flag = torch.tensor(state_select_flag).bool().to(
+            intervening_activations.device)
+        selected_indices = torch.nonzero(state_select_flag).squeeze()
+        if len(selected_indices.shape) == 0:
+            selected_indices = selected_indices.unsqueeze(0)
+            
+        # fill activations with proposed only source activations
+        reconciled_activations = []
+        for index, select_version in enumerate(self._batched_setter_activation_select[key]):
+            if index in selected_indices:
+                reconciled_activations += [cached_activations[index][select_version]]
+            else:
+                # WARNING: put a dummy tensor, super danger here but let's trust the code for now.
+                reconciled_activations += [torch.zeros_like(cached_activations[index][0])]
+        # increment pointer for those we are actually intervening
+        for index in selected_indices:
+            self._batched_setter_activation_select[key][index] += 1
+        # for non-intervening ones, we copy again from base
+        reconciled_activations = torch.stack(reconciled_activations, dim=0) # batched
+        # reconciled_activations[~state_select_flag] = intervening_activations[~state_select_flag]
+        
+        return reconciled_activations
+        
         
     def _intervention_setter(
         self, alignable_keys, 
@@ -483,9 +567,12 @@ class AlignableModel(nn.Module):
         """
         Create a list of setter handlers that will set activations
         """
+        self._tidy_stateful_activations()
+        
         handlers = []
         for key_i, key in enumerate(alignable_keys):
-            
+            self._batched_setter_activation_select[key] = \
+                [0 for _ in range(len(unit_locations_base[0]))] # batch_size
             intervention, alignable_module_hook = self.interventions[key]
             def hook_callback(model, args, kwargs, output=None):
                 
@@ -496,44 +583,33 @@ class AlignableModel(nn.Module):
                     if self._intervene_on_prompt ^ is_prompt:
                         return  # no-op
                 if output is None:
-                    arg_ptr = None
                     if len(args) == 0: # kwargs based calls
                         # PR: https://github.com/frankaging/align-transformers/issues/11
                         # We cannot assume the dict only contain one element
-                        arg_ptr = kwargs[list(kwargs.keys())[0]]
+                        output = kwargs[list(kwargs.keys())[0]]
                     else:
-                        arg_ptr = args
-                    selected_output = self._gather_intervention_output(
-                        arg_ptr, 
-                        key, unit_locations_base[key_i]
-                    )
-                    # intervene with cached activations
-                    intervened_representation = do_intervention(
-                        selected_output, self.activations[key], 
-                        intervention, 
-                        subspaces[key_i] if subspaces is not None else None
-                    )
-                    # patched in the intervned activations
-                    arg_ptr = self._scatter_intervention_output(
-                        arg_ptr, intervened_representation,
-                        key, unit_locations_base[key_i]
-                    )
-                else:
-                    selected_output = self._gather_intervention_output(
-                        output, key, unit_locations_base[key_i]
-                    )
-                    # intervene with cached activations
-                    intervened_representation = do_intervention(
-                        selected_output, self.activations[key], 
-                        intervention, 
-                        subspaces[key_i] if subspaces is not None else None,
-                    )
-                    # patched in the intervned activations
-                    output = self._scatter_intervention_output(
-                        output, intervened_representation,
-                        key, unit_locations_base[key_i]
-                    )
+                        output = args
 
+                selected_output = self._gather_intervention_output(
+                    output, key, unit_locations_base[key_i]
+                )
+                # TODO: need to figure out why clone is needed
+                if not self.is_model_stateless:
+                    selected_output = selected_output.clone()
+                
+                intervened_representation = do_intervention(
+                    selected_output, 
+                    self._reconcile_stateful_cached_activations(
+                        key, selected_output, unit_locations_base[key_i],
+                    ),
+                    intervention, 
+                    subspaces[key_i] if subspaces is not None else None
+                )
+                # patched in the intervned activations
+                output = self._scatter_intervention_output(
+                    output, intervened_representation,
+                    key, unit_locations_base[key_i]
+                )
                 # setter can produce hot activations for shared subspace interventions if linked
                 if key in self._intervention_reverse_link:
                     self.hot_activations[self._intervention_reverse_link[key]] = output
@@ -552,6 +628,7 @@ class AlignableModel(nn.Module):
         unit_locations,
         activations_sources,
     ):
+        """Fail fast input validation"""
         if self.mode == "parallel":
             assert "sources->base" in unit_locations
         elif activations_sources is None and self.mode == "serial":
@@ -562,7 +639,26 @@ class AlignableModel(nn.Module):
             assert len(sources) == len(self._intervention_group)
         else:
             assert len(activations_sources) == len(self._intervention_group)
+        
+        # if it is stateful models, the passed in activations need to have states
+        if not self.is_model_stateless and activations_sources is not None:
+            for _, v in activations_sources.items():
+                assert isinstance(v, list) and isinstance(v[0], tuple) and \
+                    isinstance(v[0][1], list)
+            
 
+    def _output_validation(
+        self,
+    ):
+        """Safe guarding the execution by checking memory states"""
+        if self.is_model_stateless:
+            for k, v in self._intervention_state.items():
+                if v.getter_version() != 1 or v.setter_version() != 1:
+                    raise Exception(
+                        f"For stateless model, each getter and setter "
+                        f"should be called only once: {self._intervention_state}"
+                    )
+            
     
     def _flatten_input_dict_as_batch(self, input_dict):
         # we also accept grouped sources, will batch them and provide partition info.
@@ -597,6 +693,7 @@ class AlignableModel(nn.Module):
         activations_sources: Optional[Dict] = None,
         subspaces: Optional[List] = None,
     ):
+        torch.autograd.set_detect_anomaly(True)
         all_set_handlers = HandlerList([])
         unit_locations_sources = unit_locations["sources->base"][0]
         unit_locations_base = unit_locations["sources->base"][1]
@@ -614,7 +711,6 @@ class AlignableModel(nn.Module):
                         [unit_locations_sources[self.sorted_alignable_keys.index(alignable_key)]],
                     )
                     group_get_handlers.extend(get_handlers)
-                # call once per group. each intervention is by its own group by default.
                 _ = self.model(**sources[group_id])
                 group_get_handlers.remove()
         else:
@@ -811,6 +907,8 @@ class AlignableModel(nn.Module):
         # run intervened forward
         counterfactual_outputs = self.model(**base)
         set_handlers_to_remove.remove()
+        
+        self._output_validation()
                 
         return base_outputs, counterfactual_outputs
     

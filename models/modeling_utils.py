@@ -14,6 +14,8 @@ def is_stateless(model):
     Determine if the model is stateful (e.g., rnn) 
     or stateless (e.g., transformer)
     """
+    if is_gru(model):
+        return False
     return True
 
 
@@ -453,8 +455,10 @@ def scatter_neurons(
     
     if alignable_unit == "t":
         # time series models, e.g., gru
-        tensor_input[..., start_index:end_index] = \
-            replacing_tensor_input[..., start_index:end_index]
+        for batch_i, _ in enumerate(unit_locations):
+            tensor_input[
+                batch_i, start_index:end_index
+            ] = replacing_tensor_input[batch_i]
     else:
         if "head" in alignable_representation_type:
             start_index = 0 if start_index is None else start_index
