@@ -11,7 +11,7 @@ def get_internal_model_type(model):
 
 def is_stateless(model):
     """
-    Determine if the model is stateful (e.g., rnn) 
+    Determine if the model is stateful (e.g., rnn)
     or stateless (e.g., transformer)
     """
     return True
@@ -52,18 +52,18 @@ def print_forward_hooks(main_module):
             print(f"Module: {name if name else 'Main Module'}")
             for hook_id, hook in submodule._forward_pre_hooks.items():
                 print(f"  ID: {hook_id}, Hook: {hook}")
-                
+
 
 def remove_forward_hooks(main_module: nn.Module):
     """Function to remove all forward and pre-forward hooks from a module and its sub-modules."""
-    
+
     # Remove forward hooks
     for _, submodule in main_module.named_modules():
         if hasattr(submodule, "_forward_hooks"):
             hooks = list(submodule._forward_hooks.keys())  # Get a list of hook IDs
             for hook_id in hooks:
                 submodule._forward_hooks.pop(hook_id)
-        
+
         # Remove pre-forward hooks
         if hasattr(submodule, "_forward_pre_hooks"):
             pre_hooks = list(submodule._forward_pre_hooks.keys())  # Get a list of pre-hook IDs
@@ -85,13 +85,13 @@ def getattr_for_torch_module(
         else:
             current_module = getattr(current_module, param)
     return current_module
-    
+
 
 def get_alignable_dimension(
     model_type, model_config, representation
 ) -> int:
     """Based on the representation, get the aligning dimension size"""
-    
+
     dimension_proposals = type_to_dimension_mapping[
         model_type
     ][
@@ -128,7 +128,7 @@ def get_representation_dimension_by_type(
     model_type, model_config, representation_type
 ) -> int:
     """Based on the representation, get the aligning dimension size"""
-    
+
     dimension_proposals = type_to_dimension_mapping[
         model_type
     ][
@@ -159,8 +159,8 @@ def get_representation_dimension_by_type(
             return dimension
 
     assert False
-    
-    
+
+
 def get_alignable_module_hook(
     model, representation
 ) -> nn.Module:
@@ -175,13 +175,13 @@ def get_alignable_module_hook(
     if "%s" in parameter_name:
         # we assume it is for the layer.
         parameter_name = parameter_name % (representation.alignable_layer)
-        
+
     module = getattr_for_torch_module(
         model,
         parameter_name
     )
     module_hook = getattr(module, hook_type)
-    
+
     return module_hook
 
 
@@ -197,7 +197,7 @@ def check_sorted_alignables_by_topological_order(
         TOPOLOGICAL_ORDER = CONST_MLP_TOPOLOGICAL_ORDER
     elif is_gru(model):
         TOPOLOGICAL_ORDER = CONST_GRU_TOPOLOGICAL_ORDER
-    
+
     scores = {}
     for k, _ in alignable_representations.items():
         l = int(k.split('.')[1]) + 1
@@ -207,22 +207,21 @@ def check_sorted_alignables_by_topological_order(
         scores[k] = l*r*o
     sorted_keys_by_topological_order = sorted(scores.keys(), key=lambda x: scores[x])
     return sorted_alignable_keys == sorted_keys_by_topological_order
-    
 
 class HandlerList():
     """General class to set hooks and set off hooks"""
     def __init__(self, handlers):
         self.handlers = handlers
-        
+
     def __len__(self):
         return len(self.handlers)
-        
+
     def remove(self):
         for handler in self.handlers:
             handler.remove()
-    
+
     def extend(
-        self, 
+        self,
         new_handlers
     ):
         self.handlers.extend(new_handlers.handlers)
@@ -269,7 +268,7 @@ def gather_neurons(
     unit_locations_as_list
 ):
     """Gather intervening neurons"""
-    
+
     if "." in alignable_unit:
         unit_locations = (
             torch.tensor(unit_locations_as_list[0], device=tensor_input.device),
@@ -277,40 +276,39 @@ def gather_neurons(
         )
     else:
         unit_locations = torch.tensor(unit_locations_as_list, device=tensor_input.device)
-    
+
     if alignable_unit in {"pos", "h"}:
         tensor_output = torch.gather(
-            tensor_input, 1, 
+            tensor_input, 1,
             unit_locations.reshape(
-                *unit_locations.shape, 
+                *unit_locations.shape,
                 *(1,)*(len(tensor_input.shape)-2)
             ).expand(
                 -1, -1, *tensor_input.shape[2:]
             )
         )
-        
+
         return tensor_output
     elif alignable_unit in {"h.pos"}:
         # we assume unit_locations is a tuple
         head_unit_locations = unit_locations[0]
         pos_unit_locations = unit_locations[1]
-        
+
         head_tensor_output = torch.gather(
-            tensor_input, 1, 
+            tensor_input, 1,
             head_unit_locations.reshape(
-                *head_unit_locations.shape, 
+                *head_unit_locations.shape,
                 *(1,)*(len(tensor_input.shape)-2)
             ).expand(
                 -1, -1, *tensor_input.shape[2:]
             )
         ) # b, h, s, d
         d = head_tensor_output.shape[-1]
-        
         pos_tensor_input = bhsd_to_bs_hd(head_tensor_output)
         pos_tensor_output = torch.gather(
-            pos_tensor_input, 1, 
+            pos_tensor_input, 1,
             pos_unit_locations.reshape(
-                *pos_unit_locations.shape, 
+                *pos_unit_locations.shape,
                 *(1,)*(len(pos_tensor_input.shape)-2)
             ).expand(
                 -1, -1, *pos_tensor_input.shape[2:]
@@ -337,7 +335,7 @@ def split_heads(tensor, num_heads, attn_head_size):
 
 def output_to_subcomponent(
     output, alignable_representation_type, model_type, model_config
-):   
+):
     if "head" in alignable_representation_type or alignable_representation_type in {
         "query_output", "key_output", "value_output"
     }:
@@ -346,7 +344,7 @@ def output_to_subcomponent(
         num_heads = int(n_embd/attn_head_size)
     else:
         pass # this is likely to be non-transformer model for advance usages
-    
+
     # special handling when QKV are not separated by the model
     if model_type in {
         hf_models.gpt2.modeling_gpt2.GPT2Model,
@@ -357,7 +355,7 @@ def output_to_subcomponent(
             "head_query_output", "head_key_output", "head_value_output",
         }:
             qkv = output.split(
-                n_embd, 
+                n_embd,
                 dim=2
             )
             if alignable_representation_type in {
@@ -369,7 +367,7 @@ def output_to_subcomponent(
                     split_heads(qkv[2], num_heads, attn_head_size),
                 ) # each with (batch, head, seq_length, head_features)
             return qkv[CONST_QKV_INDICES[alignable_representation_type]]
-        elif alignable_representation_type in {"head_attention_value_output"}:          
+        elif alignable_representation_type in {"head_attention_value_output"}:
             return split_heads(output, num_heads, attn_head_size)
         else:
             return output
@@ -395,12 +393,12 @@ def output_to_subcomponent(
         else:
             return output
 
-        
+
 def scatter_neurons(
     tensor_input,
     replacing_tensor_input,
     alignable_representation_type,
-    alignable_unit, 
+    alignable_unit,
     unit_locations_as_list,
     model_type,
     model_config
@@ -413,7 +411,7 @@ def scatter_neurons(
         )
     else:
         unit_locations = torch.tensor(unit_locations_as_list, device=tensor_input.device)
-    
+
     if "head" in alignable_representation_type or alignable_representation_type in {
         "query_output", "key_output", "value_output"
     }:
@@ -422,7 +420,7 @@ def scatter_neurons(
         num_heads = int(n_embd/attn_head_size)
     else:
         pass # this is likely to be non-transformer model for advance usages
-    
+
     # special handling when QKV are not separated by the model.
     if model_type in {
         hf_models.gpt2.modeling_gpt2.GPT2Model,
@@ -450,7 +448,7 @@ def scatter_neurons(
             start_index, end_index = None, None
     else:
         start_index, end_index = None, None
-    
+
     if alignable_unit == "t":
         # time series models, e.g., gru
         tensor_input[..., start_index:end_index] = \
@@ -495,7 +493,7 @@ def do_intervention(
 ):
     """Do the actual intervention"""
     d = base_representation.shape[-1]
-    
+
     # flatten
     original_base_shape = base_representation.shape
     if len(original_base_shape) == 2:
@@ -512,17 +510,17 @@ def do_intervention(
         source_representation_f = bhsd_to_bs_hd(source_representation)
     else:
         assert False # what's going on?
-        
+
     if subspaces is None:
         intervened_representation = intervention(
-            base_representation_f, source_representation_f, 
+            base_representation_f, source_representation_f,
         )
     else:
         # subspace is needed for the intervention
         intervened_representation = intervention(
             base_representation_f, source_representation_f, subspaces
         )
-        
+
     # unflatten
     if len(original_base_shape) == 2:
         # no pos dimension, e.g., gru
@@ -533,7 +531,7 @@ def do_intervention(
         intervened_representation = bs_hd_to_bhsd(intervened_representation, d)
     else:
         assert False # what's going on?
-        
+
     return intervened_representation
 
 
@@ -562,4 +560,3 @@ def weighted_average(values, weights):
 
     total = sum(v * w for v, w in zip(values, weights))
     return total / sum(weights)
-

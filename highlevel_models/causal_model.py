@@ -268,7 +268,11 @@ class CausalModel:
             result.append(temp)
         return torch.cat(result)
 
-    def generate_factual_dataset(self, size, sampler=None, filter=None):
+    def generate_factual_dataset(self,
+                                size,
+                                sampler=None,
+                                filter=None,
+                                device="cpu"):
         if sampler is None:
             sampler = self.sample_input
         X,y = [],[]
@@ -279,7 +283,7 @@ class CausalModel:
                 X.append(self.inputToTensor(input))
                 y.append(self.outputToTensor(self.run_forward(input)))
                 count += 1
-        return torch.stack(X), torch.stack(y)
+        return torch.stack(X).to(device), torch.stack(y).to(device)
 
     def generate_counterfactual_dataset(self,
                                         size,
