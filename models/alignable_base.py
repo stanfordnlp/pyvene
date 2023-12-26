@@ -653,7 +653,7 @@ class AlignableModel(nn.Module):
         """Safe guarding the execution by checking memory states"""
         if self.is_model_stateless:
             for k, v in self._intervention_state.items():
-                if v.getter_version() != 1 or v.setter_version() != 1:
+                if v.getter_version() > 1 or v.setter_version() > 1:
                     raise Exception(
                         f"For stateless model, each getter and setter "
                         f"should be called only once: {self._intervention_state}"
