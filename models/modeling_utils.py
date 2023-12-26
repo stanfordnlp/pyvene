@@ -37,7 +37,7 @@ def is_mlp(model):
 
 def is_transformer(model):
     """Determine if this is a transformer model"""
-    if not is_gru and not is_mlp:
+    if not is_gru(model) and not is_mlp(model):
         return True
     return False
 
