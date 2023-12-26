@@ -220,6 +220,7 @@ class GRUForClassification(GRUPreTrainedModel):
         input_ids: Optional[torch.LongTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
+        attention_mask: Optional[torch.FloatTensor] = None,
         labels: Optional[torch.LongTensor] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
@@ -232,7 +233,25 @@ class GRUForClassification(GRUPreTrainedModel):
             return_dict,
         )
         hidden_states = gru_outputs[0]
-        pooled_logits = self.score(hidden_states[:, -1])
+        
+        if input_ids is not None:
+            batch_size, sequence_length = input_ids.shape[:2]
+        else:
+            batch_size, sequence_length = inputs_embeds.shape[:2]
+        
+        if attention_mask is None:
+            if input_ids is not None:
+                sequence_lengths = torch.ones_like(input_ids).sum(dim=-1).int() - 1
+            else:
+                sequence_lengths = torch.ones(
+                    inputs_embeds.shape[0], inputs_embeds.shape[1]).to(
+                    inputs_embeds.device).sum(dim=-1).int() - 1
+        else:
+            sequence_lengths = attention_mask.sum(dim=-1).int() - 1
+
+        pooled_hidden_states = hidden_states[
+            torch.arange(batch_size, device=hidden_states.device), sequence_lengths]
+        pooled_logits = self.score(pooled_hidden_states)
 
         loss = None
         if labels is not None:

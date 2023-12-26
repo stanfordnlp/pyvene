@@ -5,20 +5,14 @@
 </div>
 
 ### Tutorials
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**Intervention 101**]    
+[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**Transformers Intervention 101**]    
 [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/Add_New_Model_Type.ipynb) [**Add New Models and Intervention Types**]    
 [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/advance_tutorials/Intervened_Model_Generation.ipynb) [**Intervened Model Generation**]    
 [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/advance_tutorials/DAS_with_IOI.ipynb) [**IOI Circuit with DAS**]    
 
 
 # <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Intervene on NN's Activations to Trace Causal Mechanism**
-We have released a **new** generic library for studying model internals, which encapsulates **causal abstraction and distributed alignment search**[^ii], **path patching**[^pp], and **causal scrubbing**[^cs]. These methods were introduced recently to find or to help us find causal alignments with the internals of neural models. This library is designed as a playground for inventing new interventions, whether they're trainable or not, to uncover the causal mechanisms of neural models. Additionally, the library emphasizes scaling these methods to LLMs with billions of parameters. **This library focuses on Transformer-based models yet is extensible to other NN types as well (e.g., [MLP](https://github.com/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/NonTransformer_MLP_Intervention.ipynb)).**
-
-
-## Release Notes
-:white_check_mark: 05/17/2023 - Preprint with the initial version of align-transformers is released!  
-:white_check_mark: 10/04/2023 - Major infrastructure change to support hook-based and customizable interventions. To reproduce old experiments in [our NeurIPS 2023 paper](https://arxiv.org/abs/2305.08809), please use our shelved version [here](https://github.com/frankaging/align-transformers/releases/tag/NeurIPS-2023).   
-:white_check_mark: 11/29/2023 - Released 10 tutorials so far covering different usages (on interventions, alignment, and more) of this library.
+We have released a **new** generic library for studying model internals, which encapsulates **interchange intervention**[^ii], **path patching**[^pp], or **causal scrubbing**[^cs]. These methods were introduced recently to find or to help us find causal alignments with the internals of neural models. This library is designed as a playground for inventing new interventions, whether they're trainable or not, to uncover the causal mechanisms of neural models. Additionally, the library emphasizes scaling these methods to LLMs with billions of parameters. **This library focuses on Transformer-based models yet is made to be compatible with other architectures (e.g., see our tutorials about [MLP](https://github.com/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/NonTransformer_MLP_Intervention.ipynb) and [GRU](https://github.com/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/NonTransformer_GRU_Intervention.ipynb)).**
 
 ## Interventions v.s. Alignments with Model Internals
 In this section, we discuss topics from interventions to alignments with model internals.
@@ -137,6 +131,9 @@ We released [a set of tutorials](https://github.com/frankaging/align-transformer
 
 ### `DAS_with_IOI.ipynb` 
 (**Alignment Tutorial**) This is a tutorial reproducing key components (i.e., name mover heads, name position information) for the indirect object identification (IOI) circuit introduced by Wang et al. (2023).
+
+### `NonTransformer_MLP_Intervention.ipynb`  and `NonTransformer_GRU_Intervention.ipynb` 
+(**Intervention Tutorial**) These are tutorials for non-Transformer models such as MLPs and GRUs.
 
 
 ## System Requirements
