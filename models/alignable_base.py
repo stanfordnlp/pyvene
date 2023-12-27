@@ -452,7 +452,7 @@ class AlignableModel(nn.Module):
         """
         handlers = []
         for key_i, key in enumerate(alignable_keys):
-            _, alignable_module_hook = self.interventions[key]
+            intervention, alignable_module_hook = self.interventions[key]
             def hook_callback(model, args, kwargs, output=None):
                 if self._is_generation:
                     is_prompt = self._key_getter_call_counter[key] == 0
@@ -467,10 +467,16 @@ class AlignableModel(nn.Module):
                         output = kwargs[list(kwargs.keys())[0]]
                     else:
                         output = args
-                
-                selected_output = self._gather_intervention_output(
-                    output, key, unit_locations[key_i]
-                )
+
+                if isinstance(intervention, models.interventions.SkipIntervention):
+                    selected_output = self._gather_intervention_output(
+                        args[0], # this is actually the input to the module
+                        key, unit_locations[key_i]
+                    )
+                else:
+                    selected_output = self._gather_intervention_output(
+                        output, key, unit_locations[key_i]
+                    )
                 
                 if self.is_model_stateless:
                     # WARNING: might be worth to check the below assertion at runtime, 
@@ -571,9 +577,9 @@ class AlignableModel(nn.Module):
         
         handlers = []
         for key_i, key in enumerate(alignable_keys):
+            intervention, alignable_module_hook = self.interventions[key]
             self._batched_setter_activation_select[key] = \
                 [0 for _ in range(len(unit_locations_base[0]))] # batch_size
-            intervention, alignable_module_hook = self.interventions[key]
             def hook_callback(model, args, kwargs, output=None):
                 
                 if self._is_generation:
@@ -589,14 +595,14 @@ class AlignableModel(nn.Module):
                         output = kwargs[list(kwargs.keys())[0]]
                     else:
                         output = args
-
+    
                 selected_output = self._gather_intervention_output(
                     output, key, unit_locations_base[key_i]
                 )
                 # TODO: need to figure out why clone is needed
                 if not self.is_model_stateless:
                     selected_output = selected_output.clone()
-                
+
                 intervened_representation = do_intervention(
                     selected_output, 
                     self._reconcile_stateful_cached_activations(
