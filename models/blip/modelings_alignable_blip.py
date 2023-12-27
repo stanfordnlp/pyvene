@@ -31,17 +31,17 @@ blip_type_to_module_mapping = {
     'lang.attention_output': ("text_encoder.encoder.layer[%s].attention.output", CONST_OUTPUT_HOOK),
     'lang.attention_input': ("text_encoder.encoder.layer[%s].attention", CONST_INPUT_HOOK),
 
-    'decoder.block_input': ("text_decoder.encoder.layers[%s]", CONST_INPUT_HOOK),
-    'decoder.block_output': ("text_decoder.encoder.layer[%s]", CONST_INPUT_HOOK),
-    'decoder.mlp_activation': ("text_decoder.encoder.layer[%s].intermediate.dense", CONST_OUTPUT_HOOK),
-    'decoder.mlp_output': ("text_decoder.encoder.layer[%s].output", CONST_OUTPUT_HOOK),
-    'decoder.mlp_input': ("text_decoder.encoder.layer[%s].intermediate", CONST_INPUT_HOOK),
-    'decoder.self_attention_value_output': ("text_decoder.encoder.layer[%s].attention.output.dense", CONST_INPUT_HOOK),
-    'decoder.self_attention_output': ("text_decoder.encoder.layer[%s].attention.output", CONST_OUTPUT_HOOK),
-    'decoder.self_attention_input': ("text_decoder.encoder.layer[%s].attention", CONST_INPUT_HOOK),
-    'decoder.cross_attention_value_output': ("text_decoder.encoder.layer[%s].crossattention.output.dense", CONST_INPUT_HOOK),
-    'decoder.cross_attention_output': ("text_decoder.encoder.layer[%s].crossattention.output", CONST_OUTPUT_HOOK),
-    'decoder.cross_attention_input': ("text_decoder.encoder.layer[%s].crossattention", CONST_INPUT_HOOK),
+    'decoder.block_input': ("text_decoder.bert.encoder.layer[%s]", CONST_INPUT_HOOK),
+    'decoder.block_output': ("text_decoder.bert.encoder.layer[%s]", CONST_INPUT_HOOK),
+    'decoder.mlp_activation': ("text_decoder.bert.encoder.layer[%s].intermediate.dense", CONST_OUTPUT_HOOK),
+    'decoder.mlp_output': ("text_decoder.bert.encoder.layer[%s].output", CONST_OUTPUT_HOOK),
+    'decoder.mlp_input': ("text_decoder.bert.encoder.layer[%s].intermediate", CONST_INPUT_HOOK),
+    'decoder.self_attention_value_output': ("text_decoder.bert.encoder.layer[%s].attention.output.dense", CONST_INPUT_HOOK),
+    'decoder.self_attention_output': ("text_decoder.bert.encoder.layer[%s].attention.output", CONST_OUTPUT_HOOK),
+    'decoder.self_attention_input': ("text_decoder.bert.encoder.layer[%s].attention", CONST_INPUT_HOOK),
+    'decoder.cross_attention_value_output': ("text_decoder.bert.encoder.layer[%s].crossattention.output.dense", CONST_INPUT_HOOK),
+    'decoder.cross_attention_output': ("text_decoder.bert.encoder.layer[%s].crossattention.output", CONST_OUTPUT_HOOK),
+    'decoder.cross_attention_input': ("text_decoder.bert.encoder.layer[%s].crossattention", CONST_INPUT_HOOK),
 }
 
 
