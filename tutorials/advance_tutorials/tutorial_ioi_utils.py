@@ -12,6 +12,7 @@ from pathlib import Path
 import random
 from typing import Tuple, List, Sequence, Union, Any, Optional, Literal, Iterable, Callable, Dict
 import typing
+import transformers
 
 import numpy as np
 import pandas as pd
@@ -20,6 +21,17 @@ from torch import Tensor
 from torch.nn import Parameter
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
+from models.alignable_base import AlignableModel
+from models.configuration_alignable_model import AlignableRepresentationConfig, AlignableConfig
+from models.interventions import LowRankRotatedSpaceIntervention, SkipIntervention, VanillaIntervention
+
+###
+#
+# Dataset generation code is mostly copied from
+# https://github.com/amakelov/activation-patching-illusion
+#
+###
+
 
 def is_single_token(s: str, tokenizer) -> bool:
     """
@@ -417,9 +429,13 @@ class PromptDistribution:
                     patched_answer_names.append(
                         (base_prompt.s_name, base_prompt.io_name)
                     )
-        else:
-            raise NotImplementedError(f"Labels {labels} not implemented")
-
+        elif labels == "name":
+            patched_answer_names = [] # list of (correct, incorrect) name pairs
+            for base_prompt, source_prompt in zip(base_prompts, source_prompts):
+                patched_answer_names.append(
+                    (source_prompt.io_name, base_prompt.io_name)
+                )
+    
         clean_dataset = PromptDataset(base_prompts, tokenizer)
         corrupted_dataset = PromptDataset(source_prompts, tokenizer)
         patched_answer_tokens = torch.Tensor(
@@ -433,20 +449,296 @@ class PromptDistribution:
         )
 
 
-train_distribution = PromptDistribution(
-    names=NAMES[:len(NAMES) // 2],
-    objects=OBJECTS[:len(OBJECTS) // 2],
-    places=PLACES[:len(PLACES) // 2],
-    prefix_len=2,
-    prefixes=PREFIXES,
-    templates=TEMPLATES[:2]
-)
+criterion = torch.nn.CrossEntropyLoss()
+# You can define your custom compute_metrics function.
+def compute_metrics(eval_preds, eval_labels):
+    total_count = 0
+    correct_count = 0
+    for eval_pred, eval_label in zip(eval_preds, eval_labels):
+        actual_test_labels = eval_label
+        pred_test_labels = torch.argmax(eval_pred[:, -1], dim=-1)
+        correct_labels = (actual_test_labels==pred_test_labels)
+        total_count += len(correct_labels)
+        correct_count += correct_labels.sum().tolist()
+    accuracy = round(correct_count/total_count, 2)
+    return {"accuracy" : accuracy}
 
-test_distribution = PromptDistribution(
-    names=NAMES[len(NAMES) // 2:],
-    objects=OBJECTS[len(OBJECTS) // 2:],
-    places=PLACES[len(PLACES) // 2:],
-    prefix_len=2,
-    prefixes=PREFIXES,
-    templates=TEMPLATES[2:]
-)
+
+def calculate_loss(logits, labels):
+    shift_logits = logits[..., -1, :].contiguous()
+    shift_labels = labels.contiguous()
+    # Flatten the tokens
+    shift_logits = shift_logits
+    shift_labels = shift_labels.view(-1)
+    # Enable model parallelism
+    shift_labels = shift_labels.to(shift_logits.device)
+    loss = criterion(shift_logits, shift_labels)
+
+    return loss
+
+
+def single_d_low_rank_das_position_config(
+    model_type, intervention_type, layer, alignable_interventions_type,
+    alignable_low_rank_dimension=1, num_unit=1, head_level=False
+):
+    alignable_config = AlignableConfig(
+        alignable_model_type=model_type,
+        alignable_representations=[
+            AlignableRepresentationConfig(
+                layer,             # layer
+                intervention_type, # intervention type
+                "pos" if not head_level else "h.pos",
+                num_unit,
+                alignable_low_rank_dimension=alignable_low_rank_dimension, # a single das direction
+            ),
+        ],
+        alignable_interventions_type=alignable_interventions_type,
+    )
+    return alignable_config
+
+
+def find_variable_at(
+    gpt2, tokenizer, positions, layers, stream, 
+    heads=None, 
+    alignable_low_rank_dimension=1, 
+    aligning_variable="position",
+    do_vanilla_intervention=False, 
+    seed=42, 
+    debug=False
+):
+    
+    transformers.set_seed(seed)
+    
+    if aligning_variable=="name":
+        # we hacky the distribution a little
+        train_distribution = PromptDistribution(
+            names=NAMES[:20],
+            objects=OBJECTS[:len(OBJECTS) // 2],
+            places=PLACES[:len(PLACES) // 2],
+            prefix_len=2,
+            prefixes=PREFIXES,
+            templates=TEMPLATES[:2]
+        )
+
+        test_distribution = PromptDistribution(
+            names=NAMES[:20],
+            objects=OBJECTS[len(OBJECTS) // 2:],
+            places=PLACES[len(PLACES) // 2:],
+            prefix_len=2,
+            prefixes=PREFIXES,
+            templates=TEMPLATES[2:]
+        )
+    else:
+        train_distribution = PromptDistribution(
+            names=NAMES[:len(NAMES) // 2],
+            objects=OBJECTS[:len(OBJECTS) // 2],
+            places=PLACES[:len(PLACES) // 2],
+            prefix_len=2,
+            prefixes=PREFIXES,
+            templates=TEMPLATES[:2]
+        )
+
+        test_distribution = PromptDistribution(
+            names=NAMES[len(NAMES) // 2:],
+            objects=OBJECTS[len(OBJECTS) // 2:],
+            places=PLACES[len(PLACES) // 2:],
+            prefix_len=2,
+            prefixes=PREFIXES,
+            templates=TEMPLATES[2:]
+        )
+        
+    D_train = train_distribution.sample_das(
+        tokenizer=tokenizer,
+        base_patterns=['ABB', 'BAB'],
+        source_patterns=['ABB', 'BAB'] 
+            if aligning_variable=="position" else ['CDD', 'DCD'],
+        labels=aligning_variable,
+        samples_per_combination=50 if aligning_variable=="position" else 50,
+    )
+    D_test = test_distribution.sample_das(
+        tokenizer=tokenizer,
+        base_patterns=['ABB',],
+        source_patterns=['BAB'] 
+            if aligning_variable=="position" else ['DCD'],
+        labels=aligning_variable,
+        samples_per_combination=50,
+    ) + test_distribution.sample_das(
+        tokenizer=tokenizer,
+        base_patterns=['BAB',],
+        source_patterns=['ABB'] 
+            if aligning_variable=="position" else ['CDD'],
+        labels=aligning_variable,
+        samples_per_combination=50,
+    )
+    
+    across_positions = True if isinstance(positions[0], list) else False
+    
+    data = []
+
+    batch_size = 20
+    eval_every = 5
+    initial_lr = 0.01
+    n_epochs = 10
+    aligning_stream = stream
+
+    for aligning_pos in positions:
+        for aligning_layer in layers:
+            if debug:
+                print(
+                    f"finding name position at: pos->{aligning_pos}, "
+                    f"layers->{aligning_layer}, stream->{stream}"
+                )
+            if heads is not None:
+                alignable_config = single_d_low_rank_das_position_config(
+                    type(gpt2), aligning_stream, aligning_layer, 
+                    VanillaIntervention if do_vanilla_intervention else LowRankRotatedSpaceIntervention,
+                    alignable_low_rank_dimension=alignable_low_rank_dimension, num_unit=len(heads), head_level=True
+                )
+            else:
+                if across_positions:
+                    alignable_config = single_d_low_rank_das_position_config(
+                        type(gpt2), aligning_stream, aligning_layer, 
+                        VanillaIntervention if do_vanilla_intervention else LowRankRotatedSpaceIntervention,
+                        alignable_low_rank_dimension=alignable_low_rank_dimension, num_unit=len(positions[0]),
+                    )
+                else:
+                    alignable_config = single_d_low_rank_das_position_config(
+                        type(gpt2), aligning_stream, aligning_layer, 
+                        VanillaIntervention if do_vanilla_intervention else LowRankRotatedSpaceIntervention,
+                        alignable_low_rank_dimension=alignable_low_rank_dimension
+                    )
+            alignable = AlignableModel(alignable_config, gpt2)
+            alignable.set_device("cuda")
+            alignable.disable_model_gradients()
+            
+            if not do_vanilla_intervention:
+                optimizer = torch.optim.Adam(alignable.get_trainable_parameters(), lr=initial_lr)
+                scheduler = torch.optim.lr_scheduler.LinearLR(
+                    optimizer, end_factor=0.1, total_iters=n_epochs
+                )
+
+                total_step = 0
+                for epoch in range(n_epochs):
+                    torch.cuda.empty_cache()
+                    for batch_dataset in D_train.batches(batch_size=batch_size):
+                        # prepare base
+                        base_inputs = batch_dataset.base.tokens
+                        b_s = base_inputs["input_ids"].shape[0]
+                        for k, v in base_inputs.items():
+                            if v is not None and isinstance(v, torch.Tensor):
+                                base_inputs[k] = v.to(gpt2.device)
+                        # prepare source
+                        source_inputs = batch_dataset.source.tokens
+                        for k, v in source_inputs.items():
+                            if v is not None and isinstance(v, torch.Tensor):
+                                source_inputs[k] = v.to(gpt2.device)
+                        # prepare label
+                        labels = batch_dataset.patched_answer_tokens[:,0].to(gpt2.device)
+
+                        assert all(x==18 for x in batch_dataset.base.lengths)
+                        assert all(x==18 for x in batch_dataset.source.lengths)
+
+                        if heads is not None:
+                            _, counterfactual_outputs = alignable(
+                                {"input_ids": base_inputs["input_ids"]},
+                                [{"input_ids": source_inputs["input_ids"]}],
+                                {"sources->base": (
+                                    [
+                                        [[heads]*b_s, [[aligning_pos]]*b_s]
+                                    ], 
+                                    [
+                                        [[heads]*b_s, [[aligning_pos]]*b_s]
+                                    ]
+                                )}
+                            )
+                        else:
+                            if across_positions:
+                                _, counterfactual_outputs = alignable(
+                                    {"input_ids": base_inputs["input_ids"]},
+                                    [{"input_ids": source_inputs["input_ids"]}],
+                                    {"sources->base": ([[aligning_pos]*b_s], [[aligning_pos]*b_s])}
+                                ) 
+                            else:
+                                _, counterfactual_outputs = alignable(
+                                    {"input_ids": base_inputs["input_ids"]},
+                                    [{"input_ids": source_inputs["input_ids"]}],
+                                    {"sources->base": ([[[aligning_pos]]*b_s], [[[aligning_pos]]*b_s])}
+                                )
+
+                        eval_metrics = compute_metrics([counterfactual_outputs.logits], [labels])
+                        loss = calculate_loss(counterfactual_outputs.logits, labels)
+                        loss_str = round(loss.item(), 2)
+                        loss.backward()
+                        optimizer.step()
+                        scheduler.step()
+                        alignable.set_zero_grad()
+                        total_step += 1
+
+            # eval
+            eval_labels = []
+            eval_preds = []
+            with torch.no_grad():
+                torch.cuda.empty_cache()
+                for batch_dataset in D_test.batches(batch_size=batch_size):
+                    # prepare base
+                    base_inputs = batch_dataset.base.tokens
+                    b_s = base_inputs["input_ids"].shape[0]
+                    for k, v in base_inputs.items():
+                        if v is not None and isinstance(v, torch.Tensor):
+                            base_inputs[k] = v.to(gpt2.device)
+                    # prepare source
+                    source_inputs = batch_dataset.source.tokens
+                    for k, v in source_inputs.items():
+                        if v is not None and isinstance(v, torch.Tensor):
+                            source_inputs[k] = v.to(gpt2.device)
+                    # prepare label
+                    labels = batch_dataset.patched_answer_tokens[:,0].to(gpt2.device)
+
+                    assert all(x==18 for x in batch_dataset.base.lengths)
+                    assert all(x==18 for x in batch_dataset.source.lengths)
+
+                    if heads is not None:
+                        _, counterfactual_outputs = alignable(
+                            {"input_ids": base_inputs["input_ids"]},
+                            [{"input_ids": source_inputs["input_ids"]}],
+                            {"sources->base": (
+                                [
+                                    [[heads]*b_s, [[aligning_pos]]*b_s]
+                                ], 
+                                [
+                                    [[heads]*b_s, [[aligning_pos]]*b_s]
+                                ]
+                            )}
+                        )
+                    else:
+                        if across_positions:
+                            _, counterfactual_outputs = alignable(
+                                {"input_ids": base_inputs["input_ids"]},
+                                [{"input_ids": source_inputs["input_ids"]}],
+                                {"sources->base": ([[aligning_pos]*b_s], [[aligning_pos]*b_s])}
+                            ) 
+                        else:
+                            _, counterfactual_outputs = alignable(
+                                {"input_ids": base_inputs["input_ids"]},
+                                [{"input_ids": source_inputs["input_ids"]}],
+                                {"sources->base": ([[[aligning_pos]]*b_s], [[[aligning_pos]]*b_s])}
+                            )
+                    eval_labels += [labels]
+                    eval_preds += [counterfactual_outputs.logits]
+            eval_metrics = compute_metrics(eval_preds, eval_labels)
+            if heads is not None:
+                heads_str = ",".join([str(h) for h in heads])
+                data.append({
+                    "pos":aligning_pos,
+                    "layer":aligning_layer,
+                    "acc":eval_metrics['accuracy'],
+                    "stream":f"{stream}_{heads_str}"
+                })
+            else:
+                data.append({
+                    "pos":aligning_pos,
+                    "layer":aligning_layer,
+                    "acc":eval_metrics['accuracy'],
+                    "stream":stream
+                })
+    return data
