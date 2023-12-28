@@ -18,6 +18,7 @@ things that need to be changed.
 """
 
 import transformers.models as hf_models
+from models.blip.modelings_blip import BlipWrapper
 from models.mlp.modelings_mlp import MLPModel, MLPForClassification
 from models.gru.modelings_gru import GRUModel, GRULMHeadModel, GRUForClassification
 
@@ -37,6 +38,7 @@ type_to_module_mapping = {
     hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXModel: gpt_neox_type_to_module_mapping,
     hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXForCausalLM: gpt_neox_lm_type_to_module_mapping,
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_module_mapping,
+    BlipWrapper: blip_wrapper_type_to_module_mapping,
     MLPModel: mlp_type_to_module_mapping,
     MLPForClassification: mlp_classifier_type_to_module_mapping,
     GRUModel: gru_type_to_module_mapping,
@@ -56,6 +58,7 @@ type_to_dimension_mapping = {
     hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXModel: gpt_neox_type_to_dimension_mapping,
     hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXForCausalLM: gpt_neox_lm_type_to_dimension_mapping,
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_dimension_mapping,
+    BlipWrapper: blip_wrapper_type_to_dimension_mapping,
     MLPModel: mlp_type_to_dimension_mapping,
     MLPForClassification: mlp_classifier_type_to_dimension_mapping,
     GRUModel: gru_type_to_dimension_mapping,
