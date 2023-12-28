@@ -35,7 +35,6 @@ class AlignableModel(nn.Module):
         # each representation can get a different intervention type
         if type(intervention_type) == list:
             assert len(intervention_type) == len(alignable_config.alignable_representations)
-            assert all([issubclass(t, models.interventions.Intervention) for t in intervention_type])
         
         ###
         # We instantiate intervention_layers at locations.
