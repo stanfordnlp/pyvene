@@ -22,6 +22,7 @@ class MLPConfig(PretrainedConfig):
         activation_function = "gelu",
         pdrop = 0.3,
         problem_type = "single_label_classification",
+        include_bias=True,
         **kwargs
     ):
         self.include_emb = include_emb
@@ -33,6 +34,7 @@ class MLPConfig(PretrainedConfig):
         self.pdrop = pdrop
         self.n_labels = n_labels
         self.problem_type = problem_type
+        self.include_bias = include_bias
         super().__init__(**kwargs)
         
         
@@ -46,9 +48,9 @@ class MLPBlock(nn.Module):
         self, config
     ):
         super().__init__()
-        self.ff1 = nn.Linear(config.h_dim, config.h_dim)
+        self.ff1 = nn.Linear(config.h_dim, config.h_dim, bias=config.include_bias)
         self.act = ACT2FN[config.activation_function]
-        self.ff2 = nn.Linear(config.h_dim, config.h_dim)
+        self.ff2 = nn.Linear(config.h_dim, config.h_dim, bias=config.include_bias)
         self.dropout = nn.Dropout(config.pdrop)
 
         

@@ -641,15 +641,26 @@ class AlignableModel(nn.Module):
         
         # sources may contain None, but length should match
         if sources is not None:
-            assert len(sources) == len(self._intervention_group)
+            if len(sources) != len(self._intervention_group):
+                raise ValueError(
+                    f"Source length {len(sources)} is not "
+                    f"equal to intervention length {len(self._intervention_group)}."
+                )
         else:
-            assert len(activations_sources) == len(self._intervention_group)
+            if len(activations_sources) != len(self._intervention_group):
+                raise ValueError(
+                    f"Source activations length {len(activations_sources)} is not "
+                    f"equal to intervention length {len(self._intervention_group)}."
+                )
         
         # if it is stateful models, the passed in activations need to have states
         if not self.is_model_stateless and activations_sources is not None:
             for _, v in activations_sources.items():
-                assert isinstance(v, list) and isinstance(v[0], tuple) and \
-                    isinstance(v[0][1], list)
+                if isinstance(v, list) and isinstance(v[0], tuple) and \
+                    isinstance(v[0][1], list) != True:
+                    raise ValueError(
+                        f"Stateful models need nested activations. See our documentions."
+                    )
             
 
     def _output_validation(
