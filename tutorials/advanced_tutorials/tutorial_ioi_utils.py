@@ -23,7 +23,7 @@ from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from models.alignable_base import AlignableModel
 from models.configuration_alignable_model import AlignableRepresentationConfig, AlignableConfig
-from models.interventions import LowRankRotatedSpaceIntervention, SkipIntervention, VanillaIntervention
+from models.interventions import LowRankRotatedSpaceIntervention, SkipIntervention, VanillaIntervention, BoundlessRotatedSpaceIntervention
 
 ###
 #
@@ -497,13 +497,23 @@ def single_d_low_rank_das_position_config(
     return alignable_config
 
 
+def calculate_boundless_das_loss(logits, labels, alignable):
+    loss = calculate_loss(logits, labels)
+    for k, v in alignable.interventions.items():
+        boundary_loss = 2. * v[0].intervention_boundaries.sum()
+    loss += boundary_loss
+    return loss
+
+
 def find_variable_at(
     gpt2, tokenizer, positions, layers, stream, 
     heads=None, 
     alignable_low_rank_dimension=1, 
     aligning_variable="position",
     do_vanilla_intervention=False, 
+    do_boundless_das=False, 
     seed=42, 
+    return_alignable=False,
     debug=False
 ):
     
@@ -580,6 +590,13 @@ def find_variable_at(
     initial_lr = 0.01
     n_epochs = 10
     aligning_stream = stream
+    
+    if do_boundless_das:
+        _intervention_type = BoundlessRotatedSpaceIntervention
+    elif do_vanilla_intervention:
+        _intervention_type = VanillaIntervention
+    else:
+        _intervention_type = LowRankRotatedSpaceIntervention
 
     for aligning_pos in positions:
         for aligning_layer in layers:
@@ -591,33 +608,50 @@ def find_variable_at(
             if heads is not None:
                 alignable_config = single_d_low_rank_das_position_config(
                     type(gpt2), aligning_stream, aligning_layer, 
-                    VanillaIntervention if do_vanilla_intervention else LowRankRotatedSpaceIntervention,
+                    _intervention_type,
                     alignable_low_rank_dimension=alignable_low_rank_dimension, num_unit=len(heads), head_level=True
                 )
             else:
                 if across_positions:
                     alignable_config = single_d_low_rank_das_position_config(
                         type(gpt2), aligning_stream, aligning_layer, 
-                        VanillaIntervention if do_vanilla_intervention else LowRankRotatedSpaceIntervention,
+                        _intervention_type,
                         alignable_low_rank_dimension=alignable_low_rank_dimension, num_unit=len(positions[0]),
                     )
                 else:
                     alignable_config = single_d_low_rank_das_position_config(
                         type(gpt2), aligning_stream, aligning_layer, 
-                        VanillaIntervention if do_vanilla_intervention else LowRankRotatedSpaceIntervention,
+                        _intervention_type,
                         alignable_low_rank_dimension=alignable_low_rank_dimension
                     )
             alignable = AlignableModel(alignable_config, gpt2)
             alignable.set_device("cuda")
             alignable.disable_model_gradients()
-            
+            total_step = 0
             if not do_vanilla_intervention:
-                optimizer = torch.optim.Adam(alignable.get_trainable_parameters(), lr=initial_lr)
+                if do_boundless_das:
+                    optimizer_params = []
+                    for k, v in alignable.interventions.items():
+                        optimizer_params += [{'params': v[0].rotate_layer.parameters()}]
+                        optimizer_params += [{'params': v[0].intervention_boundaries, 'lr': 0.5}]
+                    optimizer = torch.optim.Adam(
+                        optimizer_params,
+                        lr=initial_lr
+                    )
+                    target_total_step = int(len(D_train)/batch_size) * n_epochs
+                    temperature_start = 50.0
+                    temperature_end = 0.1
+                    temperature_schedule = torch.linspace(
+                        temperature_start, temperature_end, target_total_step
+                    ).to(torch.bfloat16).to("cuda")
+                    alignable.set_temperature(temperature_schedule[total_step])
+                else:
+                    optimizer = torch.optim.Adam(alignable.get_trainable_parameters(), lr=initial_lr)
                 scheduler = torch.optim.lr_scheduler.LinearLR(
                     optimizer, end_factor=0.1, total_iters=n_epochs
                 )
 
-                total_step = 0
+                
                 for epoch in range(n_epochs):
                     torch.cuda.empty_cache()
                     for batch_dataset in D_train.batches(batch_size=batch_size):
@@ -666,12 +700,19 @@ def find_variable_at(
                                 )
 
                         eval_metrics = compute_metrics([counterfactual_outputs.logits], [labels])
-                        loss = calculate_loss(counterfactual_outputs.logits, labels)
+                        if do_boundless_das:
+                            loss = calculate_boundless_das_loss(counterfactual_outputs.logits, labels, alignable)
+                        else:
+                            loss = calculate_loss(counterfactual_outputs.logits, labels)
                         loss_str = round(loss.item(), 2)
                         loss.backward()
                         optimizer.step()
                         scheduler.step()
                         alignable.set_zero_grad()
+                        if do_boundless_das:
+                            alignable.set_temperature(temperature_schedule[total_step])
+                            for k, v in alignable.interventions.items():
+                                intervention_boundaries = v[0].intervention_boundaries.sum()
                         total_step += 1
 
             # eval
@@ -726,19 +767,35 @@ def find_variable_at(
                     eval_labels += [labels]
                     eval_preds += [counterfactual_outputs.logits]
             eval_metrics = compute_metrics(eval_preds, eval_labels)
-            if heads is not None:
-                heads_str = ",".join([str(h) for h in heads])
+            
+            
+
+            if do_boundless_das:
+                for k, v in alignable.interventions.items():
+                    intervention_boundaries = v[0].intervention_boundaries.sum()
                 data.append({
                     "pos":aligning_pos,
                     "layer":aligning_layer,
                     "acc":eval_metrics['accuracy'],
-                    "stream":f"{stream}_{heads_str}"
-                })
-            else:
-                data.append({
-                    "pos":aligning_pos,
-                    "layer":aligning_layer,
-                    "acc":eval_metrics['accuracy'],
+                    "boundary":intervention_boundaries,
                     "stream":stream
                 })
+            else:
+                if heads is not None:
+                    heads_str = ",".join([str(h) for h in heads])
+                    data.append({
+                        "pos":aligning_pos,
+                        "layer":aligning_layer,
+                        "acc":eval_metrics['accuracy'],
+                        "stream":f"{stream}_{heads_str}"
+                    })
+                else:
+                    data.append({
+                        "pos":aligning_pos,
+                        "layer":aligning_layer,
+                        "acc":eval_metrics['accuracy'],
+                        "stream":stream
+                    })
+    if return_alignable:
+        return data, alignable
     return data
