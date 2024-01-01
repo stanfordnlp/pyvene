@@ -301,10 +301,10 @@ class CausalModel:
         examples = []
         count = 0
         while count < size:
-            example = dict()
             intervention = intervention_sampler()
             if filter is None or filter(intervention):
                 for _ in range(batch_size):
+                    example = dict()
                     base = sampler()
                     sources = []
                     source_dic = {}
