@@ -35,7 +35,6 @@ class AlignableModel(nn.Module):
         # each representation can get a different intervention type
         if type(intervention_type) == list:
             assert len(intervention_type) == len(alignable_config.alignable_representations)
-            assert all([issubclass(t, models.interventions.Intervention) for t in intervention_type])
         
         ###
         # We instantiate intervention_layers at locations.
@@ -452,7 +451,7 @@ class AlignableModel(nn.Module):
         """
         handlers = []
         for key_i, key in enumerate(alignable_keys):
-            _, alignable_module_hook = self.interventions[key]
+            intervention, alignable_module_hook = self.interventions[key]
             def hook_callback(model, args, kwargs, output=None):
                 if self._is_generation:
                     is_prompt = self._key_getter_call_counter[key] == 0
@@ -467,10 +466,16 @@ class AlignableModel(nn.Module):
                         output = kwargs[list(kwargs.keys())[0]]
                     else:
                         output = args
-                
-                selected_output = self._gather_intervention_output(
-                    output, key, unit_locations[key_i]
-                )
+
+                if isinstance(intervention, models.interventions.SkipIntervention):
+                    selected_output = self._gather_intervention_output(
+                        args[0], # this is actually the input to the module
+                        key, unit_locations[key_i]
+                    )
+                else:
+                    selected_output = self._gather_intervention_output(
+                        output, key, unit_locations[key_i]
+                    )
                 
                 if self.is_model_stateless:
                     # WARNING: might be worth to check the below assertion at runtime, 
@@ -571,9 +576,9 @@ class AlignableModel(nn.Module):
         
         handlers = []
         for key_i, key in enumerate(alignable_keys):
+            intervention, alignable_module_hook = self.interventions[key]
             self._batched_setter_activation_select[key] = \
                 [0 for _ in range(len(unit_locations_base[0]))] # batch_size
-            intervention, alignable_module_hook = self.interventions[key]
             def hook_callback(model, args, kwargs, output=None):
                 
                 if self._is_generation:
@@ -589,14 +594,14 @@ class AlignableModel(nn.Module):
                         output = kwargs[list(kwargs.keys())[0]]
                     else:
                         output = args
-
+    
                 selected_output = self._gather_intervention_output(
                     output, key, unit_locations_base[key_i]
                 )
                 # TODO: need to figure out why clone is needed
                 if not self.is_model_stateless:
                     selected_output = selected_output.clone()
-                
+
                 intervened_representation = do_intervention(
                     selected_output, 
                     self._reconcile_stateful_cached_activations(
@@ -636,15 +641,26 @@ class AlignableModel(nn.Module):
         
         # sources may contain None, but length should match
         if sources is not None:
-            assert len(sources) == len(self._intervention_group)
+            if len(sources) != len(self._intervention_group):
+                raise ValueError(
+                    f"Source length {len(sources)} is not "
+                    f"equal to intervention length {len(self._intervention_group)}."
+                )
         else:
-            assert len(activations_sources) == len(self._intervention_group)
+            if len(activations_sources) != len(self._intervention_group):
+                raise ValueError(
+                    f"Source activations length {len(activations_sources)} is not "
+                    f"equal to intervention length {len(self._intervention_group)}."
+                )
         
         # if it is stateful models, the passed in activations need to have states
         if not self.is_model_stateless and activations_sources is not None:
             for _, v in activations_sources.items():
-                assert isinstance(v, list) and isinstance(v[0], tuple) and \
-                    isinstance(v[0][1], list)
+                if isinstance(v, list) and isinstance(v[0], tuple) and \
+                    isinstance(v[0][1], list) != True:
+                    raise ValueError(
+                        f"Stateful models need nested activations. See our documentions."
+                    )
             
 
     def _output_validation(

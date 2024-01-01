@@ -48,6 +48,31 @@ class SharedWeightsTrainableIntervention(TrainableIntervention):
         super().__init__()
         self.shared_weights = True
 
+class SkipIntervention(BasisAgnosticIntervention):
+
+    """Skip the current intervening layer's computation in the hook function."""
+    def __init__(self, embed_dim, **kwargs):
+        super().__init__()
+        self.interchange_dim = None
+        self.subspace_partition = kwargs["subspace_partition"] \
+            if "subspace_partition" in kwargs else None
+
+    def set_interchange_dim(self, interchange_dim):
+        self.interchange_dim = interchange_dim
+
+    def forward(self, base, source, subspaces=None):
+        # source here is the base example input to the hook
+        return _do_intervention_by_swap(
+            base, source,
+            "interchange",
+            self.interchange_dim,
+            subspaces,
+            subspace_partition=self.subspace_partition
+        )
+
+    def __str__(self):
+        return f"SkipIntervention(embed_dim={self.embed_dim})"
+
 
 class VanillaIntervention(Intervention):
 

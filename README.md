@@ -136,6 +136,15 @@ We released [a set of tutorials](https://github.com/frankaging/align-transformer
 (**Intervention Tutorial**) These are tutorials for non-Transformer models such as MLPs and GRUs.
 
 
+## Unit-tests
+When adding new methods or APIs, unit tests are now enforced. To run existing tests, you can kick off the python unittest command in the discovery mode as,
+```bash
+cd align-transformers
+python -m unittest discover -p '*TestCase.py'
+```
+When checking in new code, please also consider to add new tests in the same PR. Please include test results in the PR to make sure all the existing test cases are passing. Please see the `qa_runbook.ipynb` notebook about a set of conventions about how to add test cases. The code coverage for this repository is currently `low`, and we are adding more automated tests.
+
+
 ## System Requirements
 - Python 3.8 is supported.
 - Pytorch Version: >= 2.0
