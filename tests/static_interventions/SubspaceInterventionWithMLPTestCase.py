@@ -267,7 +267,7 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
             raise AssertionError("RuntimeError by torch was not raised")
 
 def suite():
-    suite = unittest.TestSuite("SubspaceInterventionWithMLPTestCase")
+    suite = unittest.TestSuite()
     suite.addTest(SubspaceInterventionWithMLPTestCase('test_clean_run_positive'))
     suite.addTest(SubspaceInterventionWithMLPTestCase('test_with_subspace_positive'))
     suite.addTest(SubspaceInterventionWithMLPTestCase('test_with_subspace_negative'))
