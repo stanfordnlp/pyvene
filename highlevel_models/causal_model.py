@@ -169,7 +169,7 @@ class CausalModel:
         return total_setting
 
     def run_interchange(self, input, source_interventions):
-        interchange_intervention = input
+        interchange_intervention = copy.deepcopy(input)
         for var in source_interventions:
             setting = self.run_forward(source_interventions[var])
             interchange_intervention[var] = setting[var]
