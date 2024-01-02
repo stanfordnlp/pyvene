@@ -3,7 +3,7 @@
 # common imports
 #
 ##################
-import torch
+import torch, random
 import pandas as pd
 import numpy as np
 from transformers import GPT2Config

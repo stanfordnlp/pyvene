@@ -230,7 +230,6 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
         self.assertTrue(torch.allclose(golden_out_overwrite, our_out_overwrite[0]))
 
     def test_no_intervention_link_negative(self):
-        pass
         """
         Negative test case to intervene not linked subspace with trainable interventions.
         """

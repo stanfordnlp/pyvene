@@ -1,3 +1,6 @@
+CONST_VALID_ALIGNABLE_UNIT = ["pos", "h", "h.pos"]
+
+
 CONST_INPUT_HOOK = "register_forward_pre_hook"
 CONST_OUTPUT_HOOK = "register_forward_hook"
 

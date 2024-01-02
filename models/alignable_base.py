@@ -72,6 +72,12 @@ class AlignableModel(nn.Module):
         for i, representation in enumerate(alignable_config.alignable_representations):
             _key = self._get_representation_key(representation)
             
+            if representation.alignable_unit not in CONST_VALID_ALIGNABLE_UNIT:
+                raise ValueError(
+                    f"{representation.alignable_unit} is not supported as alignable unit. Valid options: ",
+                    f"{CONST_VALID_ALIGNABLE_UNIT}"
+                )
+            
             if alignable_config.alignable_interventions is not None \
                 and alignable_config.alignable_interventions[0] is not None:
                 # we leave this option open but not sure if it is a desired one
