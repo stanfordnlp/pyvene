@@ -1,4 +1,4 @@
-import json
+import json, logging
 import numpy as np
 from collections import OrderedDict
 from typing import List, Optional, Tuple, Union, Dict
@@ -32,6 +32,14 @@ class AlignableModel(nn.Module):
         self.mode = alignable_config.mode
         intervention_type = alignable_config.alignable_interventions_type
         self.is_model_stateless = is_stateless(model)
+        self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
+        if self.use_fast:
+            logging.warn(
+                "Detected use_fast=True means the intervention location "
+                "will be static within a batch.\n\nIn case multiple "
+                "location tags are passed only the first one will "
+                "be considered"
+            )
         # each representation can get a different intervention type
         if type(intervention_type) == list:
             assert len(intervention_type) == len(alignable_config.alignable_representations)
@@ -72,6 +80,12 @@ class AlignableModel(nn.Module):
         for i, representation in enumerate(alignable_config.alignable_representations):
             _key = self._get_representation_key(representation)
             
+            if representation.alignable_unit not in CONST_VALID_ALIGNABLE_UNIT:
+                raise ValueError(
+                    f"{representation.alignable_unit} is not supported as alignable unit. Valid options: ",
+                    f"{CONST_VALID_ALIGNABLE_UNIT}"
+                )
+            
             if alignable_config.alignable_interventions is not None \
                 and alignable_config.alignable_interventions[0] is not None:
                 # we leave this option open but not sure if it is a desired one
@@ -95,7 +109,8 @@ class AlignableModel(nn.Module):
                             get_internal_model_type(model), model.config, representation),
                         proj_dim=representation.alignable_low_rank_dimension,
                         # we can partition the subspace, and intervene on subspace
-                        subspace_partition=representation.subspace_partition
+                        subspace_partition=representation.subspace_partition,
+                        use_fast=self.use_fast
                     )
                     # we cache the intervention for sharing if the key is not None
                     if representation.intervention_link_key is not None:
@@ -330,14 +345,20 @@ class AlignableModel(nn.Module):
         """
         Set device of interventions and the model
         """
+        _linked_key_set = set([])
         total_parameters = 0
         for k, v in self.interventions.items():
             if isinstance(
                 v[0], 
                 models.interventions.TrainableIntervention
             ):
-                total_parameters += count_parameters(v[0])
-        return total_parameters       
+                if k in self._intervention_reverse_link:
+                    if not self._intervention_reverse_link[k] in _linked_key_set:
+                        _linked_key_set.add(self._intervention_reverse_link[k])
+                        total_parameters += count_parameters(v[0])
+                else:
+                    total_parameters += count_parameters(v[0])
+        return total_parameters     
         
         
     def set_zero_grad(self):
@@ -438,7 +459,8 @@ class AlignableModel(nn.Module):
             alignable_unit,
             unit_locations, 
             self.model_type,
-            self.model_config
+            self.model_config,
+            self.use_fast
         )
         return replaced_output
     
@@ -632,6 +654,7 @@ class AlignableModel(nn.Module):
         sources,
         unit_locations,
         activations_sources,
+        subspaces,
     ):
         """Fail fast input validation"""
         if self.mode == "parallel":
@@ -661,7 +684,7 @@ class AlignableModel(nn.Module):
                     raise ValueError(
                         f"Stateful models need nested activations. See our documentions."
                     )
-            
+        
 
     def _output_validation(
         self,
@@ -898,6 +921,7 @@ class AlignableModel(nn.Module):
             sources,
             unit_locations,
             activations_sources,
+            subspaces,
         )
         
         # returning un-intervened output without gradients
@@ -1210,9 +1234,9 @@ class AlignableModel(nn.Module):
 
                 if gradient_accumulation_steps > 1:
                     loss = loss / gradient_accumulation_steps
+                    loss.backward()
                 if total_step % gradient_accumulation_steps == 0:
                     if not (gradient_accumulation_steps > 1 and total_step == 0):
-                        loss.backward()
                         optimizer.step()
                         scheduler.step()
                         self.set_zero_grad()

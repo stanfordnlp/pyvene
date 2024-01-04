@@ -403,7 +403,8 @@ def scatter_neurons(
     alignable_unit,
     unit_locations_as_list,
     model_type,
-    model_config
+    model_config,
+    use_fast
 ):
     if "." in alignable_unit:
         # extra dimension for multi-level intervention
@@ -481,11 +482,16 @@ def scatter_neurons(
                             batch_i, :, h_start_index:h_end_index
                         ] = replacing_tensor_input[batch_i, loc_i] # [s, dh]
         else:
-            # pos-based scattering
-            for batch_i, locations in enumerate(unit_locations):
+            if use_fast:
                 tensor_input[
-                    batch_i, locations, start_index:end_index
-                ] = replacing_tensor_input[batch_i]
+                    :, unit_locations[0], start_index:end_index
+                ] = replacing_tensor_input[:]
+            else:
+                # pos-based scattering
+                for batch_i, locations in enumerate(unit_locations):
+                    tensor_input[
+                        batch_i, locations, start_index:end_index
+                    ] = replacing_tensor_input[batch_i]
     return tensor_input
 
 

@@ -1,4 +1,5 @@
 .huggingface_cache/
+tests/_hidden*
 playground.ipynb
 */.cache_dir
 */*/.cache_dir
