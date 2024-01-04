@@ -43,11 +43,37 @@ def _do_intervention_by_swap(
     base, source, mode="interchange", 
     interchange_dim=None,
     subspaces=None,
-    subspace_partition=None
+    subspace_partition=None,
+    use_fast=False,
 ):
     """The basic do function that guards interventions"""
     # interchange
-    if subspaces is not None:
+    if use_fast:
+        if subspaces is not None:
+            if subspace_partition is None:
+                sel_subspace_indices = subspaces[0]
+            else:
+                sel_subspace_indices = []
+                for subspace in subspaces[0]:
+                    sel_subspace_indices.extend(
+                        [
+                            i for i in range(
+                                subspace_partition[subspace][0], 
+                                subspace_partition[subspace][1]
+                            )
+                        ])
+            if mode == "interchange":
+                base[..., sel_subspace_indices] = \
+                    source[..., sel_subspace_indices]
+            elif mode == "add":
+                base[..., sel_subspace_indices] += \
+                    source[..., sel_subspace_indices]
+            elif mode == "subtract":
+                base[..., sel_subspace_indices] -= \
+                    source[..., sel_subspace_indices]
+        else:
+            base[..., :interchange_dim] = source[..., :interchange_dim]
+    elif subspaces is not None:
         for example_i in range(len(subspaces)):
             # render subspace as column indices
             sel_subspace_indices = []

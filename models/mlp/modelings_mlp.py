@@ -50,16 +50,13 @@ class MLPBlock(nn.Module):
         super().__init__()
         self.ff1 = nn.Linear(config.h_dim, config.h_dim, bias=config.include_bias)
         self.act = ACT2FN[config.activation_function]
-        self.ff2 = nn.Linear(config.h_dim, config.h_dim, bias=config.include_bias)
         self.dropout = nn.Dropout(config.pdrop)
 
         
     def forward(self, hidden_states):
         return self.dropout(
-            self.ff2(
-                self.act(
-                    self.ff1(hidden_states)
-                )
+            self.act(
+                self.ff1(hidden_states)
             )
         )
 

@@ -9,9 +9,11 @@ from models.intervention_utils import _do_intervention_by_swap
 class Intervention(torch.nn.Module, ABC):
 
     """Intervention the original representations."""
-    def __init__(self):
+    def __init__(self, **kwargs):
         super().__init__()
         self.trainble = False
+        self.use_fast = kwargs["use_fast"] \
+            if "use_fast" in kwargs else False
         
     @abstractmethod
     def set_interchange_dim(self, interchange_dim):
@@ -25,8 +27,8 @@ class Intervention(torch.nn.Module, ABC):
 class TrainableIntervention(Intervention):
 
     """Intervention the original representations."""
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.trainble = True
     
     def tie_weight(self, linked_intervention):
@@ -36,16 +38,16 @@ class TrainableIntervention(Intervention):
 class BasisAgnosticIntervention(Intervention):
 
     """Intervention that will modify its basis in a uncontrolled manner."""
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.basis_agnostic = True
 
         
 class SharedWeightsTrainableIntervention(TrainableIntervention):
 
     """Intervention the original representations."""
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.shared_weights = True
 
         
@@ -53,7 +55,7 @@ class SkipIntervention(BasisAgnosticIntervention):
     
     """Skip the current intervening layer's computation in the hook function."""
     def __init__(self, embed_dim, **kwargs):
-        super().__init__()
+        super().__init__(**kwargs)
         self.interchange_dim = None
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
@@ -68,7 +70,8 @@ class SkipIntervention(BasisAgnosticIntervention):
             "interchange", 
             self.interchange_dim,
             subspaces,
-            subspace_partition=self.subspace_partition
+            subspace_partition=self.subspace_partition,
+            use_fast=self.use_fast
         )
 
     def __str__(self):
@@ -79,7 +82,7 @@ class VanillaIntervention(Intervention):
     
     """Intervention the original representations."""
     def __init__(self, embed_dim, **kwargs):
-        super().__init__()
+        super().__init__(**kwargs)
         self.interchange_dim = None
         self.embed_dim = embed_dim
         self.subspace_partition = kwargs["subspace_partition"] \
@@ -94,7 +97,8 @@ class VanillaIntervention(Intervention):
             "interchange", 
             self.interchange_dim,
             subspaces,
-            subspace_partition=self.subspace_partition
+            subspace_partition=self.subspace_partition,
+            use_fast=self.use_fast
         )
 
     def __str__(self):
@@ -105,7 +109,7 @@ class AdditionIntervention(BasisAgnosticIntervention):
     
     """Intervention the original representations with activation addition."""
     def __init__(self, embed_dim, **kwargs):
-        super().__init__()
+        super().__init__(**kwargs)
         self.interchange_dim = None
         self.embed_dim = embed_dim
         self.subspace_partition = kwargs["subspace_partition"] \
@@ -120,7 +124,8 @@ class AdditionIntervention(BasisAgnosticIntervention):
             "add", 
             self.interchange_dim,
             subspaces,
-            subspace_partition=self.subspace_partition
+            subspace_partition=self.subspace_partition,
+            use_fast=self.use_fast
         )
 
     def __str__(self):
@@ -131,7 +136,7 @@ class SubtractionIntervention(BasisAgnosticIntervention):
     
     """Intervention the original representations with activation subtraction."""
     def __init__(self, embed_dim, **kwargs):
-        super().__init__()
+        super().__init__(**kwargs)
         self.interchange_dim = None
         self.embed_dim = embed_dim
         self.subspace_partition = kwargs["subspace_partition"] \
@@ -146,7 +151,8 @@ class SubtractionIntervention(BasisAgnosticIntervention):
             "subtract", 
             self.interchange_dim,
             subspaces,
-            subspace_partition=self.subspace_partition
+            subspace_partition=self.subspace_partition,
+            use_fast=self.use_fast
         )
 
     def __str__(self):
@@ -157,7 +163,7 @@ class RotatedSpaceIntervention(TrainableIntervention):
     
     """Intervention in the rotated space."""
     def __init__(self, embed_dim, **kwargs):
-        super().__init__()
+        super().__init__(**kwargs)
         rotate_layer = RotateLayer(embed_dim)
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
         self.interchange_dim = None
@@ -179,7 +185,8 @@ class RotatedSpaceIntervention(TrainableIntervention):
             "interchange", 
             self.interchange_dim,
             subspaces,
-            subspace_partition=self.subspace_partition
+            subspace_partition=self.subspace_partition,
+            use_fast=self.use_fast
         )
         # inverse base
         output = torch.matmul(rotated_base, self.rotate_layer.weight.T)
@@ -193,7 +200,7 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention):
     
     """Intervention in the rotated space with boundary mask."""
     def __init__(self, embed_dim, **kwargs):
-        super().__init__()
+        super().__init__(**kwargs)
         rotate_layer = RotateLayer(embed_dim)
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(
             rotate_layer)
@@ -251,7 +258,7 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention):
     
     """Intervention in the rotated space."""
     def __init__(self, embed_dim, **kwargs):
-        super().__init__()
+        super().__init__(**kwargs)
         rotate_layer = LowRankRotateLayer(embed_dim, kwargs["proj_dim"])
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
         self.interchange_dim = None
@@ -266,30 +273,49 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention):
         rotated_base = self.rotate_layer(base)
         rotated_source = self.rotate_layer(source)
         if subspaces is not None:
-            output = []
-            diff = rotated_source - rotated_base
-            assert rotated_base.shape[0] == len(subspaces)
-            batched_subspace = []
-            batched_weights = []
-            for example_i in range(len(subspaces)):
-                # render subspace as column indices
-                sel_subspace_indices = []
-                for subspace in subspaces[example_i]:
-                    sel_subspace_indices.extend(
-                        [
-                            i for i in range(
-                                self.subspace_partition[subspace][0], 
-                                self.subspace_partition[subspace][1]
-                            )
-                        ])
-                
-                LHS = diff[example_i, sel_subspace_indices].unsqueeze(dim=0)
-                RHS = self.rotate_layer.weight[..., sel_subspace_indices].T
-                batched_subspace += [LHS]
-                batched_weights += [RHS]
-            batched_subspace = torch.stack(batched_subspace, dim=0)
-            batched_weights = torch.stack(batched_weights, dim=0)
-            output = base + torch.bmm(batched_subspace, batched_weights).squeeze(dim=1)
+            if self.use_fast:
+                if self.subspace_partition is None:
+                    sel_subspace_indices = subspaces[0]
+                else:
+                    sel_subspace_indices = []
+                    for subspace in subspaces[0]:
+                        sel_subspace_indices.extend(
+                            [
+                                i for i in range(
+                                    self.subspace_partition[subspace][0], 
+                                    self.subspace_partition[subspace][1]
+                                )
+                            ])
+                diff = rotated_source - rotated_base
+                assert rotated_base.shape[0] == len(subspaces)
+                batched_subspace = diff[..., sel_subspace_indices].unsqueeze(dim=1)
+                batched_weights = self.rotate_layer.weight[..., sel_subspace_indices].T
+                output = base + torch.matmul(batched_subspace, batched_weights).squeeze(dim=1)
+            else:
+                output = []
+                diff = rotated_source - rotated_base
+                assert rotated_base.shape[0] == len(subspaces)
+                batched_subspace = []
+                batched_weights = []
+                for example_i in range(len(subspaces)):
+                    # render subspace as column indices
+                    sel_subspace_indices = []
+                    for subspace in subspaces[example_i]:
+                        sel_subspace_indices.extend(
+                            [
+                                i for i in range(
+                                    self.subspace_partition[subspace][0], 
+                                    self.subspace_partition[subspace][1]
+                                )
+                            ])
+
+                    LHS = diff[example_i, sel_subspace_indices].unsqueeze(dim=0)
+                    RHS = self.rotate_layer.weight[..., sel_subspace_indices].T
+                    batched_subspace += [LHS]
+                    batched_weights += [RHS]
+                batched_subspace = torch.stack(batched_subspace, dim=0)
+                batched_weights = torch.stack(batched_weights, dim=0)
+                output = base + torch.matmul(batched_subspace, batched_weights).squeeze(dim=1)
         else:
             output = base + torch.matmul((rotated_source - rotated_base), self.rotate_layer.weight.T)
         return output.to(base.dtype)
@@ -302,7 +328,7 @@ class PCARotatedSpaceIntervention(BasisAgnosticIntervention):
     
     """Intervention in the pca space."""
     def __init__(self, embed_dim, **kwargs):
-        super().__init__(embed_dim)
+        super().__init__(embed_dim, **kwargs)
         self.pca_components = torch.nn.Parameter(torch.tensor(
             pca.components_, dtype=torch.float32), requires_grad=False)
         self.pca_mean = torch.nn.Parameter(

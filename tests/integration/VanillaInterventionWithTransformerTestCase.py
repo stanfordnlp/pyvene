@@ -91,7 +91,7 @@ class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
     def _test_with_position_intervention(
         self,
         intervention_layer, intervention_stream, intervention_type, 
-        positions=[0],
+        positions=[0], use_fast=False
     ):
         max_position = np.max(np.array(positions))
         if isinstance(positions[0], list):
@@ -114,7 +114,8 @@ class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
             alignable_interventions_type=intervention_type,
         )
         alignable = AlignableModel(
-            alignable_config, self.gpt2)
+            alignable_config, self.gpt2, use_fast=use_fast
+        )
         intervention = list(alignable.interventions.values())[0][0]
 
         base_activations = {}
@@ -299,6 +300,19 @@ class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
                 positions=[7, 2],
             )
             
+    def test_with_use_fast_vanilla_intervention_positive(self):
+        """
+        Enable use_fast with vanilla intervention.
+        """
+        for stream in self.nonhead_streams:
+            print(f"testing stream: {stream} with a single position")
+            self._test_with_position_intervention(
+                intervention_layer=random.randint(0,3), 
+                intervention_stream=stream, 
+                intervention_type=VanillaIntervention, 
+                positions=[0], use_fast=True
+            )
+            
             
 def suite():
     suite = unittest.TestSuite()
@@ -316,6 +330,8 @@ def suite():
         'test_with_single_head_position_vanilla_intervention_positive'))
     suite.addTest(VanillaInterventionWithTransformerTestCase(
         'test_with_multiple_heads_positions_vanilla_intervention_positive'))
+    suite.addTest(VanillaInterventionWithTransformerTestCase(
+        'test_with_use_fast_vanilla_intervention_positive'))
     return suite
 
 
