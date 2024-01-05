@@ -1234,7 +1234,7 @@ class AlignableModel(nn.Module):
 
                 if gradient_accumulation_steps > 1:
                     loss = loss / gradient_accumulation_steps
-                    loss.backward()
+                loss.backward()
                 if total_step % gradient_accumulation_steps == 0:
                     if not (gradient_accumulation_steps > 1 and total_step == 0):
                         optimizer.step()
