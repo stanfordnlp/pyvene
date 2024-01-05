@@ -454,14 +454,24 @@ criterion = torch.nn.CrossEntropyLoss()
 def compute_metrics(eval_preds, eval_labels):
     total_count = 0
     correct_count = 0
+    kl_divs = []
     for eval_pred, eval_label in zip(eval_preds, eval_labels):
+        # acc
         actual_test_labels = eval_label
         pred_test_labels = torch.argmax(eval_pred[:, -1], dim=-1)
         correct_labels = (actual_test_labels==pred_test_labels)
         total_count += len(correct_labels)
         correct_count += correct_labels.sum().tolist()
+        # kl div
+        kl_divs += [
+            eval_pred[:, -1][
+                torch.arange(len(actual_test_labels)), 
+                actual_test_labels
+            ]
+        ]
     accuracy = round(correct_count/total_count, 2)
-    return {"accuracy" : accuracy}
+    kl_div = torch.cat(kl_divs, dim=0).mean()
+    return {"accuracy" : accuracy, "kl_div": kl_div}
 
 
 def calculate_loss(logits, labels):
@@ -777,6 +787,7 @@ def find_variable_at(
                     "pos":aligning_pos,
                     "layer":aligning_layer,
                     "acc":eval_metrics['accuracy'],
+                    "kl_div":eval_metrics['kl_div'],
                     "boundary":intervention_boundaries,
                     "stream":stream
                 })
@@ -787,6 +798,7 @@ def find_variable_at(
                         "pos":aligning_pos,
                         "layer":aligning_layer,
                         "acc":eval_metrics['accuracy'],
+                        "kl_div":eval_metrics['kl_div'],
                         "stream":f"{stream}_{heads_str}"
                     })
                 else:
@@ -794,6 +806,7 @@ def find_variable_at(
                         "pos":aligning_pos,
                         "layer":aligning_layer,
                         "acc":eval_metrics['accuracy'],
+                        "kl_div":eval_metrics['kl_div'],
                         "stream":stream
                     })
     if return_alignable:
