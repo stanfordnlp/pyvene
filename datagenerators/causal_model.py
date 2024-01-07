@@ -315,7 +315,7 @@ class CausalModel:
                         sources.append(self.inputToTensor(source))
                         source_dic[var] = source
                     for _ in range(maxlength - len(sources)):
-                        sources.append(torch.zeros(self.inputToTensor(self.sample_input()).shape))
+                        sources.append(torch.zeros(self.inputToTensor(sampler()).shape))
                     example["labels"] = self.outputToTensor(self.run_interchange(base, source_dic)).to(device)
                     example["base_labels"] = self.outputToTensor(self.run_forward(base)).to(device)
                     example["input_ids"] = self.inputToTensor(base).to(device)
