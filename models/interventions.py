@@ -5,7 +5,7 @@ from models.layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotate
 from models.basic_utils import sigmoid_boundary
 from models.intervention_utils import _do_intervention_by_swap
 
-    
+
 class Intervention(torch.nn.Module, ABC):
 
     """Intervention the original representations."""
@@ -14,7 +14,7 @@ class Intervention(torch.nn.Module, ABC):
         self.trainble = False
         self.use_fast = kwargs["use_fast"] \
             if "use_fast" in kwargs else False
-        
+
     @abstractmethod
     def set_interchange_dim(self, interchange_dim):
         pass
@@ -22,18 +22,18 @@ class Intervention(torch.nn.Module, ABC):
     @abstractmethod
     def forward(self, base, source):
         pass
-    
-    
+
+
 class TrainableIntervention(Intervention):
 
     """Intervention the original representations."""
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.trainble = True
-    
+
     def tie_weight(self, linked_intervention):
         pass
-        
+
 
 class BasisAgnosticIntervention(Intervention):
 
@@ -42,7 +42,7 @@ class BasisAgnosticIntervention(Intervention):
         super().__init__(**kwargs)
         self.basis_agnostic = True
 
-        
+
 class SharedWeightsTrainableIntervention(TrainableIntervention):
 
     """Intervention the original representations."""
@@ -50,24 +50,23 @@ class SharedWeightsTrainableIntervention(TrainableIntervention):
         super().__init__(**kwargs)
         self.shared_weights = True
 
-        
 class SkipIntervention(BasisAgnosticIntervention):
-    
+
     """Skip the current intervening layer's computation in the hook function."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
         self.interchange_dim = None
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
-        
+
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
-        
+
     def forward(self, base, source, subspaces=None):
         # source here is the base example input to the hook
         return _do_intervention_by_swap(
-            base, source, 
-            "interchange", 
+            base, source,
+            "interchange",
             self.interchange_dim,
             subspaces,
             subspace_partition=self.subspace_partition,
@@ -76,10 +75,10 @@ class SkipIntervention(BasisAgnosticIntervention):
 
     def __str__(self):
         return f"SkipIntervention(embed_dim={self.embed_dim})"
-        
-        
+
+
 class VanillaIntervention(Intervention):
-    
+
     """Intervention the original representations."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
@@ -87,14 +86,14 @@ class VanillaIntervention(Intervention):
         self.embed_dim = embed_dim
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
-        
+
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
 
     def forward(self, base, source, subspaces=None):
         return _do_intervention_by_swap(
-            base, source, 
-            "interchange", 
+            base, source,
+            "interchange",
             self.interchange_dim,
             subspaces,
             subspace_partition=self.subspace_partition,
@@ -104,9 +103,9 @@ class VanillaIntervention(Intervention):
     def __str__(self):
         return f"VanillaIntervention(embed_dim={self.embed_dim})"
 
-    
+
 class AdditionIntervention(BasisAgnosticIntervention):
-    
+
     """Intervention the original representations with activation addition."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
@@ -114,14 +113,14 @@ class AdditionIntervention(BasisAgnosticIntervention):
         self.embed_dim = embed_dim
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
-        
+
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
 
     def forward(self, base, source, subspaces=None):
         return _do_intervention_by_swap(
-            base, source, 
-            "add", 
+            base, source,
+            "add",
             self.interchange_dim,
             subspaces,
             subspace_partition=self.subspace_partition,
@@ -130,10 +129,10 @@ class AdditionIntervention(BasisAgnosticIntervention):
 
     def __str__(self):
         return f"AdditionIntervention(embed_dim={self.embed_dim})"
-    
+
 
 class SubtractionIntervention(BasisAgnosticIntervention):
-    
+
     """Intervention the original representations with activation subtraction."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
@@ -141,14 +140,14 @@ class SubtractionIntervention(BasisAgnosticIntervention):
         self.embed_dim = embed_dim
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
-        
+
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
 
     def forward(self, base, source, subspaces=None):
         return _do_intervention_by_swap(
-            base, source, 
-            "subtract", 
+            base, source,
+            "subtract",
             self.interchange_dim,
             subspaces,
             subspace_partition=self.subspace_partition,
@@ -157,10 +156,10 @@ class SubtractionIntervention(BasisAgnosticIntervention):
 
     def __str__(self):
         return f"SubtractionIntervention(embed_dim={self.embed_dim})"
-    
-    
+
+
 class RotatedSpaceIntervention(TrainableIntervention):
-    
+
     """Intervention in the rotated space."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
@@ -170,10 +169,10 @@ class RotatedSpaceIntervention(TrainableIntervention):
         self.embed_dim = embed_dim
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
-        
+
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
-    
+
     def forward(self, base, source, subspaces=None):
         if subspaces is None:
             assert self.interchange_dim is not None
@@ -181,8 +180,8 @@ class RotatedSpaceIntervention(TrainableIntervention):
         rotated_source = self.rotate_layer(source)
         # interchange
         rotated_base = _do_intervention_by_swap(
-            rotated_base, rotated_source, 
-            "interchange", 
+            rotated_base, rotated_source,
+            "interchange",
             self.interchange_dim,
             subspaces,
             subspace_partition=self.subspace_partition,
@@ -191,13 +190,13 @@ class RotatedSpaceIntervention(TrainableIntervention):
         # inverse base
         output = torch.matmul(rotated_base, self.rotate_layer.weight.T)
         return output.to(base.dtype)
-    
+
     def __str__(self):
         return f"RotatedSpaceIntervention(embed_dim={self.embed_dim})"
 
-    
+
 class BoundlessRotatedSpaceIntervention(TrainableIntervention):
-    
+
     """Intervention in the rotated space with boundary mask."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
@@ -206,11 +205,11 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention):
             rotate_layer)
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
-        # TODO: in case there are subspace partitions, we 
+        # TODO: in case there are subspace partitions, we
         #       need to initialize followings differently.
         self.intervention_boundaries = torch.nn.Parameter(
             torch.tensor([0.5]), requires_grad=True)
-        self.temperature = torch.nn.Parameter(torch.tensor(50.0)) 
+        self.temperature = torch.nn.Parameter(torch.tensor(50.0))
         self.embed_dim = embed_dim
         self.intervention_population = torch.nn.Parameter(
             torch.arange(0, self.embed_dim), requires_grad=False)
@@ -223,7 +222,7 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention):
 
     def set_temperature(self, temp: torch.Tensor):
         self.temperature.data = temp
-        
+
     def set_interchange_dim(self, interchange_dim):
         """interchange dim is learned and can not be set"""
         assert False
@@ -236,7 +235,7 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention):
         intervention_boundaries = torch.clamp(
             self.intervention_boundaries, 1e-3, 1)
         boundary_mask = sigmoid_boundary(
-            self.intervention_population.repeat(batch_size, 1), 
+            self.intervention_population.repeat(batch_size, 1),
             0.,
             intervention_boundaries[0] * int(self.embed_dim),
             self.temperature
@@ -249,13 +248,13 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention):
         # inverse output
         output = torch.matmul(rotated_output, self.rotate_layer.weight.T)
         return output.to(base.dtype)
-    
+
     def __str__(self):
         return f"BoundlessRotatedSpaceIntervention(embed_dim={self.embed_dim})"
-    
-    
+
+
 class LowRankRotatedSpaceIntervention(TrainableIntervention):
-    
+
     """Intervention in the rotated space."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
@@ -265,7 +264,7 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention):
         self.embed_dim = embed_dim
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
-        
+
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
 
@@ -282,7 +281,7 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention):
                         sel_subspace_indices.extend(
                             [
                                 i for i in range(
-                                    self.subspace_partition[subspace][0], 
+                                    self.subspace_partition[subspace][0],
                                     self.subspace_partition[subspace][1]
                                 )
                             ])
@@ -304,7 +303,7 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention):
                         sel_subspace_indices.extend(
                             [
                                 i for i in range(
-                                    self.subspace_partition[subspace][0], 
+                                    self.subspace_partition[subspace][0],
                                     self.subspace_partition[subspace][1]
                                 )
                             ])
@@ -319,13 +318,12 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention):
         else:
             output = base + torch.matmul((rotated_source - rotated_base), self.rotate_layer.weight.T)
         return output.to(base.dtype)
-    
+
     def __str__(self):
         return f"LowRankRotatedSpaceIntervention(embed_dim={self.embed_dim})"
 
-    
+
 class PCARotatedSpaceIntervention(BasisAgnosticIntervention):
-    
     """Intervention in the pca space."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__(embed_dim, **kwargs)
@@ -343,7 +341,7 @@ class PCARotatedSpaceIntervention(BasisAgnosticIntervention):
 
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
-        
+
     def forward(self, base, source, subspaces=None):
         base_norm = (base - self.pca_mean) / self.pca_std
         source_norm = (source - self.pca_mean) / self.pca_std
@@ -352,8 +350,8 @@ class PCARotatedSpaceIntervention(BasisAgnosticIntervention):
         rotated_source = torch.matmul(source_norm, self.pca_components.T)
         # interchange
         rotated_base = _do_intervention_by_swap(
-            rotated_base, rotated_source, 
-            "interchange", 
+            rotated_base, rotated_source,
+            "interchange",
             self.interchange_dim,
             subspaces,
             subspace_partition=self.subspace_partition
@@ -362,7 +360,6 @@ class PCARotatedSpaceIntervention(BasisAgnosticIntervention):
         output = torch.matmul(rotated_base, self.pca_components)  # B * D
         output = (output * self.pca_std) + self.pca_mean
         return output
-    
+
     def __str__(self):
         return f"PCARotatedSpaceIntervention(embed_dim={self.embed_dim})"
-    

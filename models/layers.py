@@ -52,4 +52,3 @@ class SubspaceLowRankRotateLayer(torch.nn.Module):
 
     def forward(self, x, l, r):
         return torch.matmul(x.to(self.weight.dtype), self.weight[:,l:r])
-

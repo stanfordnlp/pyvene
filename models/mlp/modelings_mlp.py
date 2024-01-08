@@ -18,7 +18,7 @@ class MLPConfig(PretrainedConfig):
         max_position_embeddings = 512,
         n_layer = 2,
         h_dim = 512,
-        n_labels = 2,
+        num_labels = 2,
         activation_function = "gelu",
         pdrop = 0.3,
         problem_type = "single_label_classification",
@@ -32,12 +32,12 @@ class MLPConfig(PretrainedConfig):
         self.h_dim = h_dim
         self.activation_function = activation_function
         self.pdrop = pdrop
-        self.n_labels = n_labels
+        self.num_labels = num_labels
         self.problem_type = problem_type
         self.include_bias = include_bias
         super().__init__(**kwargs)
-        
-        
+
+
 class MLPModelOutput(ModelOutput):
     last_hidden_state: torch.FloatTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
@@ -52,7 +52,7 @@ class MLPBlock(nn.Module):
         self.act = ACT2FN[config.activation_function]
         self.dropout = nn.Dropout(config.pdrop)
 
-        
+
     def forward(self, hidden_states):
         return self.dropout(
             self.act(
@@ -72,14 +72,14 @@ class MLPModel(PreTrainedModel):
             self.wte = nn.Embedding(config.vocab_size, self.h_dim)
             self.wpe = nn.Embedding(config.max_position_embeddings, self.h_dim)
         self.dropout = nn.Dropout(config.pdrop)
-        
+
         self.h = nn.ModuleList([MLPBlock(config) for _ in range(config.n_layer)])
 
         self.post_init()
 
-        
+
     def forward(
-        self, 
+        self,
         input_ids: Optional[torch.LongTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
@@ -92,46 +92,46 @@ class MLPModel(PreTrainedModel):
         if position_ids is not None:
             position_embeds = self.wpe(position_ids)
             hidden_states += position_embeds
-        
+
         hidden_states = self.dropout(hidden_states)
         all_hidden_states = () if output_hidden_states else None
-        
+
         for i, block in enumerate(self.h):
             if output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states,)
             hidden_states = block(hidden_states)
-            
+
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states,)
-        
+
         if not return_dict:
             return tuple(
                 v
                 for v in [hidden_states, all_hidden_states]
                 if v is not None
             )
-        
+
         return MLPModelOutput(
             last_hidden_state=hidden_states,
             hidden_states=all_hidden_states
         )
 
-    
+
 class MLPForClassification(PreTrainedModel):
     def __init__(
         self, config
     ):
         super().__init__(config)
-        self.n_labels = config.n_labels
+        self.num_labels = config.num_labels
         self.mlp = MLPModel(config)
-        self.score = nn.Linear(config.h_dim, self.n_labels, bias=False)
-        
+        self.score = nn.Linear(config.h_dim, self.num_labels)
+
         # Initialize weights and apply final processing
         self.post_init()
 
-        
+
     def forward(
-        self, 
+        self,
         input_ids: Optional[torch.LongTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
@@ -147,7 +147,7 @@ class MLPForClassification(PreTrainedModel):
             return_dict,
         )
         hidden_states = mlp_outputs[0]
-        pooled_logits = self.score(hidden_states)
+        pooled_logits = self.score(hidden_states).squeeze(1)
 
         loss = None
         if labels is not None:
@@ -171,7 +171,7 @@ class MLPForClassification(PreTrainedModel):
             elif self.config.problem_type == "multi_label_classification":
                 loss_fct = BCEWithLogitsLoss()
                 loss = loss_fct(pooled_logits, labels)
-        
+
         if not return_dict:
             output = (pooled_logits,) + mlp_outputs[1:]
             return ((loss,) + output) if loss is not None else output
@@ -181,5 +181,3 @@ class MLPForClassification(PreTrainedModel):
             logits=pooled_logits,
             hidden_states=mlp_outputs.hidden_states,
         )
-    
-    
