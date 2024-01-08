@@ -7,7 +7,10 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
     def setUpClass(self):
         print("=== Test Suite: SubspaceInterventionWithMLPTestCase ===")
         self.config, self.tokenizer, self.mlp =create_mlp_classifier(
-            MLPConfig(h_dim=3, n_layer=1, pdrop=0.0, include_bias=False)
+            MLPConfig(
+                h_dim=3, n_layer=1, pdrop=0.0, 
+                include_bias=False, squeeze_output=False
+            )
         )
         
         self.test_subspace_intervention_link_alignable_config = AlignableConfig(

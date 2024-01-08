@@ -23,6 +23,7 @@ class MLPConfig(PretrainedConfig):
         pdrop = 0.3,
         problem_type = "single_label_classification",
         include_bias=True,
+        squeeze_output=True,
         **kwargs
     ):
         self.include_emb = include_emb
@@ -35,6 +36,7 @@ class MLPConfig(PretrainedConfig):
         self.num_labels = num_labels
         self.problem_type = problem_type
         self.include_bias = include_bias
+        self.squeeze_output = squeeze_output
         super().__init__(**kwargs)
 
 
@@ -123,8 +125,11 @@ class MLPForClassification(PreTrainedModel):
     ):
         super().__init__(config)
         self.num_labels = config.num_labels
+        self.squeeze_output = config.squeeze_output
         self.mlp = MLPModel(config)
-        self.score = nn.Linear(config.h_dim, self.num_labels)
+        self.score = nn.Linear(
+            config.h_dim, self.num_labels, bias=config.include_bias
+        )
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -147,8 +152,10 @@ class MLPForClassification(PreTrainedModel):
             return_dict,
         )
         hidden_states = mlp_outputs[0]
-        pooled_logits = self.score(hidden_states).squeeze(1)
-
+        pooled_logits = self.score(hidden_states)
+        if self.squeeze_output:
+            pooled_logits = pooled_logits.squeeze(1)
+        
         loss = None
         if labels is not None:
             if self.config.problem_type is None:
