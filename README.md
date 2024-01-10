@@ -27,12 +27,12 @@ from models.utils import create_gpt2
 config, tokenizer, gpt = create_gpt2()
 ```
 
-#### Create a simple alignable config
+#### Create a simple intervenable config
 ```py
-alignable_config = AlignableConfig(
-    alignable_model_type="gpt2",
-    alignable_representations=[
-        AlignableRepresentationConfig(
+intervenable_config = IntervenableConfig(
+    intervenable_model_type="gpt2",
+    intervenable_representations=[
+        IntervenableRepresentationConfig(
             0,            # intervening layer 0
             "mlp_output", # intervening mlp output
             "pos",        # intervening based on positional indices of tokens
@@ -42,10 +42,10 @@ alignable_config = AlignableConfig(
 )
 ```
 
-#### Turn the model into an alignable object
-The basic idea is to consider the alignable model as a regular HuggingFace model, except that it supports an intervenable forward function.
+#### Turn the model into an intervenable object
+The basic idea is to consider the intervenable model as a regular HuggingFace model, except that it supports an intervenable forward function.
 ```py
-alignable_gpt = AlignableModel(alignable_config, gpt)
+intervenable_gpt = IntervenableModel(intervenable_config, gpt)
 ```
 
 #### Intervene by swapping activations between examples
@@ -53,7 +53,7 @@ alignable_gpt = AlignableModel(alignable_config, gpt)
 base = tokenizer("The capital of Spain is", return_tensors="pt")
 sources = [tokenizer("The capital of Italy is", return_tensors="pt")]
 
-_, counterfactual_outputs = alignable_gpt(
+_, counterfactual_outputs = intervenable_gpt(
     base,
     sources,
     {"sources->base": ([[[4]]], [[[4]]])} # intervene base with sources
@@ -76,7 +76,7 @@ The function solves a 3-digit sum problem. Let's say, we trained a neural networ
 
 To translate the above steps into API calls with the library, it will be a single call,
 ```py
-alignable.evaluate_alignment(
+intervenable.evaluate_alignment(
     train_dataloader=test_dataloader,
     compute_metrics=compute_metrics,
     inputs_collator=inputs_collator
@@ -107,7 +107,7 @@ Instead of activation swapping in the original representation space, we first **
 
 You can now also make a single API call to train your intervention,
 ```py
-alignable.find_alignment(
+intervenable.find_alignment(
     train_dataloader=train_dataloader,
     compute_loss=compute_loss,
     compute_metrics=compute_metrics,

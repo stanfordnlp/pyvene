@@ -2,11 +2,11 @@ import unittest
 from tests.utils import *
 
 
-class AlignableConfigUnitTestCase(unittest.TestCase):
+class IntervenableConfigUnitTestCase(unittest.TestCase):
     
     @classmethod
     def setUpClass(self):
-        print("=== Test Suite: AlignableConfigUnitTestCase ===")
+        print("=== Test Suite: IntervenableConfigUnitTestCase ===")
         self.config, self.tokenizer, self.gpt2 = create_gpt2_lm(
             config = GPT2Config(
                 n_embd=24,
@@ -23,36 +23,36 @@ class AlignableConfigUnitTestCase(unittest.TestCase):
         )
 
     def test_initialization_positive(self):
-        alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
                 ),
             ],
-            alignable_interventions_type=VanillaIntervention,
+            intervenable_interventions_type=VanillaIntervention,
         )
         
-        assert alignable_config.alignable_model_type == \
+        assert intervenable_config.intervenable_model_type == \
             type(self.gpt2)
-        assert len(alignable_config.alignable_representations) == 1
-        assert alignable_config.alignable_interventions_type == \
+        assert len(intervenable_config.intervenable_representations) == 1
+        assert intervenable_config.intervenable_interventions_type == \
             VanillaIntervention
     
-        assert alignable_config.alignable_representations[0].alignable_layer == 0
+        assert intervenable_config.intervenable_representations[0].intervenable_layer == 0
         assert \
-            alignable_config.alignable_representations[0].alignable_representation_type == \
+            intervenable_config.intervenable_representations[0].intervenable_representation_type == \
             "block_output"
-        assert alignable_config.alignable_representations[0].alignable_unit == "pos"
-        assert alignable_config.alignable_representations[0].max_number_of_units == 1
+        assert intervenable_config.intervenable_representations[0].intervenable_unit == "pos"
+        assert intervenable_config.intervenable_representations[0].max_number_of_units == 1
     
     
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(AlignableConfigUnitTestCase(
+    suite.addTest(IntervenableConfigUnitTestCase(
         'test_initialization_positive'))
     return suite
 

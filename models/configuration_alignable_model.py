@@ -8,53 +8,53 @@ from transformers.configuration_utils import PretrainedConfig
 from models.interventions import VanillaIntervention
 
 
-AlignableRepresentationConfig = namedtuple(
-    "AlignableRepresentationConfig", 
-    "alignable_layer alignable_representation_type "\
-    "alignable_unit max_number_of_units "\
-    "alignable_low_rank_dimension "\
+IntervenableRepresentationConfig = namedtuple(
+    "IntervenableRepresentationConfig", 
+    "intervenable_layer intervenable_representation_type "\
+    "intervenable_unit max_number_of_units "\
+    "intervenable_low_rank_dimension "\
     "subspace_partition group_key intervention_link_key",
     defaults=(0, "block_output", "pos", 1, None, None, None, None)
 )
 
 
-class AlignableConfig(PretrainedConfig):
+class IntervenableConfig(PretrainedConfig):
     def __init__(
         self,
-        alignable_model_type="gpt2",
-        alignable_representations=[
-            AlignableRepresentationConfig()
+        intervenable_model_type="gpt2",
+        intervenable_representations=[
+            IntervenableRepresentationConfig()
         ],
-        alignable_interventions_type=VanillaIntervention,
+        intervenable_interventions_type=VanillaIntervention,
         mode="parallel",
-        alignable_interventions=[None],
+        intervenable_interventions=[None],
         sorted_keys=None,
         intervention_dimensions=None,
         **kwargs
     ):
-        self.alignable_model_type = alignable_model_type
-        self.alignable_representations = alignable_representations
-        self.alignable_interventions_type = alignable_interventions_type
+        self.intervenable_model_type = intervenable_model_type
+        self.intervenable_representations = intervenable_representations
+        self.intervenable_interventions_type = intervenable_interventions_type
         self.mode = mode
-        self.alignable_interventions = alignable_interventions
+        self.intervenable_interventions = intervenable_interventions
         self.sorted_keys = sorted_keys
         self.intervention_dimensions = intervention_dimensions
         super().__init__(**kwargs)
     
     def __repr__(self):
         _repr = {
-            "alignable_model_type": str(self.alignable_model_type),
-            "alignable_representations": tuple(self.alignable_representations),
-            "alignable_interventions_type": str(self.alignable_interventions_type),
+            "intervenable_model_type": str(self.intervenable_model_type),
+            "intervenable_representations": tuple(self.intervenable_representations),
+            "intervenable_interventions_type": str(self.intervenable_interventions_type),
             "mode": self.mode,
-            "alignable_interventions": [
-                str(alignable_intervention) \
-                for alignable_intervention in self.alignable_interventions
+            "intervenable_interventions": [
+                str(intervenable_intervention) \
+                for intervenable_intervention in self.intervenable_interventions
             ],
             "sorted_keys": tuple(self.sorted_keys),
             "intervention_dimensions": str(self.intervention_dimensions)
         }
         _repr_string = json.dumps(_repr, indent=4)
         
-        return f"AlignableConfig\n{_repr_string}"
+        return f"IntervenableConfig\n{_repr_string}"
 

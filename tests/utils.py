@@ -9,12 +9,12 @@ import numpy as np
 from transformers import GPT2Config
 
 from models.basic_utils import embed_to_distrib, top_vals, format_token
-from models.configuration_alignable_model import AlignableRepresentationConfig, AlignableConfig
-from models.alignable_base import AlignableModel
+from models.configuration_intervenable_model import AlignableRepresentationConfig, AlignableConfig
+from models.intervenable_base import AlignableModel
 from models.interventions import VanillaIntervention, RotatedSpaceIntervention, LowRankRotatedSpaceIntervention
 from models.mlp.modelings_mlp import MLPConfig
-from models.mlp.modelings_alignable_mlp import create_mlp_classifier
-from models.gpt2.modelings_alignable_gpt2 import create_gpt2_lm
+from models.mlp.modelings_intervenable_mlp import create_mlp_classifier
+from models.gpt2.modelings_intervenable_gpt2 import create_gpt2_lm
 
 
 ##################
