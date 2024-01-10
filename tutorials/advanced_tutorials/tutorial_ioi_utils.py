@@ -21,8 +21,8 @@ from torch import Tensor
 from torch.nn import Parameter
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
-from models.alignable_base import AlignableModel
-from models.configuration_alignable_model import AlignableRepresentationConfig, AlignableConfig
+from models.intervenable_base import IntervenableModel
+from models.configuration_intervenable_model import IntervenableRepresentationConfig, IntervenableConfig
 from models.interventions import LowRankRotatedSpaceIntervention, SkipIntervention, VanillaIntervention, BoundlessRotatedSpaceIntervention
 
 ###
@@ -488,28 +488,28 @@ def calculate_loss(logits, labels):
 
 
 def single_d_low_rank_das_position_config(
-    model_type, intervention_type, layer, alignable_interventions_type,
-    alignable_low_rank_dimension=1, num_unit=1, head_level=False
+    model_type, intervention_type, layer, intervenable_interventions_type,
+    intervenable_low_rank_dimension=1, num_unit=1, head_level=False
 ):
-    alignable_config = AlignableConfig(
-        alignable_model_type=model_type,
-        alignable_representations=[
-            AlignableRepresentationConfig(
+    intervenable_config = IntervenableConfig(
+        intervenable_model_type=model_type,
+        intervenable_representations=[
+            IntervenableRepresentationConfig(
                 layer,             # layer
                 intervention_type, # intervention type
                 "pos" if not head_level else "h.pos",
                 num_unit,
-                alignable_low_rank_dimension=alignable_low_rank_dimension, # a single das direction
+                intervenable_low_rank_dimension=intervenable_low_rank_dimension, # a single das direction
             ),
         ],
-        alignable_interventions_type=alignable_interventions_type,
+        intervenable_interventions_type=intervenable_interventions_type,
     )
-    return alignable_config
+    return intervenable_config
 
 
-def calculate_boundless_das_loss(logits, labels, alignable):
+def calculate_boundless_das_loss(logits, labels, intervenable):
     loss = calculate_loss(logits, labels)
-    for k, v in alignable.interventions.items():
+    for k, v in intervenable.interventions.items():
         boundary_loss = 2. * v[0].intervention_boundaries.sum()
     loss += boundary_loss
     return loss
@@ -518,12 +518,12 @@ def calculate_boundless_das_loss(logits, labels, alignable):
 def find_variable_at(
     gpt2, tokenizer, positions, layers, stream, 
     heads=None, 
-    alignable_low_rank_dimension=1, 
+    intervenable_low_rank_dimension=1, 
     aligning_variable="position",
     do_vanilla_intervention=False, 
     do_boundless_das=False, 
     seed=42, 
-    return_alignable=False,
+    return_intervenable=False,
     debug=False
 ):
     
@@ -616,32 +616,32 @@ def find_variable_at(
                     f"layers->{aligning_layer}, stream->{stream}"
                 )
             if heads is not None:
-                alignable_config = single_d_low_rank_das_position_config(
+                intervenable_config = single_d_low_rank_das_position_config(
                     type(gpt2), aligning_stream, aligning_layer, 
                     _intervention_type,
-                    alignable_low_rank_dimension=alignable_low_rank_dimension, num_unit=len(heads), head_level=True
+                    intervenable_low_rank_dimension=intervenable_low_rank_dimension, num_unit=len(heads), head_level=True
                 )
             else:
                 if across_positions:
-                    alignable_config = single_d_low_rank_das_position_config(
+                    intervenable_config = single_d_low_rank_das_position_config(
                         type(gpt2), aligning_stream, aligning_layer, 
                         _intervention_type,
-                        alignable_low_rank_dimension=alignable_low_rank_dimension, num_unit=len(positions[0]),
+                        intervenable_low_rank_dimension=intervenable_low_rank_dimension, num_unit=len(positions[0]),
                     )
                 else:
-                    alignable_config = single_d_low_rank_das_position_config(
+                    intervenable_config = single_d_low_rank_das_position_config(
                         type(gpt2), aligning_stream, aligning_layer, 
                         _intervention_type,
-                        alignable_low_rank_dimension=alignable_low_rank_dimension
+                        intervenable_low_rank_dimension=intervenable_low_rank_dimension
                     )
-            alignable = AlignableModel(alignable_config, gpt2)
-            alignable.set_device("cuda")
-            alignable.disable_model_gradients()
+            intervenable = IntervenableModel(intervenable_config, gpt2)
+            intervenable.set_device("cuda")
+            intervenable.disable_model_gradients()
             total_step = 0
             if not do_vanilla_intervention:
                 if do_boundless_das:
                     optimizer_params = []
-                    for k, v in alignable.interventions.items():
+                    for k, v in intervenable.interventions.items():
                         optimizer_params += [{'params': v[0].rotate_layer.parameters()}]
                         optimizer_params += [{'params': v[0].intervention_boundaries, 'lr': 0.5}]
                     optimizer = torch.optim.Adam(
@@ -654,9 +654,9 @@ def find_variable_at(
                     temperature_schedule = torch.linspace(
                         temperature_start, temperature_end, target_total_step
                     ).to(torch.bfloat16).to("cuda")
-                    alignable.set_temperature(temperature_schedule[total_step])
+                    intervenable.set_temperature(temperature_schedule[total_step])
                 else:
-                    optimizer = torch.optim.Adam(alignable.get_trainable_parameters(), lr=initial_lr)
+                    optimizer = torch.optim.Adam(intervenable.get_trainable_parameters(), lr=initial_lr)
                 scheduler = torch.optim.lr_scheduler.LinearLR(
                     optimizer, end_factor=0.1, total_iters=n_epochs
                 )
@@ -683,7 +683,7 @@ def find_variable_at(
                         assert all(x==18 for x in batch_dataset.source.lengths)
 
                         if heads is not None:
-                            _, counterfactual_outputs = alignable(
+                            _, counterfactual_outputs = intervenable(
                                 {"input_ids": base_inputs["input_ids"]},
                                 [{"input_ids": source_inputs["input_ids"]}],
                                 {"sources->base": (
@@ -697,13 +697,13 @@ def find_variable_at(
                             )
                         else:
                             if across_positions:
-                                _, counterfactual_outputs = alignable(
+                                _, counterfactual_outputs = intervenable(
                                     {"input_ids": base_inputs["input_ids"]},
                                     [{"input_ids": source_inputs["input_ids"]}],
                                     {"sources->base": ([[aligning_pos]*b_s], [[aligning_pos]*b_s])}
                                 ) 
                             else:
-                                _, counterfactual_outputs = alignable(
+                                _, counterfactual_outputs = intervenable(
                                     {"input_ids": base_inputs["input_ids"]},
                                     [{"input_ids": source_inputs["input_ids"]}],
                                     {"sources->base": ([[[aligning_pos]]*b_s], [[[aligning_pos]]*b_s])}
@@ -711,17 +711,17 @@ def find_variable_at(
 
                         eval_metrics = compute_metrics([counterfactual_outputs.logits], [labels])
                         if do_boundless_das:
-                            loss = calculate_boundless_das_loss(counterfactual_outputs.logits, labels, alignable)
+                            loss = calculate_boundless_das_loss(counterfactual_outputs.logits, labels, intervenable)
                         else:
                             loss = calculate_loss(counterfactual_outputs.logits, labels)
                         loss_str = round(loss.item(), 2)
                         loss.backward()
                         optimizer.step()
                         scheduler.step()
-                        alignable.set_zero_grad()
+                        intervenable.set_zero_grad()
                         if do_boundless_das:
-                            alignable.set_temperature(temperature_schedule[total_step])
-                            for k, v in alignable.interventions.items():
+                            intervenable.set_temperature(temperature_schedule[total_step])
+                            for k, v in intervenable.interventions.items():
                                 intervention_boundaries = v[0].intervention_boundaries.sum()
                         total_step += 1
 
@@ -749,7 +749,7 @@ def find_variable_at(
                     assert all(x==18 for x in batch_dataset.source.lengths)
 
                     if heads is not None:
-                        _, counterfactual_outputs = alignable(
+                        _, counterfactual_outputs = intervenable(
                             {"input_ids": base_inputs["input_ids"]},
                             [{"input_ids": source_inputs["input_ids"]}],
                             {"sources->base": (
@@ -763,13 +763,13 @@ def find_variable_at(
                         )
                     else:
                         if across_positions:
-                            _, counterfactual_outputs = alignable(
+                            _, counterfactual_outputs = intervenable(
                                 {"input_ids": base_inputs["input_ids"]},
                                 [{"input_ids": source_inputs["input_ids"]}],
                                 {"sources->base": ([[aligning_pos]*b_s], [[aligning_pos]*b_s])}
                             ) 
                         else:
-                            _, counterfactual_outputs = alignable(
+                            _, counterfactual_outputs = intervenable(
                                 {"input_ids": base_inputs["input_ids"]},
                                 [{"input_ids": source_inputs["input_ids"]}],
                                 {"sources->base": ([[[aligning_pos]]*b_s], [[[aligning_pos]]*b_s])}
@@ -781,7 +781,7 @@ def find_variable_at(
             
 
             if do_boundless_das:
-                for k, v in alignable.interventions.items():
+                for k, v in intervenable.interventions.items():
                     intervention_boundaries = v[0].intervention_boundaries.sum()
                 data.append({
                     "pos":aligning_pos,
@@ -809,6 +809,6 @@ def find_variable_at(
                         "kl_div":eval_metrics['kl_div'],
                         "stream":stream
                     })
-    if return_alignable:
-        return data, alignable
+    if return_intervenable:
+        return data, intervenable
     return data

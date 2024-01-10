@@ -83,10 +83,10 @@ class IntervenableModel(nn.Module):
         for i, representation in enumerate(intervenable_config.intervenable_representations):
             _key = self._get_representation_key(representation)
             
-            if representation.intervenable_unit not in CONST_VALID_ALIGNABLE_UNIT:
+            if representation.intervenable_unit not in CONST_VALID_INTERVENABLE_UNIT:
                 raise ValueError(
                     f"{representation.intervenable_unit} is not supported as intervenable unit. Valid options: ",
-                    f"{CONST_VALID_ALIGNABLE_UNIT}"
+                    f"{CONST_VALID_INTERVENABLE_UNIT}"
                 )
             
             if intervenable_config.intervenable_interventions is not None \
