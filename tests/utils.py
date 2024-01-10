@@ -9,8 +9,8 @@ import numpy as np
 from transformers import GPT2Config
 
 from models.basic_utils import embed_to_distrib, top_vals, format_token
-from models.configuration_intervenable_model import AlignableRepresentationConfig, AlignableConfig
-from models.intervenable_base import AlignableModel
+from models.configuration_intervenable_model import IntervenableRepresentationConfig, IntervenableConfig
+from models.intervenable_base import IntervenableModel
 from models.interventions import VanillaIntervention, RotatedSpaceIntervention, LowRankRotatedSpaceIntervention
 from models.mlp.modelings_mlp import MLPConfig
 from models.mlp.modelings_intervenable_mlp import create_mlp_classifier
