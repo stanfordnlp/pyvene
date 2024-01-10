@@ -265,8 +265,10 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention):
             if "subspace_partition" in kwargs else None
         # TODO: in case there are subspace partitions, we
         #       need to initialize followings differently.
+        
+        # boundary masks are initialized to close to 1
         self.masks = torch.nn.Parameter(
-            torch.tensor([0.5] * embed_dim), requires_grad=True)
+            torch.tensor([100] * embed_dim), requires_grad=True)
         self.temperature = torch.nn.Parameter(torch.tensor(50.0))
         self.embed_dim = embed_dim
 
@@ -287,9 +289,7 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention):
         batch_size = base.shape[0]
         rotated_base = self.rotate_layer(base)
         rotated_source = self.rotate_layer(source)
-        # get boundary
-        intervention_boundaries = torch.clamp(
-            self.masks, 1e-3, 1)
+        # get boundary mask between 0 and 1 from sigmoid
         boundary_mask = torch.sigmoid(self.masks / self.temperature)
         
         boundary_mask = torch.ones(
@@ -302,7 +302,7 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention):
         return output.to(base.dtype)
 
     def __str__(self):
-        return f"BoundlessRotatedSpaceIntervention(embed_dim={self.embed_dim})"
+        return f"SigmoidMaskRotatedSpaceIntervention(embed_dim={self.embed_dim})"
     
 
 class LowRankRotatedSpaceIntervention(TrainableIntervention):
