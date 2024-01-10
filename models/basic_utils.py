@@ -1,10 +1,36 @@
-import torch, random
+import os, copy, torch, random, importlib
 from torch import nn
 import numpy as np
 
 
 lsm = nn.LogSoftmax(dim=2)
 sm = nn.Softmax(dim=2)
+
+
+def get_type_from_string(type_str):
+    """Help function to convert string to type"""
+    # Remove <class ' and '> from the string
+    type_str = type_str.replace("<class '", "").replace("'>", "")
+
+    # Split the string into module and class name
+    module_name, class_name = type_str.rsplit('.', 1)
+
+    # Import the module
+    module = importlib.import_module(module_name)
+
+    # Get the class
+    cls = getattr(module, class_name)
+
+    return cls
+
+
+def create_directory(path):
+    """Create directory if not exist"""
+    if not os.path.exists(path):
+        os.makedirs(path)
+        print(f"Directory '{path}' created successfully.")
+    else:
+        print(f"Directory '{path}' already exists.")
 
         
 def embed_to_distrib(model, embed, log=False, logits=False):

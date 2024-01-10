@@ -28,6 +28,8 @@ class AlignableConfig(PretrainedConfig):
         alignable_interventions_type=VanillaIntervention,
         mode="parallel",
         alignable_interventions=[None],
+        sorted_keys=None,
+        intervention_dimensions=None,
         **kwargs
     ):
         self.alignable_model_type = alignable_model_type
@@ -35,6 +37,8 @@ class AlignableConfig(PretrainedConfig):
         self.alignable_interventions_type = alignable_interventions_type
         self.mode = mode
         self.alignable_interventions = alignable_interventions
+        self.sorted_keys = sorted_keys
+        self.intervention_dimensions = intervention_dimensions
         super().__init__(**kwargs)
     
     def __repr__(self):
@@ -45,8 +49,10 @@ class AlignableConfig(PretrainedConfig):
             "mode": self.mode,
             "alignable_interventions": [
                 str(alignable_intervention) \
-                for alignable_intervention in alignable_interventions
-            ]
+                for alignable_intervention in self.alignable_interventions
+            ],
+            "sorted_keys": tuple(self.sorted_keys),
+            "intervention_dimensions": str(self.intervention_dimensions)
         }
         _repr_string = json.dumps(_repr, indent=4)
         

@@ -6,7 +6,7 @@ from models.basic_utils import sigmoid_boundary
 from models.intervention_utils import _do_intervention_by_swap
 
 
-class Intervention(torch.nn.Module, ABC):
+class Intervention(torch.nn.Module):
 
     """Intervention the original representations."""
     def __init__(self, **kwargs):
@@ -55,7 +55,7 @@ class SkipIntervention(BasisAgnosticIntervention):
     """Skip the current intervening layer's computation in the hook function."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
-        self.interchange_dim = None
+        self.interchange_dim = embed_dim # assuming full subspace
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
 
@@ -82,8 +82,8 @@ class VanillaIntervention(Intervention):
     """Intervention the original representations."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
-        self.interchange_dim = None
         self.embed_dim = embed_dim
+        self.interchange_dim = embed_dim # assuming full subspace
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
 
@@ -109,8 +109,8 @@ class AdditionIntervention(BasisAgnosticIntervention):
     """Intervention the original representations with activation addition."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
-        self.interchange_dim = None
         self.embed_dim = embed_dim
+        self.interchange_dim = embed_dim # assuming full subspace
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
 
@@ -136,8 +136,8 @@ class SubtractionIntervention(BasisAgnosticIntervention):
     """Intervention the original representations with activation subtraction."""
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
-        self.interchange_dim = None
         self.embed_dim = embed_dim
+        self.interchange_dim = embed_dim # assuming full subspace
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
 
@@ -165,8 +165,8 @@ class RotatedSpaceIntervention(TrainableIntervention):
         super().__init__(**kwargs)
         rotate_layer = RotateLayer(embed_dim)
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
-        self.interchange_dim = None
         self.embed_dim = embed_dim
+        self.interchange_dim = embed_dim # assuming full subspace
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
 
@@ -174,8 +174,6 @@ class RotatedSpaceIntervention(TrainableIntervention):
         self.interchange_dim = interchange_dim
 
     def forward(self, base, source, subspaces=None):
-        if subspaces is None:
-            assert self.interchange_dim is not None
         rotated_base = self.rotate_layer(base)
         rotated_source = self.rotate_layer(source)
         # interchange
@@ -211,9 +209,10 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention):
             torch.tensor([0.5]), requires_grad=True)
         self.temperature = torch.nn.Parameter(torch.tensor(50.0))
         self.embed_dim = embed_dim
+        self.interchange_dim = embed_dim # assuming full subspace
         self.intervention_population = torch.nn.Parameter(
             torch.arange(0, self.embed_dim), requires_grad=False)
-
+        
     def get_boundary_parameters(self):
         return self.intervention_boundaries
 
@@ -260,8 +259,8 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention):
         super().__init__(**kwargs)
         rotate_layer = LowRankRotateLayer(embed_dim, kwargs["proj_dim"])
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
-        self.interchange_dim = None
         self.embed_dim = embed_dim
+        self.interchange_dim = embed_dim # assuming full subspace
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
 

@@ -8,6 +8,8 @@ from models.modeling_utils import *
 from models.intervention_utils import *
 import models.interventions
 from models.constants import CONST_QKV_INDICES
+from models.configuration_alignable_model import \
+    AlignableConfig, AlignableRepresentationConfig
 
 from torch import optim
 from transformers import (
@@ -29,6 +31,7 @@ class AlignableModel(nn.Module):
         **kwargs
     ):
         super().__init__()
+        self.alignable_config = alignable_config
         self.mode = alignable_config.mode
         intervention_type = alignable_config.alignable_interventions_type
         self.is_model_stateless = is_stateless(model)
@@ -129,16 +132,19 @@ class AlignableModel(nn.Module):
             _original_key_order += [_key]
             if representation.group_key is not None:
                 _any_group_key = True
-        
-        # the key order is independent of group, it is used to read out intervention locations.
-        if "alignables_sort_fn" in kwargs:
+        if self.alignable_config.sorted_keys is not None:
+            logging.warn(
+                "The key is provided in the config. "
+                "Assuming this is loaded from a pretrained module."
+            )
+        if self.alignable_config.sorted_keys is not None or "alignables_sort_fn" not in kwargs:
+            self.sorted_alignable_keys = _original_key_order
+        else:
+            # the key order is independent of group, it is used to read out intervention locations.
             self.sorted_alignable_keys = kwargs["alignables_sort_fn"](
                 model,
                 self.alignable_representations
             )
-        else:
-            # keep the original order
-            self.sorted_alignable_keys = _original_key_order
         
         # check it follows topological order
         if not check_sorted_alignables_by_topological_order(
@@ -171,7 +177,7 @@ class AlignableModel(nn.Module):
                 _validate_group_keys += [representation.group_key]
             for i in range(len(_validate_group_keys)-1):
                 if _validate_group_keys[i] > _validate_group_keys[i+1]:
-                    print("This is not a valid group key order:\n", _validate_group_keys)
+                    logging.info("This is not a valid group key order:\n", _validate_group_keys)
                     raise ValueError(
                         "Must be ascending order. "
                         "Interventions would be performed in order within group as well"
@@ -202,7 +208,7 @@ class AlignableModel(nn.Module):
         self.model_config = model.config
         self.model_type = get_internal_model_type(model)
         self.disable_model_gradients()
-        
+
 
     def __str__(self):
         """
@@ -372,6 +378,130 @@ class AlignableModel(nn.Module):
             ):
                 v[0].zero_grad()
 
+
+    def save(
+        self, save_directory, save_to_hf_hub=False, 
+        hf_repo_name="my-awesome-model"
+    ):
+        """
+        Save interventions to disk or hub
+        """
+        if save_to_hf_hub:
+            from huggingface_hub import HfApi
+            api = HfApi()
+
+        create_directory(save_directory)
+
+        saving_config = copy.deepcopy(self.alignable_config)
+        saving_config.sorted_keys = self.sorted_alignable_keys
+        saving_config.alignable_model_type = str(saving_config.alignable_model_type)
+        saving_config.alignable_interventions_type = []
+        saving_config.intervention_dimensions = []
+        for k, v in self.interventions.items():
+            intervention = v[0]
+            saving_config.alignable_interventions_type += [
+                str(type(intervention))
+            ]
+            binary_filename = f"intkey_{k}.bin"
+            # save intervention binary file
+            if isinstance(intervention, models.interventions.TrainableIntervention):
+                logging.warn(f"Saving trainable intervention to {binary_filename}.")
+                torch.save(
+                    intervention.state_dict(), os.path.join(save_directory, binary_filename))
+                if save_to_hf_hub:
+                    # push to huggingface hub
+                    try:
+                        api.create_repo(hf_repo_name)
+                    except:
+                        logging.warn(
+                            f"Skipping creating the repo since "
+                            f"either {hf_repo_name} exists or having authentication error."
+                        )
+                    api.upload_file(
+                        path_or_fileobj=os.path.join(save_directory, binary_filename),
+                        path_in_repo=binary_filename,
+                        repo_id=hf_repo_name,
+                        repo_type="model",
+                    )
+            saving_config.intervention_dimensions += [intervention.interchange_dim]
+        # save metadata config
+        saving_config.save_pretrained(save_directory)
+        if save_to_hf_hub:
+            # push to huggingface hub
+            try:
+                api.create_repo(hf_repo_name)
+            except:
+                logging.warn(
+                    f"Skipping creating the repo since "
+                    f"either {hf_repo_name} exists or having authentication error."
+                )
+            api.upload_file(
+                path_or_fileobj=os.path.join(save_directory, "config.json"),
+                path_in_repo="config.json",
+                repo_id=hf_repo_name,
+                repo_type="model",
+            )
+
+    @staticmethod
+    def load(
+        load_directory, model, local_directory=None, from_huggingface_hub=False
+    ):
+        """
+        Load interventions from disk or hub
+        """
+        if not os.path.exists(load_directory) or from_huggingface_hub:
+            if local_directory is None:
+                raise ValueError("You have to provide local_directory to save hf files.")
+            from huggingface_hub import hf_hub_download
+            hf_hub_download(
+                repo_id=load_directory, 
+                filename="config.json",
+                cache_dir=local_directory
+            )
+            # simple overwrite
+            load_directory = local_directory
+
+        # load config
+        saving_config = AlignableConfig.from_pretrained(load_directory)
+        saving_config.alignable_model_type = \
+            get_type_from_string(saving_config.alignable_model_type)
+        if not isinstance(model, saving_config.alignable_model_type):
+            raise ValueError(
+                f"model type {str(type(model))} is not "
+                f"matching with {str(saving_config.alignable_model_type)}"
+            )
+        casted_alignable_interventions_type = []
+        for type_str in saving_config.alignable_interventions_type:
+            casted_alignable_interventions_type += [
+                get_type_from_string(type_str)
+            ]
+        saving_config.alignable_interventions_type = casted_alignable_interventions_type
+        casted_alignable_representations = []
+        for alignable_representation_opts in saving_config.alignable_representations:
+            casted_alignable_representations += [
+                AlignableRepresentationConfig(*alignable_representation_opts)
+            ]
+        saving_config.alignable_representations = casted_alignable_representations
+        alignable = AlignableModel(saving_config, model)
+
+        # load binary files
+        for i, (k, v) in enumerate(alignable.interventions.items()):
+            intervention = v[0]
+            binary_filename = f"intkey_{k}.bin"
+            if isinstance(intervention, models.interventions.TrainableIntervention):
+                if not os.path.exists(load_directory) or from_huggingface_hub:
+                    hf_hub_download(
+                        repo_id=load_directory, 
+                        filename=binary_filename,
+                        cache_dir=local_directory
+                    )
+                logging.warn(f"Loading trainable intervention from {binary_filename}.")
+                intervention.load_state_dict(
+                    torch.load(os.path.join(load_directory, binary_filename)))
+            intervention.interchange_dim = saving_config.intervention_dimensions[i]
+
+        return alignable
+                
     
     def _gather_intervention_output(
         self, output,
