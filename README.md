@@ -78,7 +78,7 @@ The function solves a 3-digit sum problem. Let's say, we trained a neural networ
 
 To translate the above steps into API calls with the library, it will be a single call,
 ```py
-intervenable.evaluate_alignment(
+intervenable.evaluate(
     train_dataloader=test_dataloader,
     compute_metrics=compute_metrics,
     inputs_collator=inputs_collator
