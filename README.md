@@ -4,17 +4,10 @@
   <a href="https://nlp.stanford.edu/~wuzhengx/"><strong>Library Paper and Doc Are Forthcoming »</strong></a>
 </div>
 
-### Tutorials
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**Static Intervention 101**]   
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) [**Trainable Intervention 101**]      
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Add_New_Model_Type.ipynb) [**Add New Models and Intervention Types**]    
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/advanced_tutorials/Intervened_Model_Generation.ipynb) [**Intervened Model Generation**]       
+# **pyvene: Use _Interventions_ to Learn Model's _Causal Mechanisms_**
+**pyvene** supports customizable interventions on different neural architectures (e.g., RNN or Transformers). It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) at scale to gain interpretability insights.
 
-
-
-# **Customizable Interventions on Internals of Different Neural Architectures**
-To interpret causal mechanisms of neural networks with their internals, we introduce **pyvene**, an open-source and intervention-oriented Python library that supports customizable interventions on different families of neural architectures (e.g., RNN or Transformers). The basic operation is an in-place activation modification during the computation flow of a neural model. It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) to enable practitioners to quantify counterfactual behaviors at scale to gain interpretability insights. We showcase **pyvene** out-of-box supports a wide range of intervention-based interpretability methods such as causal abstraction, circuit finding, and knowledge localization. **pyvene** provides a unified and extensible framework to perform interventions on neural models, and to share interventions with others.
-
+**Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**pyvene Intervention 101**]  
 
 ## Installation
 Install this package directly from the source code as,
@@ -22,7 +15,7 @@ Install this package directly from the source code as,
 !pip install git+https://github.com/frankaging/pyvene.git
 ```
 
-## Basic Interventions
+## _Wrap_ , _Intervene_ and _Share_
 You can intervene with supported models as,
 ```python
 import pyvene
@@ -63,13 +56,31 @@ tensor([[[ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
          [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
          [ 0.0008, -0.0078, -0.0066,  ...,  0.0007, -0.0018,  0.0060]]])
 ```
-showing that we have causal effects only on the last token as expected. Your own model can also be added to the library by configuring intervention points as in [this tutorial](https://github.com/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Add_New_Model_Type.ipynb).
+showing that we have causal effects only on the last token as expected. You can share your interventions through Huggingface with others with a single call,
+```python
+intervenable_gpt2.save(
+    save_directory="./your_gpt2_mounting_point/",
+    save_to_hf_hub=True,
+    hf_repo_name="your_gpt2_mounting_point",
+)
+```
+We see interventions are knobs that can mount on models. And people can share their knobs with others to share knowledge about how to steer models. You can try this at [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Load_Save_and_Share_Interventions.ipynb) [**Intervention Sharing**]  
 
 
-## From Interventions to Gain Interpretability Insights
-Basic interventions are fun we cannot make any causal claim systematically. To gain actual interpretability insights, we want to measure counterfactual behaviors of a model in a data-driven fashion. In other words, if the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. We also call this alignment search process with model internals.
+## Selected Tutorials
 
-### Understanding Causal Mechanism with Static Interventions
+| **Level** |  **Tutorial** |  **Run in Colab** |  **Description** |
+| --- | -------------  |  -------------  |  -------------  | 
+| Beginner |  [**Getting Started**](tutorials/basic_tutorials/Basic_Intervention.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb)  |  Introduces basic static intervention on factual recall examples |
+| Beginner | [**Intervened Model Generation**](tutorials/advanced_tutorials/Intervened_Model_Generation.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/advanced_tutorials/Intervened_Model_Generation.ipynb) | Shows how to intervene a model during generation |
+| Intermediate | [**Intervene Your Local Models**](tutorials/basic_tutorials/Add_New_Model_Type.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Add_New_Model_Type.ipynb) | Illustrates how to run this library with your own models |
+| Advanced | [**Trainable Interventions for Causal Abstraction**](tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) | Illustrates how to train an intervention to discover causal mechanisms of a neural model |
+
+
+## Causal Abstraction: From Interventions to Gain Interpretability Insights
+Basic interventions are fun we cannot make any causal claim systematically. To gain actual interpretability insights, we want to measure the counterfactual behaviors of a model in a data-driven fashion. In other words, if the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. We also call this alignment search process with model internals.
+
+### Understanding Causal Mechanisms with Static Interventions
 Here is a more concrete example,
 ```py
 def add_three_numbers(a, b, c):
