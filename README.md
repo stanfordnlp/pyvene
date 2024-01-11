@@ -1,7 +1,7 @@
 <br />
 <div align="center">
   <h1 align="center"><img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30">align-transformers</h1>
-  <a href="https://nlp.stanford.edu/~wuzhengx/"><strong>Library Paper and Doc Forthcoming »</strong></a>
+  <a href="https://nlp.stanford.edu/~wuzhengx/"><strong>Library Paper and Doc Are Forthcoming »</strong></a>
 </div>
 
 ### Tutorials
