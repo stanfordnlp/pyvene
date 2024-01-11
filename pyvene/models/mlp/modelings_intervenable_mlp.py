@@ -40,7 +40,7 @@ def create_mlp_classifier(
 ):
     """Creates a MLP model, config, and tokenizer from the given name and revision"""
     from transformers import AutoTokenizer
-    from models.mlp.modelings_mlp import MLPForClassification
+    from pyvene.models.mlp.modelings_mlp import MLPForClassification
 
     tokenizer = None
     if tokenizer_name is not None:

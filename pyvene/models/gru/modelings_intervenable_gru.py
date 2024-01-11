@@ -100,7 +100,7 @@ def create_gru_classifier(
 ):
     """Creates a GRU model, config, and tokenizer from the given name and revision"""
     from transformers import AutoTokenizer
-    from models.gru.modelings_gru import GRUForClassification
+    from pyvene.models.gru.modelings_gru import GRUForClassification
 
     tokenizer = None
     if tokenizer_name is not None:

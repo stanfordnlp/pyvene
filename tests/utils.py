@@ -8,20 +8,20 @@ import pandas as pd
 import numpy as np
 from transformers import GPT2Config
 
-from models.basic_utils import embed_to_distrib, top_vals, format_token
-from models.configuration_intervenable_model import (
+from pyvene.models.basic_utils import embed_to_distrib, top_vals, format_token
+from pyvene.models.configuration_intervenable_model import (
     IntervenableRepresentationConfig,
     IntervenableConfig,
 )
-from models.intervenable_base import IntervenableModel
-from models.interventions import (
+from pyvene.models.intervenable_base import IntervenableModel
+from pyvene.models.interventions import (
     VanillaIntervention,
     RotatedSpaceIntervention,
     LowRankRotatedSpaceIntervention,
 )
-from models.mlp.modelings_mlp import MLPConfig
-from models.mlp.modelings_intervenable_mlp import create_mlp_classifier
-from models.gpt2.modelings_intervenable_gpt2 import create_gpt2_lm
+from pyvene.models.mlp.modelings_mlp import MLPConfig
+from pyvene.models.mlp.modelings_intervenable_mlp import create_mlp_classifier
+from pyvene.models.gpt2.modelings_intervenable_gpt2 import create_gpt2_lm
 
 
 ##################
