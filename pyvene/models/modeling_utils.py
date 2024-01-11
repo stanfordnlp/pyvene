@@ -1,7 +1,7 @@
 import torch, random
 from torch import nn
 import numpy as np
-from models.intervenable_modelcard import *
+from pyvene.models.intervenable_modelcard import *
 
 
 def get_internal_model_type(model):

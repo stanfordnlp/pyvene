@@ -9,7 +9,7 @@ defined in the huggingface library.
 """
 
 
-from models.constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK, CONST_QKV_INDICES
+from pyvene.models.constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK, CONST_QKV_INDICES
 
 
 """gpt_neox base model"""

@@ -1,9 +1,9 @@
 import torch
 from abc import ABC, abstractmethod
 
-from models.layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotateLayer
-from models.basic_utils import sigmoid_boundary
-from models.intervention_utils import _do_intervention_by_swap
+from pyvene.models.layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotateLayer
+from pyvene.models.basic_utils import sigmoid_boundary
+from pyvene.models.intervention_utils import _do_intervention_by_swap
 
 
 class Intervention(torch.nn.Module):

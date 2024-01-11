@@ -33,7 +33,7 @@ This is for tutorial
 If the cost is between X and Y.ipynb
 
 These dataset creation functions are copied from
-https://github.com/frankaging/align-transformers/blob/cf93a1a6491dba65e1422fe20428f5972d17137e/counterfactual_datasets/price_tagging_game.py
+https://github.com/frankaging/pyvene/blob/cf93a1a6491dba65e1422fe20428f5972d17137e/counterfactual_datasets/price_tagging_game.py
 """
 
 alpaca_prompt_template = f"""Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.

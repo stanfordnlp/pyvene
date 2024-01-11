@@ -3,12 +3,12 @@ import numpy as np
 from collections import OrderedDict
 from typing import List, Optional, Tuple, Union, Dict
 
-from models.basic_utils import *
-from models.modeling_utils import *
-from models.intervention_utils import *
-import models.interventions
-from models.constants import CONST_QKV_INDICES
-from models.configuration_intervenable_model import (
+from pyvene.models.basic_utils import *
+from pyvene.models.modeling_utils import *
+from pyvene.models.intervention_utils import *
+import pyvene.models.interventions
+from pyvene.models.constants import CONST_QKV_INDICES
+from pyvene.models.configuration_intervenable_model import (
     IntervenableConfig,
     IntervenableRepresentationConfig,
 )
@@ -194,7 +194,7 @@ class IntervenableModel(nn.Module):
             for i in range(len(_validate_group_keys) - 1):
                 if _validate_group_keys[i] > _validate_group_keys[i + 1]:
                     logging.info(
-                        "This is not a valid group key order:\n", _validate_group_keys
+                        f"This is not a valid group key order: {_validate_group_keys}" 
                     )
                     raise ValueError(
                         "Must be ascending order. "
@@ -290,7 +290,7 @@ class IntervenableModel(nn.Module):
         """
         ret_params = []
         for k, v in self.interventions.items():
-            if isinstance(v[0], models.interventions.TrainableIntervention):
+            if isinstance(v[0], pyvene.models.interventions.TrainableIntervention):
                 ret_params += [p for p in v[0].parameters()]
         return ret_params
 
@@ -311,7 +311,7 @@ class IntervenableModel(nn.Module):
         Set temperature if needed
         """
         for k, v in self.interventions.items():
-            if isinstance(v[0], models.interventions.BoundlessRotatedSpaceIntervention):
+            if isinstance(v[0], pyvene.models.interventions.BoundlessRotatedSpaceIntervention):
                 v[0].set_temperature(temp)
 
     def disable_model_gradients(self):
@@ -335,7 +335,7 @@ class IntervenableModel(nn.Module):
         Set device of interventions and the model
         """
         for k, v in self.interventions.items():
-            if isinstance(v[0], models.interventions.TrainableIntervention):
+            if isinstance(v[0], pyvene.models.interventions.TrainableIntervention):
                 v[0].to(device)
         self.model.to(device)
 
@@ -352,7 +352,7 @@ class IntervenableModel(nn.Module):
         _linked_key_set = set([])
         total_parameters = 0
         for k, v in self.interventions.items():
-            if isinstance(v[0], models.interventions.TrainableIntervention):
+            if isinstance(v[0], pyvene.models.interventions.TrainableIntervention):
                 if k in self._intervention_reverse_link:
                     if not self._intervention_reverse_link[k] in _linked_key_set:
                         _linked_key_set.add(self._intervention_reverse_link[k])
@@ -366,7 +366,7 @@ class IntervenableModel(nn.Module):
         Set device of interventions and the model
         """
         for k, v in self.interventions.items():
-            if isinstance(v[0], models.interventions.TrainableIntervention):
+            if isinstance(v[0], pyvene.models.interventions.TrainableIntervention):
                 v[0].zero_grad()
 
     def save(
@@ -394,7 +394,7 @@ class IntervenableModel(nn.Module):
             saving_config.intervenable_interventions_type += [str(type(intervention))]
             binary_filename = f"intkey_{k}.bin"
             # save intervention binary file
-            if isinstance(intervention, models.interventions.TrainableIntervention):
+            if isinstance(intervention, pyvene.models.interventions.TrainableIntervention):
                 logging.warn(f"Saving trainable intervention to {binary_filename}.")
                 torch.save(
                     intervention.state_dict(),
@@ -484,7 +484,7 @@ class IntervenableModel(nn.Module):
         for i, (k, v) in enumerate(intervenable.interventions.items()):
             intervention = v[0]
             binary_filename = f"intkey_{k}.bin"
-            if isinstance(intervention, models.interventions.TrainableIntervention):
+            if isinstance(intervention, pyvene.models.interventions.TrainableIntervention):
                 if not os.path.exists(load_directory) or from_huggingface_hub:
                     hf_hub_download(
                         repo_id=load_directory,
@@ -623,7 +623,7 @@ class IntervenableModel(nn.Module):
                     else:
                         output = args
 
-                if isinstance(intervention, models.interventions.SkipIntervention):
+                if isinstance(intervention, pyvene.models.interventions.SkipIntervention):
                     selected_output = self._gather_intervention_output(
                         args[0],  # this is actually the input to the module
                         key,

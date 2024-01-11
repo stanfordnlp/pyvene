@@ -9,7 +9,7 @@ defined in the huggingface library.
 """
 
 
-from models.constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK
+from pyvene.models.constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK
 
 
 """gru base model"""

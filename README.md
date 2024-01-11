@@ -1,19 +1,19 @@
 <br />
 <div align="center">
-  <h1 align="center"><img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30">align-transformers</h1>
+  <h1 align="center"><img src="https://i.ibb.co/BC94vq1/intervention-library-icon-1.png" width="30" height="30">pyvene</h1>
   <a href="https://nlp.stanford.edu/~wuzhengx/"><strong>Library Paper and Doc Are Forthcoming »</strong></a>
 </div>
 
 ### Tutorials
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**Static Intervention 101**]   
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) [**Trainable Intervention 101**]      
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/Add_New_Model_Type.ipynb) [**Add New Models and Intervention Types**]    
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/advanced_tutorials/Intervened_Model_Generation.ipynb) [**Intervened Model Generation**]       
+[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**Static Intervention 101**]   
+[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) [**Trainable Intervention 101**]      
+[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Add_New_Model_Type.ipynb) [**Add New Models and Intervention Types**]    
+[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/advanced_tutorials/Intervened_Model_Generation.ipynb) [**Intervened Model Generation**]       
 
 
 
-# <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Customizable Interventions on Internals of Different Neural Architectures**
-To interpret causal mechanisms of neural networks with their internals, we introduce **align-transformers**, an open-source and intervention-oriented Python library that supports customizable interventions on different families of neural architectures (e.g., RNN or Transformers). The basic operation is an in-place activation modification during the computation flow of a neural model. It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) to enable practitioners to quantify counterfactual behaviors at scale to gain interpretability insights. We showcase **align-transformers** out-of-box supports a wide range of intervention-based interpretability methods such as causal abstraction, circuit finding, and knowledge localization. **align-transformers** provides a unified and extensible framework to perform interventions on neural models, and to share interventions with others.
+# <img src="https://i.ibb.co/BC94vq1/intervention-library-icon-1.png" width="30" height="30"> **Customizable Interventions on Internals of Different Neural Architectures**
+To interpret causal mechanisms of neural networks with their internals, we introduce **pyvene**, an open-source and intervention-oriented Python library that supports customizable interventions on different families of neural architectures (e.g., RNN or Transformers). The basic operation is an in-place activation modification during the computation flow of a neural model. It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) to enable practitioners to quantify counterfactual behaviors at scale to gain interpretability insights. We showcase **pyvene** out-of-box supports a wide range of intervention-based interpretability methods such as causal abstraction, circuit finding, and knowledge localization. **pyvene** provides a unified and extensible framework to perform interventions on neural models, and to share interventions with others.
 
 
 ## Interventions v.s. Alignments with Model Internals
@@ -84,7 +84,7 @@ intervenable.evaluate(
     inputs_collator=inputs_collator
 )
 ```
-where you provide testing data (basically interventional data and the counterfactual behavior you are looking for) along with your metrics functions. The library will try to evaluate the alignment with the intervention you specified in the config. You can follow [this tutorial](https://github.com/frankaging/align-transformers/blob/main/tutorials/Generic%20alignment%20training.ipynb) for alignment finding and evaluation with a provided fine-tuned gpt2 model.
+where you provide testing data (basically interventional data and the counterfactual behavior you are looking for) along with your metrics functions. The library will try to evaluate the alignment with the intervention you specified in the config. You can follow [this tutorial](https://github.com/frankaging/pyvene/blob/main/tutorials/Generic%20alignment%20training.ipynb) for alignment finding and evaluation with a provided fine-tuned gpt2 model.
 
 --- 
 
@@ -120,7 +120,7 @@ where you need to pass in a trainable dataset, and your customized loss and metr
 
 
 ## Tutorials
-We released [a set of tutorials](https://github.com/frankaging/align-transformers/tree/main/tutorials) for doing model interventions and model alignments. Here are some of them,
+We released [a set of tutorials](https://github.com/frankaging/pyvene/tree/main/tutorials) for doing model interventions and model alignments. Here are some of them,
 
 ### `Basic_Intervention.ipynb` 
 (**Intervention Tutorial**) This is a tutorial for doing simple path patching as in **Path Patching**[^pp], **Causal Scrubbing**[^cs]. Thanks to [Aryaman Arora](https://aryaman.io/). This is a set of experiments trying to reproduce some of the experiments in his awesome [nano-causal-interventions](https://github.com/aryamanarora/nano-causal-interventions) repository.
@@ -141,7 +141,7 @@ We released [a set of tutorials](https://github.com/frankaging/align-transformer
 ## Unit-tests
 When adding new methods or APIs, unit tests are now enforced. To run existing tests, you can kick off the python unittest command in the discovery mode as,
 ```bash
-cd align-transformers
+cd pyvene
 python -m unittest discover -p '*TestCase.py'
 ```
 When checking in new code, please also consider to add new tests in the same PR. Please include test results in the PR to make sure all the existing test cases are passing. Please see the `qa_runbook.ipynb` notebook about a set of conventions about how to add test cases. The code coverage for this repository is currently `low`, and we are adding more automated tests.
