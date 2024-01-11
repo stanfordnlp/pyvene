@@ -109,14 +109,14 @@ Instead of activation swapping in the original representation space, we first **
 
 You can now also make a single API call to train your intervention,
 ```py
-intervenable.find_alignment(
+intervenable.train(
     train_dataloader=train_dataloader,
     compute_loss=compute_loss,
     compute_metrics=compute_metrics,
     inputs_collator=inputs_collator
 )
 ```
-where you need to pass in a trainable dataset, and your customized loss and metrics function. The trainable interventions can later be saved on to your disk.
+where you need to pass in a trainable dataset, and your customized loss and metrics function. The trainable interventions can later be saved on to your disk. You can also use `intervenable.evaluate()` your interventions in terms of customized objectives.
 
 
 ## Tutorials

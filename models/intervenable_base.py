@@ -1310,7 +1310,7 @@ class IntervenableModel(nn.Module):
         return batched_location_dict
 
     
-    def find_alignment(
+    def train(
         self,
         train_dataloader,
         compute_loss,
@@ -1398,7 +1398,7 @@ class IntervenableModel(nn.Module):
                 total_step += 1
 
 
-    def evaluate_alignment(
+    def evaluate(
         self,
         eval_dataloader,
         compute_metrics,
