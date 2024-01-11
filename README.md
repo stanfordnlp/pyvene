@@ -6,9 +6,9 @@
 
 ### Tutorials
 [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**Static Intervention 101**]   
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/advance_tutorials/DAS_Main_Introduction.ipynb) [**Trainable Intervention 101**]      
+[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) [**Trainable Intervention 101**]      
 [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/Add_New_Model_Type.ipynb) [**Add New Models and Intervention Types**]    
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/advance_tutorials/Intervened_Model_Generation.ipynb) [**Intervened Model Generation**]       
+[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/advanced_tutorials/Intervened_Model_Generation.ipynb) [**Intervened Model Generation**]       
 
 
 
