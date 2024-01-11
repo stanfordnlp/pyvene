@@ -27,7 +27,6 @@ You can intervene with supported models as,
 ```python
 import pyvene
 from pyvene import IntervenableRepresentationConfig, IntervenableConfig, IntervenableModel
-from pyvene import VanillaIntervention
 
 # provided wrapper for huggingface gpt2 model
 _, tokenizer, gpt2 = pyvene.create_gpt2()
