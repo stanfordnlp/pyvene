@@ -419,7 +419,10 @@ class PCARotatedSpaceIntervention(BasisAgnosticIntervention):
     """Intervention in the pca space."""
 
     def __init__(self, embed_dim, **kwargs):
-        super().__init__(embed_dim, **kwargs)
+        super().__init__(**kwargs)
+        pca = kwargs["pca"]
+        pca_mean = kwargs["pca_mean"]
+        pca_std = kwargs["pca_std"]
         self.pca_components = torch.nn.Parameter(
             torch.tensor(pca.components_, dtype=torch.float32), requires_grad=False
         )

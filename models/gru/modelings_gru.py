@@ -268,7 +268,7 @@ class GRUForClassification(GRUPreTrainedModel):
         return SequenceClassifierOutput(
             loss=loss,
             logits=pooled_logits,
-            hidden_states=mlp_outputs.hidden_states,
+            hidden_states=gru_outputs.hidden_states,
         )
 
 

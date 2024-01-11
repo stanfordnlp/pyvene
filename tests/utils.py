@@ -47,7 +47,7 @@ ONE_MLP_FETCH_W1_ACT = lambda input_dict, mlp: mlp.mlp.h[0].act(
 )
 
 ONE_MLP_WITH_W1_OUT_RUN = (
-    lambda w1_out, mlp: mlp.mlp.h[0].act(w1_act) @ mlp.score.weight.T
+    lambda w1_out, mlp: mlp.mlp.h[0].act(w1_out) @ mlp.score.weight.T
 )
 
 ONE_MLP_WITH_W1_ACT_RUN = lambda w1_act, mlp: w1_act @ mlp.score.weight.T
