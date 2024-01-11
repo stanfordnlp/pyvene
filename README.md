@@ -4,15 +4,21 @@
   <a href="https://nlp.stanford.edu/~wuzhengx/"><strong>Library Paper and Doc Are Forthcoming »</strong></a>
 </div>
 
+<a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/v/pyvene?color=red"></img></a>
+
 # **pyvene: Use _Interventions_ to Learn Model's _Causal Mechanisms_**
 **pyvene** supports customizable interventions on different neural architectures (e.g., RNN or Transformers). It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) at scale to gain interpretability insights.
 
-**Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**pyvene Intervention 101**]  
+**Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**_pyvene_ 101**]  
 
 ## Installation
-Install this package directly from the source code as,
+Install with pip on stable releases,
 ```bash
-!pip install git+https://github.com/frankaging/pyvene.git
+pip install pyvene
+```
+or with our dev repo directly,
+```bash
+pip install git+https://github.com/frankaging/pyvene.git
 ```
 
 ## _Wrap_ , _Intervene_ and _Share_
