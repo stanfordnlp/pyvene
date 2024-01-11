@@ -10,8 +10,8 @@ with open('requirements.txt', 'r', encoding='utf-8') as f:
 
 setup(
     name="pyvene",
-    version="0.0.1",
-    description="pyvene: Use Interventions to Learn Model's Causal Mechanisms",
+    version="0.0.2",
+    description="Use Activation Intervention to Interpret Causal Mechanism of Model",
     long_description=long_description,
     long_description_content_type='text/markdown',
     url="https://github.com/frankaging/pyvene",
