@@ -252,6 +252,58 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention):
         return f"BoundlessRotatedSpaceIntervention(embed_dim={self.embed_dim})"
 
 
+class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention):
+
+    """Intervention in the rotated space with boundary mask."""
+    def __init__(self, embed_dim, **kwargs):
+        super().__init__(**kwargs)
+        rotate_layer = RotateLayer(embed_dim)
+        self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(
+            rotate_layer)
+        self.subspace_partition = kwargs["subspace_partition"] \
+            if "subspace_partition" in kwargs else None
+        # TODO: in case there are subspace partitions, we
+        #       need to initialize followings differently.
+        
+        # boundary masks are initialized to close to 1
+        self.masks = torch.nn.Parameter(
+            torch.tensor([100] * embed_dim), requires_grad=True)
+        self.temperature = torch.nn.Parameter(torch.tensor(50.0))
+        self.embed_dim = embed_dim
+
+    def get_boundary_parameters(self):
+        return self.intervention_boundaries
+
+    def get_temperature(self):
+        return self.temperature
+
+    def set_temperature(self, temp: torch.Tensor):
+        self.temperature.data = temp
+
+    def set_interchange_dim(self, interchange_dim):
+        """interchange dim is learned and can not be set"""
+        assert False
+
+    def forward(self, base, source, subspace=None):
+        batch_size = base.shape[0]
+        rotated_base = self.rotate_layer(base)
+        rotated_source = self.rotate_layer(source)
+        # get boundary mask between 0 and 1 from sigmoid
+        boundary_mask = torch.sigmoid(self.masks / self.temperature)
+        
+        boundary_mask = torch.ones(
+            batch_size, device=base.device).unsqueeze(dim=-1)*boundary_mask
+        boundary_mask = boundary_mask.to(rotated_base.dtype)
+        # interchange
+        rotated_output = (1. - boundary_mask)*rotated_base + boundary_mask*rotated_source
+        # inverse output
+        output = torch.matmul(rotated_output, self.rotate_layer.weight.T)
+        return output.to(base.dtype)
+
+    def __str__(self):
+        return f"SigmoidMaskRotatedSpaceIntervention(embed_dim={self.embed_dim})"
+    
+
 class LowRankRotatedSpaceIntervention(TrainableIntervention):
 
     """Intervention in the rotated space."""
