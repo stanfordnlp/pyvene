@@ -21,7 +21,7 @@ IntervenableRepresentationConfig = namedtuple(
 class IntervenableConfig(PretrainedConfig):
     def __init__(
         self,
-        intervenable_model_type="gpt2",
+        intervenable_model_type=None,
         intervenable_representations=[IntervenableRepresentationConfig()],
         intervenable_interventions_type=VanillaIntervention,
         mode="parallel",

@@ -16,23 +16,24 @@
 To interpret causal mechanisms of neural networks with their internals, we introduce **pyvene**, an open-source and intervention-oriented Python library that supports customizable interventions on different families of neural architectures (e.g., RNN or Transformers). The basic operation is an in-place activation modification during the computation flow of a neural model. It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) to enable practitioners to quantify counterfactual behaviors at scale to gain interpretability insights. We showcase **pyvene** out-of-box supports a wide range of intervention-based interpretability methods such as causal abstraction, circuit finding, and knowledge localization. **pyvene** provides a unified and extensible framework to perform interventions on neural models, and to share interventions with others.
 
 
-## Interventions v.s. Alignments with Model Internals
-In this section, we discuss topics from interventions to alignments with model internals.
-
-### Interventions
-Intervention is the basic unit of this library. It means manipulating the model's activations, without any assumption of how the model behavior will change. We can zero-out a set of neurons, or swap activations between examples (i.e., interchange interventions). Here, we show how we can intervene in model internals with this library.
-
-#### Loading models from HuggingFace
-```py
-from models.utils import create_gpt2
-
-config, tokenizer, gpt = create_gpt2()
+## Installation
+Install this package directly from the source code as,
+```bash
+!pip install git+https://github.com/frankaging/pyvene.git
 ```
 
-#### Create a simple intervenable config
-```py
+## Basic Interventions
+You can intervene with supported models as,
+```python
+# helper functions to load gpt2 from huggingface
+from pyvene.models.gpt2.modelings_intervenable_gpt2 import create_gpt2
+
+from pyvene import IntervenableRepresentationConfig, IntervenableConfig, IntervenableModel
+from pyvene import VanillaIntervention
+
+config, tokenizer, gpt2 = create_gpt2()
+
 intervenable_config = IntervenableConfig(
-    intervenable_model_type="gpt2",
     intervenable_representations=[
         IntervenableRepresentationConfig(
             0,            # intervening layer 0
@@ -42,28 +43,32 @@ intervenable_config = IntervenableConfig(
         ),
     ],
 )
-```
 
-#### Turn the model into an intervenable object
-The basic idea is to consider the intervenable model as a regular HuggingFace model, except that it supports an intervenable forward function.
-```py
-intervenable_gpt = IntervenableModel(intervenable_config, gpt)
-```
+intervenable_gpt2 = IntervenableModel(intervenable_config, gpt2)
 
-#### Intervene by swapping activations between examples
-```py
 base = tokenizer("The capital of Spain is", return_tensors="pt")
 sources = [tokenizer("The capital of Italy is", return_tensors="pt")]
 
-_, counterfactual_outputs = intervenable_gpt(
+original_outputs, intervened_outputs = intervenable_gpt2(
     base,
     sources,
-    {"sources->base": ([[[4]]], [[[4]]])} # intervene base with sources
+    {"sources->base": ([[[4]]], [[[4]]])} # intervene base with sources on the fourth token.
 )
+original_outputs.last_hidden_state - intervened_outputs.last_hidden_state
 ```
---- 
+which returns,
 
-### Alignments
+```
+tensor([[[ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
+         [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
+         [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
+         [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
+         [ 0.0008, -0.0078, -0.0066,  ...,  0.0007, -0.0018,  0.0060]]])
+```
+showing that we have causal effects only on the last token as expected.
+
+
+## From Interventions to Gain Interpretability Insights
 If the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. This is an alignment. Here is a more concrete example,
 ```py
 def add_three_numbers(a, b, c):
@@ -119,25 +124,6 @@ intervenable.train(
 where you need to pass in a trainable dataset, and your customized loss and metrics function. The trainable interventions can later be saved on to your disk. You can also use `intervenable.evaluate()` your interventions in terms of customized objectives.
 
 
-## Tutorials
-We released [a set of tutorials](https://github.com/frankaging/pyvene/tree/main/tutorials) for doing model interventions and model alignments. Here are some of them,
-
-### `Basic_Intervention.ipynb` 
-(**Intervention Tutorial**) This is a tutorial for doing simple path patching as in **Path Patching**[^pp], **Causal Scrubbing**[^cs]. Thanks to [Aryaman Arora](https://aryaman.io/). This is a set of experiments trying to reproduce some of the experiments in his awesome [nano-causal-interventions](https://github.com/aryamanarora/nano-causal-interventions) repository.
-
-### `Intervened_Model_Generation.ipynb` 
-(**Intervention Tutorial**) This is a tutorial on how to intervene the TinyStories-33M model to change its story generation, with sad endings and happy endings. Different from other tutorials, this is a multi-token language generation, closer to other real-world use cases.
-
-### `Intervention_Training.ipynb` 
-(**Alignment Tutorial**) This is a tutorial covering the basics of how to train an intervention to find alignments with a gpt2 model finetuned on a logical reasoning task.
-
-### `DAS_with_IOI.ipynb` 
-(**Alignment Tutorial**) This is a tutorial reproducing key components (i.e., name mover heads, name position information) for the indirect object identification (IOI) circuit introduced by Wang et al. (2023).
-
-### `NonTransformer_MLP_Intervention.ipynb`  and `NonTransformer_GRU_Intervention.ipynb` 
-(**Intervention Tutorial**) These are tutorials for non-Transformer models such as MLPs and GRUs.
-
-
 ## Unit-tests
 When adding new methods or APIs, unit tests are now enforced. To run existing tests, you can kick off the python unittest command in the discovery mode as,
 ```bash
@@ -145,13 +131,6 @@ cd pyvene
 python -m unittest discover -p '*TestCase.py'
 ```
 When checking in new code, please also consider to add new tests in the same PR. Please include test results in the PR to make sure all the existing test cases are passing. Please see the `qa_runbook.ipynb` notebook about a set of conventions about how to add test cases. The code coverage for this repository is currently `low`, and we are adding more automated tests.
-
-
-## System Requirements
-- Python 3.8 is supported.
-- Pytorch Version: >= 2.0
-- Transformers ToT is recommended
-- Datasets Version ToT is recommended
 
 
 ## Related Works in Discovering Causal Mechanism of LLMs
@@ -181,7 +160,3 @@ If you use this repository, please consider to cite relevant papers:
         booktitle={NeurIPS}
   }
 ```
-
-[^pp]: [Wang et al. (2022)](https://arxiv.org/abs/2211.00593), [Goldowsky-Dill et al. (2023)](https://arxiv.org/abs/2304.05969)
-[^cs]: [Chan et al. (2022)](https://www.lesswrong.com/s/h95ayYYwMebGEYN5y)
-[^ii]: [Geiger et al. (2021a)](https://arxiv.org/abs/2106.02997), [Geiger et al. (2021b)](https://arxiv.org/abs/2112.00826), [Geiger et al. (2023)](https://arxiv.org/abs/2301.04709), [Wu et al. (2023)](https://arxiv.org/pdf/2303.02536)

@@ -29,6 +29,7 @@ class IntervenableModel(nn.Module):
         self.mode = intervenable_config.mode
         intervention_type = intervenable_config.intervenable_interventions_type
         self.is_model_stateless = is_stateless(model)
+        self.intervenable_config.intervenable_model_type = type(model) # backfill
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
         if self.use_fast:
             logging.warn(
