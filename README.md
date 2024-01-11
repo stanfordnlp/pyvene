@@ -1,6 +1,6 @@
 <br />
 <div align="center">
-  <h1 align="center"><img src="https://i.ibb.co/BC94vq1/intervention-library-icon-1.png" width="50" height="30">pyvene</h1>
+  <h1 align="center"><img src="https://i.ibb.co/V2s55jP/Screenshot-2024-01-11-at-4-13-03-AM.png" width="53" height="50">pyvene</h1>
   <a href="https://nlp.stanford.edu/~wuzhengx/"><strong>Library Paper and Doc Are Forthcoming »</strong></a>
 </div>
 
