@@ -278,7 +278,7 @@ def gather_neurons(
         )
     else:
         unit_locations = torch.tensor(unit_locations_as_list, device=tensor_input.device)
-
+        
     if intervenable_unit in {"pos", "h"}:
         tensor_output = torch.gather(
             tensor_input, 1,

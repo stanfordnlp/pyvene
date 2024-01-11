@@ -257,17 +257,21 @@ class IntervenableModel(nn.Module):
         remove_forward_hooks(self.model)
     
     
-    def _cleanup_states(self):
+    def _cleanup_states(self, skip_activation_gc=False):
         """
         Clean up all old in memo states of interventions
         """
         self._is_generation = False
         self._remove_forward_hooks()
         self._reset_hook_count()
-        self.activations.clear()
-        self.hot_activations.clear()
-        self._batched_setter_activation_select.clear()
-    
+        if not skip_activation_gc:
+            self.activations.clear()
+            self.hot_activations.clear()
+            self._batched_setter_activation_select.clear()
+        else:
+            self.activations = {}
+            self.hot_activations = {}
+            self._batched_setter_activation_select = {}
     
     def get_trainable_parameters(self):
         """
@@ -521,7 +525,7 @@ class IntervenableModel(nn.Module):
             # enable the following line when an error is hit
             # torch.autograd.set_detect_anomaly(True)
             selected_output = self.hot_activations[
-                self._intervention_reverse_link[intervenable_representations_key]].clone()
+                self._intervention_reverse_link[intervenable_representations_key]]
         else:
             # cold gather
             original_output = output
@@ -533,6 +537,7 @@ class IntervenableModel(nn.Module):
                 original_output,
                 intervenable_representations_key
             )
+
             # gather based on intervention locations
             selected_output = gather_neurons(
                 original_output,
@@ -540,6 +545,8 @@ class IntervenableModel(nn.Module):
                     intervenable_representations_key].intervenable_unit,
                 unit_locations
             )
+        
+        
         return selected_output
 
 
@@ -762,14 +769,14 @@ class IntervenableModel(nn.Module):
                     intervention, 
                     subspaces[key_i] if subspaces is not None else None
                 )
+                # setter can produce hot activations for shared subspace interventions if linked
+                if key in self._intervention_reverse_link:
+                    self.hot_activations[self._intervention_reverse_link[key]] = intervened_representation.clone()
                 # patched in the intervned activations
                 output = self._scatter_intervention_output(
                     output, intervened_representation,
                     key, unit_locations_base[key_i]
                 )
-                # setter can produce hot activations for shared subspace interventions if linked
-                if key in self._intervention_reverse_link:
-                    self.hot_activations[self._intervention_reverse_link[key]] = output
                 # set version for stateful models
                 self._intervention_state[key].inc_setter_version()
 
@@ -1058,28 +1065,35 @@ class IntervenableModel(nn.Module):
         with torch.inference_mode():
             base_outputs = self.model(**base)
         
-        # intervene
-        if self.mode == "parallel":
-            set_handlers_to_remove = self._wait_for_forward_with_parallel_intervention(
-                sources,
-                unit_locations,
-                activations_sources,
-                subspaces,
-            )
-        elif self.mode == "serial":
-            set_handlers_to_remove = self._wait_for_forward_with_serial_intervention(
-                sources,
-                unit_locations,
-                activations_sources,
-                subspaces,
+        try:
+            # intervene
+            if self.mode == "parallel":
+                set_handlers_to_remove = self._wait_for_forward_with_parallel_intervention(
+                    sources,
+                    unit_locations,
+                    activations_sources,
+                    subspaces,
+                )
+            elif self.mode == "serial":
+                set_handlers_to_remove = self._wait_for_forward_with_serial_intervention(
+                    sources,
+                    unit_locations,
+                    activations_sources,
+                    subspaces,
+                )
+
+            # run intervened forward
+            counterfactual_outputs = self.model(**base)
+            set_handlers_to_remove.remove()
+
+            self._output_validation()
+        except Exception as e:
+            raise e
+        finally:
+            self._cleanup_states(
+                skip_activation_gc=sources is None and activations_sources is not None
             )
         
-        # run intervened forward
-        counterfactual_outputs = self.model(**base)
-        set_handlers_to_remove.remove()
-        
-        self._output_validation()
-                
         return base_outputs, counterfactual_outputs
     
 
@@ -1134,6 +1148,7 @@ class IntervenableModel(nn.Module):
             sources,
             unit_locations,
             activations_sources,
+            subspaces,
         )
 
         # returning un-intervened output without gradients
@@ -1142,30 +1157,39 @@ class IntervenableModel(nn.Module):
                 inputs=base["input_ids"],
                 **kwargs
             )
-        
-        # intervene
-        if self.mode == "parallel":
-            set_handlers_to_remove = self._wait_for_forward_with_parallel_intervention(
-                sources,
-                unit_locations,
-                activations_sources,
-                subspaces,
+            
+        set_handlers_to_remove = None
+        try:
+            # intervene
+            if self.mode == "parallel":
+                set_handlers_to_remove = self._wait_for_forward_with_parallel_intervention(
+                    sources,
+                    unit_locations,
+                    activations_sources,
+                    subspaces,
+                )
+            elif self.mode == "serial":
+                set_handlers_to_remove = self._wait_for_forward_with_serial_intervention(
+                    sources,
+                    unit_locations,
+                    activations_sources,
+                    subspaces,
+                )
+
+            # run intervened generate
+            counterfactual_outputs = self.model.generate(
+                inputs=base["input_ids"],
+                **kwargs
             )
-        elif self.mode == "serial":
-            set_handlers_to_remove = self._wait_for_forward_with_serial_intervention(
-                sources,
-                unit_locations,
-                activations_sources,
-                subspaces,
+        except Exception as e:
+            raise e
+        finally:
+            if set_handlers_to_remove is not None:
+                set_handlers_to_remove.remove()
+            self._is_generation = False
+            self._cleanup_states(
+                skip_activation_gc=sources is None and activations_sources is not None
             )
-        
-        # run intervened generate
-        counterfactual_outputs = self.model.generate(
-            inputs=base["input_ids"],
-            **kwargs
-        )
-        set_handlers_to_remove.remove()
-        self._is_generation = False
         
         return base_outputs, counterfactual_outputs
 

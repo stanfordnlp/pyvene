@@ -1,4 +1,4 @@
-CONST_VALID_INTERVENABLE_UNIT = ["pos", "h", "h.pos"]
+CONST_VALID_INTERVENABLE_UNIT = ["pos", "h", "h.pos", "t"]
 
 
 CONST_INPUT_HOOK = "register_forward_pre_hook"
