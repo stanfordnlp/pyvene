@@ -84,7 +84,7 @@ We see interventions are knobs that can mount on models. And people can share th
 
 
 ## Causal Abstraction: From Interventions to Gain Interpretability Insights
-Basic interventions are fun we cannot make any causal claim systematically. To gain actual interpretability insights, we want to measure the counterfactual behaviors of a model in a data-driven fashion. In other words, if the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. We also call this alignment search process with model internals.
+Basic interventions are fun but we cannot make any causal claim systematically. To gain actual interpretability insights, we want to measure the counterfactual behaviors of a model in a data-driven fashion. In other words, if the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. We also call this alignment search process with model internals.
 
 ### Understanding Causal Mechanisms with Static Interventions
 Here is a more concrete example,
