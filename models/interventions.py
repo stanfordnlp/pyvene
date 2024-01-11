@@ -377,6 +377,7 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention):
                     dim=1
                 )
             else:
+                assert self.subspace_partition is not None
                 output = []
                 diff = rotated_source - rotated_base
                 assert rotated_base.shape[0] == len(subspaces)
