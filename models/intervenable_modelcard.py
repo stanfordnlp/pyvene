@@ -67,4 +67,3 @@ type_to_dimension_mapping = {
     # new model type goes here after defining the model files
 }
 #########################################################################
-

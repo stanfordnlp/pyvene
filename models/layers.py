@@ -32,10 +32,11 @@ class RotateLayer(torch.nn.Module):
 
 class LowRankRotateLayer(torch.nn.Module):
     """A linear transformation with orthogonal initialization."""
+
     def __init__(self, n, m):
         super().__init__()
         # n > m
-        self.weight = torch.nn.Parameter(torch.empty(n,m), requires_grad=True)
+        self.weight = torch.nn.Parameter(torch.empty(n, m), requires_grad=True)
         torch.nn.init.orthogonal_(self.weight)
 
     def forward(self, x):
@@ -44,11 +45,12 @@ class LowRankRotateLayer(torch.nn.Module):
 
 class SubspaceLowRankRotateLayer(torch.nn.Module):
     """A linear transformation with orthogonal initialization with subspace."""
+
     def __init__(self, n, m):
         super().__init__()
         # n > m
-        self.weight = torch.nn.Parameter(torch.empty(n,m), requires_grad=True)
+        self.weight = torch.nn.Parameter(torch.empty(n, m), requires_grad=True)
         torch.nn.init.orthogonal_(self.weight)
 
     def forward(self, x, l, r):
-        return torch.matmul(x.to(self.weight.dtype), self.weight[:,l:r])
+        return torch.matmul(x.to(self.weight.dtype), self.weight[:, l:r])

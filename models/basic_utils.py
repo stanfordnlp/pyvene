@@ -1,4 +1,11 @@
-import os, copy, torch, random, importlib
+"""
+Basic Utils
+"""
+import os
+import random
+import importlib
+import torch
+
 from torch import nn
 import numpy as np
 
@@ -13,7 +20,7 @@ def get_type_from_string(type_str):
     type_str = type_str.replace("<class '", "").replace("'>", "")
 
     # Split the string into module and class name
-    module_name, class_name = type_str.rsplit('.', 1)
+    module_name, class_name = type_str.rsplit(".", 1)
 
     # Import the module
     module = importlib.import_module(module_name)
@@ -32,7 +39,7 @@ def create_directory(path):
     else:
         print(f"Directory '{path}' already exists.")
 
-        
+
 def embed_to_distrib(model, embed, log=False, logits=False):
     """Convert an embedding to a distribution over the vocabulary"""
     if "gpt2" in model.config.architectures[0].lower():
@@ -44,7 +51,7 @@ def embed_to_distrib(model, embed, log=False, logits=False):
     elif "llama" in model.config.architectures[0].lower():
         assert False, "Support for LLaMA is not here yet"
 
-                
+
 def set_seed(seed: int):
     """Set seed. Deprecate soon since it is in the huggingface library"""
     random.seed(seed)
@@ -55,16 +62,28 @@ def set_seed(seed: int):
 
 def sigmoid_boundary(_input, boundary_x, boundary_y, temperature):
     """Generate sigmoid mask"""
-    return torch.sigmoid((_input - boundary_x) / temperature) * \
-        torch.sigmoid((boundary_y - _input) / temperature)
+    return torch.sigmoid((_input - boundary_x) / temperature) * torch.sigmoid(
+        (boundary_y - _input) / temperature
+    )
 
 
 def harmonic_sigmoid_boundary(_input, boundary_x, boundary_y, temperature):
     """Generate harmonic sigmoid mask"""
-    return (_input<=boundary_x)*torch.sigmoid((_input - boundary_x) / temperature) + \
-    (_input>=boundary_y)*torch.sigmoid((boundary_y - _input) / temperature) + \
-    ((_input>boundary_x)&(_input<boundary_y))*torch.sigmoid(
-        (0.5 * (torch.abs(_input - boundary_x)**(-1) + torch.abs(_input - boundary_y)**(-1)))**(-1) / temperature
+    return (
+        (_input <= boundary_x) * torch.sigmoid((_input - boundary_x) / temperature)
+        + (_input >= boundary_y) * torch.sigmoid((boundary_y - _input) / temperature)
+        + ((_input > boundary_x) & (_input < boundary_y))
+        * torch.sigmoid(
+            (
+                0.5
+                * (
+                    torch.abs(_input - boundary_x) ** (-1)
+                    + torch.abs(_input - boundary_y) ** (-1)
+                )
+            )
+            ** (-1)
+            / temperature
+        )
     )
 
 
@@ -75,19 +94,19 @@ def count_parameters(model):
 
 def random_permutation_matrix(n):
     """Generate a random permutation matrix"""
-    P = torch.eye(n)
+    _p = torch.eye(n)
     perm = torch.randperm(n)
-    P = P[perm]
-    
-    return P
+    _p = _p[perm]
+
+    return _p
 
 
-def closeness_to_permutation_loss(R):
+def closeness_to_permutation_loss(rotation):
     """Measure how close a rotation m is close to a permutation m"""
-    row_sum_diff = torch.abs(R.sum(dim=1) - 1.0).mean()
-    col_sum_diff = torch.abs(R.sum(dim=0) - 1.0).mean()
-    entry_diff = (R * (1 - R)).mean()
-    loss = .5 * (row_sum_diff + col_sum_diff) + entry_diff
+    row_sum_diff = torch.abs(rotation.sum(dim=1) - 1.0).mean()
+    col_sum_diff = torch.abs(rotation.sum(dim=0) - 1.0).mean()
+    entry_diff = (rotation * (1 - rotation)).mean()
+    loss = 0.5 * (row_sum_diff + col_sum_diff) + entry_diff
     return loss
 
 
@@ -99,7 +118,6 @@ def format_token(tokenizer, tok):
 def top_vals(tokenizer, res, n=10):
     """Pretty print the top n values of a distribution over the vocabulary"""
     top_values, top_indices = torch.topk(res, n)
-    for i in range(len(top_values)):
+    for i, _ in enumerate(top_values):
         tok = format_token(tokenizer, top_indices[i].item())
         print(f"{tok:<20} {top_values[i].item()}")
-

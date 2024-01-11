@@ -10,21 +10,22 @@ from transformers.modeling_outputs import SequenceClassifierOutput
 
 
 class MLPConfig(PretrainedConfig):
-    model_type="mlp"
+    model_type = "mlp"
+
     def __init__(
         self,
-        include_emb = False,
-        vocab_size = 50_257,
-        max_position_embeddings = 512,
-        n_layer = 2,
-        h_dim = 512,
-        num_labels = 2,
-        activation_function = "gelu",
-        pdrop = 0.3,
-        problem_type = "single_label_classification",
+        include_emb=False,
+        vocab_size=50_257,
+        max_position_embeddings=512,
+        n_layer=2,
+        h_dim=512,
+        num_labels=2,
+        activation_function="gelu",
+        pdrop=0.3,
+        problem_type="single_label_classification",
         include_bias=True,
         squeeze_output=True,
-        **kwargs
+        **kwargs,
     ):
         self.include_emb = include_emb
         self.vocab_size = vocab_size
@@ -46,27 +47,18 @@ class MLPModelOutput(ModelOutput):
 
 
 class MLPBlock(nn.Module):
-    def __init__(
-        self, config
-    ):
+    def __init__(self, config):
         super().__init__()
         self.ff1 = nn.Linear(config.h_dim, config.h_dim, bias=config.include_bias)
         self.act = ACT2FN[config.activation_function]
         self.dropout = nn.Dropout(config.pdrop)
 
-
     def forward(self, hidden_states):
-        return self.dropout(
-            self.act(
-                self.ff1(hidden_states)
-            )
-        )
+        return self.dropout(self.act(self.ff1(hidden_states)))
 
 
 class MLPModel(PreTrainedModel):
-    def __init__(
-        self, config
-    ):
+    def __init__(self, config):
         super().__init__(config)
         self.config = config
         self.h_dim = config.h_dim
@@ -78,7 +70,6 @@ class MLPModel(PreTrainedModel):
         self.h = nn.ModuleList([MLPBlock(config) for _ in range(config.n_layer)])
 
         self.post_init()
-
 
     def forward(
         self,
@@ -107,33 +98,23 @@ class MLPModel(PreTrainedModel):
             all_hidden_states = all_hidden_states + (hidden_states,)
 
         if not return_dict:
-            return tuple(
-                v
-                for v in [hidden_states, all_hidden_states]
-                if v is not None
-            )
+            return tuple(v for v in [hidden_states, all_hidden_states] if v is not None)
 
         return MLPModelOutput(
-            last_hidden_state=hidden_states,
-            hidden_states=all_hidden_states
+            last_hidden_state=hidden_states, hidden_states=all_hidden_states
         )
 
 
 class MLPForClassification(PreTrainedModel):
-    def __init__(
-        self, config
-    ):
+    def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
         self.squeeze_output = config.squeeze_output
         self.mlp = MLPModel(config)
-        self.score = nn.Linear(
-            config.h_dim, self.num_labels, bias=config.include_bias
-        )
+        self.score = nn.Linear(config.h_dim, self.num_labels, bias=config.include_bias)
 
         # Initialize weights and apply final processing
         self.post_init()
-
 
     def forward(
         self,
@@ -155,13 +136,15 @@ class MLPForClassification(PreTrainedModel):
         pooled_logits = self.score(hidden_states)
         if self.squeeze_output:
             pooled_logits = pooled_logits.squeeze(1)
-        
+
         loss = None
         if labels is not None:
             if self.config.problem_type is None:
                 if self.num_labels == 1:
                     self.config.problem_type = "regression"
-                elif self.num_labels > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
+                elif self.num_labels > 1 and (
+                    labels.dtype == torch.long or labels.dtype == torch.int
+                ):
                     self.config.problem_type = "single_label_classification"
                 else:
                     self.config.problem_type = "multi_label_classification"
@@ -174,7 +157,9 @@ class MLPForClassification(PreTrainedModel):
                     loss = loss_fct(pooled_logits, labels)
             elif self.config.problem_type == "single_label_classification":
                 loss_fct = CrossEntropyLoss()
-                loss = loss_fct(pooled_logits.view(-1, self.num_labels), labels.view(-1))
+                loss = loss_fct(
+                    pooled_logits.view(-1, self.num_labels), labels.view(-1)
+                )
             elif self.config.problem_type == "multi_label_classification":
                 loss_fct = BCEWithLogitsLoss()
                 loss = loss_fct(pooled_logits, labels)

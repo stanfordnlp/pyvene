@@ -10,7 +10,18 @@ from abc import ABC, abstractmethod
 import json
 from pathlib import Path
 import random
-from typing import Tuple, List, Sequence, Union, Any, Optional, Literal, Iterable, Callable, Dict
+from typing import (
+    Tuple,
+    List,
+    Sequence,
+    Union,
+    Any,
+    Optional,
+    Literal,
+    Iterable,
+    Callable,
+    Dict,
+)
 import typing
 import transformers
 
@@ -22,8 +33,16 @@ from torch.nn import Parameter
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from models.intervenable_base import IntervenableModel
-from models.configuration_intervenable_model import IntervenableRepresentationConfig, IntervenableConfig
-from models.interventions import LowRankRotatedSpaceIntervention, SkipIntervention, VanillaIntervention, BoundlessRotatedSpaceIntervention
+from models.configuration_intervenable_model import (
+    IntervenableRepresentationConfig,
+    IntervenableConfig,
+)
+from models.interventions import (
+    LowRankRotatedSpaceIntervention,
+    SkipIntervention,
+    VanillaIntervention,
+    BoundlessRotatedSpaceIntervention,
+)
 
 ###
 #
@@ -39,6 +58,7 @@ def is_single_token(s: str, tokenizer) -> bool:
     """
     return len(tokenizer.tokenize(s)) == 1
 
+
 NAMES_PATH = "tutorial_data/names.json"
 OBJECTS_PATH = "tutorial_data/objects.json"
 PLACES_PATH = "tutorial_data/places.json"
@@ -50,6 +70,7 @@ OBJECTS = json.load(open(OBJECTS_PATH))
 PLACES = json.load(open(PLACES_PATH))
 PREFIXES = json.load(open(PREFIXES_PATH))
 TEMPLATES = json.load(open(TEMPLATES_PATH))
+
 
 class Prompt:
     """
@@ -71,7 +92,7 @@ class Prompt:
         self.obj = obj
         self.place = place
         if self.is_ioi:
-            self.s_name = self.names[2] # subject always appears in third position
+            self.s_name = self.names[2]  # subject always appears in third position
             self.io_name = [x for x in self.names[:2] if x != self.s_name][0]
             self.s1_pos = self.names[:2].index(self.s_name)
             self.io_pos = self.names[:2].index(self.io_name)
@@ -101,16 +122,20 @@ class Prompt:
     def canonicalize(things: Tuple[str, str, str]) -> Tuple[str, str, str]:
         # the unique elements of the tuple, in the order they appear
         ordered_uniques = list(OrderedDict.fromkeys(things).keys())
-        canonical_elts = ['A', 'B', 'C']
-        uniques_to_canonical = {x: y for x, y in zip(ordered_uniques, canonical_elts[:len(ordered_uniques)])}
+        canonical_elts = ["A", "B", "C"]
+        uniques_to_canonical = {
+            x: y
+            for x, y in zip(ordered_uniques, canonical_elts[: len(ordered_uniques)])
+        }
         return tuple([uniques_to_canonical[x] for x in things])
 
     @staticmethod
     def matches_pattern(names: Tuple[str, str, str], pattern: str) -> bool:
         return Prompt.canonicalize(names) == Prompt.canonicalize(tuple(pattern))
-    
-    def resample_pattern(self, orig_pattern: str, new_pattern: str,
-                         name_distribution: Sequence[str]) -> "Prompt":
+
+    def resample_pattern(
+        self, orig_pattern: str, new_pattern: str, name_distribution: Sequence[str]
+    ) -> "Prompt":
         """
         Change the pattern of the prompt, while keeping the names that are
         mapped to the same symbols in the original and new patterns the same.
@@ -122,14 +147,14 @@ class Prompt:
 
         Example:
             prompt = train_distribution.sample_one(pattern='ABB')
-            (prompt.sentence, 
-            prompt.resample_pattern(orig_pattern='ABB', new_pattern='BAA', 
+            (prompt.sentence,
+            prompt.resample_pattern(orig_pattern='ABB', new_pattern='BAA',
                                     name_distribution=train_distribution.names,).sentence,
-            prompt.resample_pattern(orig_pattern='ABB', new_pattern='CDD', 
+            prompt.resample_pattern(orig_pattern='ABB', new_pattern='CDD',
                                     name_distribution=train_distribution.names,).sentence,
-            prompt.resample_pattern(orig_pattern='ABB', new_pattern='ACC', 
+            prompt.resample_pattern(orig_pattern='ABB', new_pattern='ACC',
                                     name_distribution=train_distribution.names,).sentence,
-        
+
         >>> ('Then, Olivia and Anna had a long and really crazy argument. Afterwards, Anna said to',
         >>> 'Then, Anna and Olivia had a long and really crazy argument. Afterwards, Olivia said to',
         >>> 'Then, Joe and Kelly had a long and really crazy argument. Afterwards, Kelly said to',
@@ -166,6 +191,7 @@ class Prompt:
             place=self.place,
             prefix=self.prefix,
         )
+
 
 def load_data(data: Union[List[str], str, Path]) -> List[str]:
     if isinstance(data, (str, Path)):
@@ -208,38 +234,28 @@ class PromptDataset(Dataset):
     def lengths(self) -> List[int]:
         return [
             self.tokenizer(
-                x.sentence, return_tensors="pt", 
-                return_attention_mask=False
-            )["input_ids"].shape[1] 
+                x.sentence, return_tensors="pt", return_attention_mask=False
+            )["input_ids"].shape[1]
             for x in self.prompts
         ]
 
     @property
     def tokens(self) -> Tensor:
         return self.tokenizer(
-            [x.sentence for x in self.prompts], return_tensors="pt", 
+            [x.sentence for x in self.prompts],
+            return_tensors="pt",
         )
 
     @property
     def io_tokens(self) -> Tensor:
         return torch.tensor(
-            [
-                self.tokenizer(
-                    f" {x.io_name}"
-                )["input_ids"][0]
-                for x in self.prompts
-            ]
+            [self.tokenizer(f" {x.io_name}")["input_ids"][0] for x in self.prompts]
         )
 
     @property
     def s_tokens(self) -> Tensor:
         return torch.tensor(
-            [
-                self.tokenizer(
-                    f" {x.s_name}"
-                )["input_ids"][0]
-                for x in self.prompts
-            ]
+            [self.tokenizer(f" {x.s_name}")["input_ids"][0] for x in self.prompts]
         )
 
     @property
@@ -248,17 +264,12 @@ class PromptDataset(Dataset):
         return torch.tensor(
             [
                 [
-                    self.tokenizer(
-                        f" {x.io_name}"
-                    )["input_ids"][0],
-                    self.tokenizer(
-                        f" {x.s_name}"
-                    )["input_ids"][0],
+                    self.tokenizer(f" {x.io_name}")["input_ids"][0],
+                    self.tokenizer(f" {x.s_name}")["input_ids"][0],
                 ]
                 for x in self.prompts
             ]
         )
-
 
 
 class PatchingDataset(Dataset):
@@ -312,15 +323,15 @@ class PatchingDataset(Dataset):
 
     def __len__(self) -> int:
         return len(self.base)
-    
+
     def __add__(self, other: "PatchingDataset") -> "PatchingDataset":
         return PatchingDataset(
             base=self.base + other.base,
             source=self.source + other.source,
-            patched_answer_tokens=torch.cat([self.patched_answer_tokens, other.patched_answer_tokens], 
-                                            dim=0),
+            patched_answer_tokens=torch.cat(
+                [self.patched_answer_tokens, other.patched_answer_tokens], dim=0
+            ),
         )
-
 
 
 class PromptDistribution:
@@ -355,9 +366,10 @@ class PromptDistribution:
         self.prefixes = load_data(prefixes)
         self.templates = load_data(templates)
 
-    def sample_one(self,
-                   pattern: str, 
-                   ) -> Prompt:
+    def sample_one(
+        self,
+        pattern: str,
+    ) -> Prompt:
         """
         Sample a single prompt from the distribution.
         """
@@ -412,14 +424,15 @@ class PromptDistribution:
                         name_distribution=self.names,
                         orig_pattern=orig_pattern,
                         new_pattern=corrupted_pattern,
-                        ) for p in base_prompt_batch
+                    )
+                    for p in base_prompt_batch
                 ]
                 base_prompts.extend(base_prompt_batch)
                 source_prompts.extend(source_prompt_batch)
 
         # if DAS should find the position subspace
         if labels == "position":
-            patched_answer_names = [] # list of (correct, incorrect) name pairs
+            patched_answer_names = []  # list of (correct, incorrect) name pairs
             for base_prompt, source_prompt in zip(base_prompts, source_prompts):
                 if base_prompt.s1_pos == source_prompt.s1_pos:
                     patched_answer_names.append(
@@ -430,17 +443,21 @@ class PromptDistribution:
                         (base_prompt.s_name, base_prompt.io_name)
                     )
         elif labels == "name":
-            patched_answer_names = [] # list of (correct, incorrect) name pairs
+            patched_answer_names = []  # list of (correct, incorrect) name pairs
             for base_prompt, source_prompt in zip(base_prompts, source_prompts):
                 patched_answer_names.append(
                     (source_prompt.io_name, base_prompt.io_name)
                 )
-    
+
         clean_dataset = PromptDataset(base_prompts, tokenizer)
         corrupted_dataset = PromptDataset(source_prompts, tokenizer)
         patched_answer_tokens = torch.Tensor(
-            [[tokenizer(f" {x}")["input_ids"][0] for x in y] # prepend space for each name
-             for y in patched_answer_names]
+            [
+                [
+                    tokenizer(f" {x}")["input_ids"][0] for x in y
+                ]  # prepend space for each name
+                for y in patched_answer_names
+            ]
         )
         return PatchingDataset(
             base=clean_dataset,
@@ -450,6 +467,8 @@ class PromptDistribution:
 
 
 criterion = torch.nn.CrossEntropyLoss()
+
+
 # You can define your custom compute_metrics function.
 def compute_metrics(eval_preds, eval_labels):
     total_count = 0
@@ -459,19 +478,16 @@ def compute_metrics(eval_preds, eval_labels):
         # acc
         actual_test_labels = eval_label
         pred_test_labels = torch.argmax(eval_pred[:, -1], dim=-1)
-        correct_labels = (actual_test_labels==pred_test_labels)
+        correct_labels = actual_test_labels == pred_test_labels
         total_count += len(correct_labels)
         correct_count += correct_labels.sum().tolist()
         # kl div
         kl_divs += [
-            eval_pred[:, -1][
-                torch.arange(len(actual_test_labels)), 
-                actual_test_labels
-            ]
+            eval_pred[:, -1][torch.arange(len(actual_test_labels)), actual_test_labels]
         ]
-    accuracy = round(correct_count/total_count, 2)
+    accuracy = round(correct_count / total_count, 2)
     kl_div = torch.cat(kl_divs, dim=0).mean()
-    return {"accuracy" : accuracy, "kl_div": kl_div}
+    return {"accuracy": accuracy, "kl_div": kl_div}
 
 
 def calculate_loss(logits, labels):
@@ -488,18 +504,23 @@ def calculate_loss(logits, labels):
 
 
 def single_d_low_rank_das_position_config(
-    model_type, intervention_type, layer, intervenable_interventions_type,
-    intervenable_low_rank_dimension=1, num_unit=1, head_level=False
+    model_type,
+    intervention_type,
+    layer,
+    intervenable_interventions_type,
+    intervenable_low_rank_dimension=1,
+    num_unit=1,
+    head_level=False,
 ):
     intervenable_config = IntervenableConfig(
         intervenable_model_type=model_type,
         intervenable_representations=[
             IntervenableRepresentationConfig(
-                layer,             # layer
-                intervention_type, # intervention type
+                layer,  # layer
+                intervention_type,  # intervention type
                 "pos" if not head_level else "h.pos",
                 num_unit,
-                intervenable_low_rank_dimension=intervenable_low_rank_dimension, # a single das direction
+                intervenable_low_rank_dimension=intervenable_low_rank_dimension,  # a single das direction
             ),
         ],
         intervenable_interventions_type=intervenable_interventions_type,
@@ -510,89 +531,95 @@ def single_d_low_rank_das_position_config(
 def calculate_boundless_das_loss(logits, labels, intervenable):
     loss = calculate_loss(logits, labels)
     for k, v in intervenable.interventions.items():
-        boundary_loss = 2. * v[0].intervention_boundaries.sum()
+        boundary_loss = 2.0 * v[0].intervention_boundaries.sum()
     loss += boundary_loss
     return loss
 
 
 def find_variable_at(
-    gpt2, tokenizer, positions, layers, stream, 
-    heads=None, 
-    intervenable_low_rank_dimension=1, 
+    gpt2,
+    tokenizer,
+    positions,
+    layers,
+    stream,
+    heads=None,
+    intervenable_low_rank_dimension=1,
     aligning_variable="position",
-    do_vanilla_intervention=False, 
-    do_boundless_das=False, 
-    seed=42, 
+    do_vanilla_intervention=False,
+    do_boundless_das=False,
+    seed=42,
     return_intervenable=False,
-    debug=False
+    debug=False,
 ):
-    
     transformers.set_seed(seed)
-    
-    if aligning_variable=="name":
+
+    if aligning_variable == "name":
         # we hacky the distribution a little
         train_distribution = PromptDistribution(
             names=NAMES[:20],
-            objects=OBJECTS[:len(OBJECTS) // 2],
-            places=PLACES[:len(PLACES) // 2],
+            objects=OBJECTS[: len(OBJECTS) // 2],
+            places=PLACES[: len(PLACES) // 2],
             prefix_len=2,
             prefixes=PREFIXES,
-            templates=TEMPLATES[:2]
+            templates=TEMPLATES[:2],
         )
 
         test_distribution = PromptDistribution(
             names=NAMES[:20],
-            objects=OBJECTS[len(OBJECTS) // 2:],
-            places=PLACES[len(PLACES) // 2:],
+            objects=OBJECTS[len(OBJECTS) // 2 :],
+            places=PLACES[len(PLACES) // 2 :],
             prefix_len=2,
             prefixes=PREFIXES,
-            templates=TEMPLATES[2:]
+            templates=TEMPLATES[2:],
         )
     else:
         train_distribution = PromptDistribution(
-            names=NAMES[:len(NAMES) // 2],
-            objects=OBJECTS[:len(OBJECTS) // 2],
-            places=PLACES[:len(PLACES) // 2],
+            names=NAMES[: len(NAMES) // 2],
+            objects=OBJECTS[: len(OBJECTS) // 2],
+            places=PLACES[: len(PLACES) // 2],
             prefix_len=2,
             prefixes=PREFIXES,
-            templates=TEMPLATES[:2]
+            templates=TEMPLATES[:2],
         )
 
         test_distribution = PromptDistribution(
-            names=NAMES[len(NAMES) // 2:],
-            objects=OBJECTS[len(OBJECTS) // 2:],
-            places=PLACES[len(PLACES) // 2:],
+            names=NAMES[len(NAMES) // 2 :],
+            objects=OBJECTS[len(OBJECTS) // 2 :],
+            places=PLACES[len(PLACES) // 2 :],
             prefix_len=2,
             prefixes=PREFIXES,
-            templates=TEMPLATES[2:]
+            templates=TEMPLATES[2:],
         )
-        
+
     D_train = train_distribution.sample_das(
         tokenizer=tokenizer,
-        base_patterns=['ABB', 'BAB'],
-        source_patterns=['ABB', 'BAB'] 
-            if aligning_variable=="position" else ['CDD', 'DCD'],
+        base_patterns=["ABB", "BAB"],
+        source_patterns=["ABB", "BAB"]
+        if aligning_variable == "position"
+        else ["CDD", "DCD"],
         labels=aligning_variable,
-        samples_per_combination=50 if aligning_variable=="position" else 50,
+        samples_per_combination=50 if aligning_variable == "position" else 50,
     )
     D_test = test_distribution.sample_das(
         tokenizer=tokenizer,
-        base_patterns=['ABB',],
-        source_patterns=['BAB'] 
-            if aligning_variable=="position" else ['DCD'],
+        base_patterns=[
+            "ABB",
+        ],
+        source_patterns=["BAB"] if aligning_variable == "position" else ["DCD"],
         labels=aligning_variable,
         samples_per_combination=50,
     ) + test_distribution.sample_das(
         tokenizer=tokenizer,
-        base_patterns=['BAB',],
-        source_patterns=['ABB'] 
-            if aligning_variable=="position" else ['CDD'],
+        base_patterns=[
+            "BAB",
+        ],
+        source_patterns=["ABB"] if aligning_variable == "position" else ["CDD"],
         labels=aligning_variable,
         samples_per_combination=50,
     )
-    
+
     across_positions = True if isinstance(positions[0], list) else False
-    
+
     data = []
 
     batch_size = 20
@@ -600,7 +627,7 @@ def find_variable_at(
     initial_lr = 0.01
     n_epochs = 10
     aligning_stream = stream
-    
+
     if do_boundless_das:
         _intervention_type = BoundlessRotatedSpaceIntervention
     elif do_vanilla_intervention:
@@ -617,22 +644,31 @@ def find_variable_at(
                 )
             if heads is not None:
                 intervenable_config = single_d_low_rank_das_position_config(
-                    type(gpt2), aligning_stream, aligning_layer, 
+                    type(gpt2),
+                    aligning_stream,
+                    aligning_layer,
                     _intervention_type,
-                    intervenable_low_rank_dimension=intervenable_low_rank_dimension, num_unit=len(heads), head_level=True
+                    intervenable_low_rank_dimension=intervenable_low_rank_dimension,
+                    num_unit=len(heads),
+                    head_level=True,
                 )
             else:
                 if across_positions:
                     intervenable_config = single_d_low_rank_das_position_config(
-                        type(gpt2), aligning_stream, aligning_layer, 
+                        type(gpt2),
+                        aligning_stream,
+                        aligning_layer,
                         _intervention_type,
-                        intervenable_low_rank_dimension=intervenable_low_rank_dimension, num_unit=len(positions[0]),
+                        intervenable_low_rank_dimension=intervenable_low_rank_dimension,
+                        num_unit=len(positions[0]),
                     )
                 else:
                     intervenable_config = single_d_low_rank_das_position_config(
-                        type(gpt2), aligning_stream, aligning_layer, 
+                        type(gpt2),
+                        aligning_stream,
+                        aligning_layer,
                         _intervention_type,
-                        intervenable_low_rank_dimension=intervenable_low_rank_dimension
+                        intervenable_low_rank_dimension=intervenable_low_rank_dimension,
                     )
             intervenable = IntervenableModel(intervenable_config, gpt2)
             intervenable.set_device("cuda")
@@ -642,26 +678,30 @@ def find_variable_at(
                 if do_boundless_das:
                     optimizer_params = []
                     for k, v in intervenable.interventions.items():
-                        optimizer_params += [{'params': v[0].rotate_layer.parameters()}]
-                        optimizer_params += [{'params': v[0].intervention_boundaries, 'lr': 0.5}]
-                    optimizer = torch.optim.Adam(
-                        optimizer_params,
-                        lr=initial_lr
-                    )
-                    target_total_step = int(len(D_train)/batch_size) * n_epochs
+                        optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
+                        optimizer_params += [
+                            {"params": v[0].intervention_boundaries, "lr": 0.5}
+                        ]
+                    optimizer = torch.optim.Adam(optimizer_params, lr=initial_lr)
+                    target_total_step = int(len(D_train) / batch_size) * n_epochs
                     temperature_start = 50.0
                     temperature_end = 0.1
-                    temperature_schedule = torch.linspace(
-                        temperature_start, temperature_end, target_total_step
-                    ).to(torch.bfloat16).to("cuda")
+                    temperature_schedule = (
+                        torch.linspace(
+                            temperature_start, temperature_end, target_total_step
+                        )
+                        .to(torch.bfloat16)
+                        .to("cuda")
+                    )
                     intervenable.set_temperature(temperature_schedule[total_step])
                 else:
-                    optimizer = torch.optim.Adam(intervenable.get_trainable_parameters(), lr=initial_lr)
+                    optimizer = torch.optim.Adam(
+                        intervenable.get_trainable_parameters(), lr=initial_lr
+                    )
                 scheduler = torch.optim.lr_scheduler.LinearLR(
                     optimizer, end_factor=0.1, total_iters=n_epochs
                 )
 
-                
                 for epoch in range(n_epochs):
                     torch.cuda.empty_cache()
                     for batch_dataset in D_train.batches(batch_size=batch_size):
@@ -677,41 +717,55 @@ def find_variable_at(
                             if v is not None and isinstance(v, torch.Tensor):
                                 source_inputs[k] = v.to(gpt2.device)
                         # prepare label
-                        labels = batch_dataset.patched_answer_tokens[:,0].to(gpt2.device)
+                        labels = batch_dataset.patched_answer_tokens[:, 0].to(
+                            gpt2.device
+                        )
 
-                        assert all(x==18 for x in batch_dataset.base.lengths)
-                        assert all(x==18 for x in batch_dataset.source.lengths)
+                        assert all(x == 18 for x in batch_dataset.base.lengths)
+                        assert all(x == 18 for x in batch_dataset.source.lengths)
 
                         if heads is not None:
                             _, counterfactual_outputs = intervenable(
                                 {"input_ids": base_inputs["input_ids"]},
                                 [{"input_ids": source_inputs["input_ids"]}],
-                                {"sources->base": (
-                                    [
-                                        [[heads]*b_s, [[aligning_pos]]*b_s]
-                                    ], 
-                                    [
-                                        [[heads]*b_s, [[aligning_pos]]*b_s]
-                                    ]
-                                )}
+                                {
+                                    "sources->base": (
+                                        [[[heads] * b_s, [[aligning_pos]] * b_s]],
+                                        [[[heads] * b_s, [[aligning_pos]] * b_s]],
+                                    )
+                                },
                             )
                         else:
                             if across_positions:
                                 _, counterfactual_outputs = intervenable(
                                     {"input_ids": base_inputs["input_ids"]},
                                     [{"input_ids": source_inputs["input_ids"]}],
-                                    {"sources->base": ([[aligning_pos]*b_s], [[aligning_pos]*b_s])}
-                                ) 
+                                    {
+                                        "sources->base": (
+                                            [[aligning_pos] * b_s],
+                                            [[aligning_pos] * b_s],
+                                        )
+                                    },
+                                )
                             else:
                                 _, counterfactual_outputs = intervenable(
                                     {"input_ids": base_inputs["input_ids"]},
                                     [{"input_ids": source_inputs["input_ids"]}],
-                                    {"sources->base": ([[[aligning_pos]]*b_s], [[[aligning_pos]]*b_s])}
+                                    {
+                                        "sources->base": (
+                                            [[[aligning_pos]] * b_s],
+                                            [[[aligning_pos]] * b_s],
+                                        )
+                                    },
                                 )
 
-                        eval_metrics = compute_metrics([counterfactual_outputs.logits], [labels])
+                        eval_metrics = compute_metrics(
+                            [counterfactual_outputs.logits], [labels]
+                        )
                         if do_boundless_das:
-                            loss = calculate_boundless_das_loss(counterfactual_outputs.logits, labels, intervenable)
+                            loss = calculate_boundless_das_loss(
+                                counterfactual_outputs.logits, labels, intervenable
+                            )
                         else:
                             loss = calculate_loss(counterfactual_outputs.logits, labels)
                         loss_str = round(loss.item(), 2)
@@ -720,9 +774,13 @@ def find_variable_at(
                         scheduler.step()
                         intervenable.set_zero_grad()
                         if do_boundless_das:
-                            intervenable.set_temperature(temperature_schedule[total_step])
+                            intervenable.set_temperature(
+                                temperature_schedule[total_step]
+                            )
                             for k, v in intervenable.interventions.items():
-                                intervention_boundaries = v[0].intervention_boundaries.sum()
+                                intervention_boundaries = v[
+                                    0
+                                ].intervention_boundaries.sum()
                         total_step += 1
 
             # eval
@@ -743,72 +801,84 @@ def find_variable_at(
                         if v is not None and isinstance(v, torch.Tensor):
                             source_inputs[k] = v.to(gpt2.device)
                     # prepare label
-                    labels = batch_dataset.patched_answer_tokens[:,0].to(gpt2.device)
+                    labels = batch_dataset.patched_answer_tokens[:, 0].to(gpt2.device)
 
-                    assert all(x==18 for x in batch_dataset.base.lengths)
-                    assert all(x==18 for x in batch_dataset.source.lengths)
+                    assert all(x == 18 for x in batch_dataset.base.lengths)
+                    assert all(x == 18 for x in batch_dataset.source.lengths)
 
                     if heads is not None:
                         _, counterfactual_outputs = intervenable(
                             {"input_ids": base_inputs["input_ids"]},
                             [{"input_ids": source_inputs["input_ids"]}],
-                            {"sources->base": (
-                                [
-                                    [[heads]*b_s, [[aligning_pos]]*b_s]
-                                ], 
-                                [
-                                    [[heads]*b_s, [[aligning_pos]]*b_s]
-                                ]
-                            )}
+                            {
+                                "sources->base": (
+                                    [[[heads] * b_s, [[aligning_pos]] * b_s]],
+                                    [[[heads] * b_s, [[aligning_pos]] * b_s]],
+                                )
+                            },
                         )
                     else:
                         if across_positions:
                             _, counterfactual_outputs = intervenable(
                                 {"input_ids": base_inputs["input_ids"]},
                                 [{"input_ids": source_inputs["input_ids"]}],
-                                {"sources->base": ([[aligning_pos]*b_s], [[aligning_pos]*b_s])}
-                            ) 
+                                {
+                                    "sources->base": (
+                                        [[aligning_pos] * b_s],
+                                        [[aligning_pos] * b_s],
+                                    )
+                                },
+                            )
                         else:
                             _, counterfactual_outputs = intervenable(
                                 {"input_ids": base_inputs["input_ids"]},
                                 [{"input_ids": source_inputs["input_ids"]}],
-                                {"sources->base": ([[[aligning_pos]]*b_s], [[[aligning_pos]]*b_s])}
+                                {
+                                    "sources->base": (
+                                        [[[aligning_pos]] * b_s],
+                                        [[[aligning_pos]] * b_s],
+                                    )
+                                },
                             )
                     eval_labels += [labels]
                     eval_preds += [counterfactual_outputs.logits]
             eval_metrics = compute_metrics(eval_preds, eval_labels)
-            
-            
 
             if do_boundless_das:
                 for k, v in intervenable.interventions.items():
                     intervention_boundaries = v[0].intervention_boundaries.sum()
-                data.append({
-                    "pos":aligning_pos,
-                    "layer":aligning_layer,
-                    "acc":eval_metrics['accuracy'],
-                    "kl_div":eval_metrics['kl_div'],
-                    "boundary":intervention_boundaries,
-                    "stream":stream
-                })
+                data.append(
+                    {
+                        "pos": aligning_pos,
+                        "layer": aligning_layer,
+                        "acc": eval_metrics["accuracy"],
+                        "kl_div": eval_metrics["kl_div"],
+                        "boundary": intervention_boundaries,
+                        "stream": stream,
+                    }
+                )
             else:
                 if heads is not None:
                     heads_str = ",".join([str(h) for h in heads])
-                    data.append({
-                        "pos":aligning_pos,
-                        "layer":aligning_layer,
-                        "acc":eval_metrics['accuracy'],
-                        "kl_div":eval_metrics['kl_div'],
-                        "stream":f"{stream}_{heads_str}"
-                    })
+                    data.append(
+                        {
+                            "pos": aligning_pos,
+                            "layer": aligning_layer,
+                            "acc": eval_metrics["accuracy"],
+                            "kl_div": eval_metrics["kl_div"],
+                            "stream": f"{stream}_{heads_str}",
+                        }
+                    )
                 else:
-                    data.append({
-                        "pos":aligning_pos,
-                        "layer":aligning_layer,
-                        "acc":eval_metrics['accuracy'],
-                        "kl_div":eval_metrics['kl_div'],
-                        "stream":stream
-                    })
+                    data.append(
+                        {
+                            "pos": aligning_pos,
+                            "layer": aligning_layer,
+                            "acc": eval_metrics["accuracy"],
+                            "kl_div": eval_metrics["kl_div"],
+                            "stream": stream,
+                        }
+                    )
     if return_intervenable:
         return data, intervenable
     return data

@@ -14,40 +14,40 @@ from models.constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK, CONST_QKV_INDI
 
 
 llama_type_to_module_mapping = {
-    'block_input': ("layers[%s]", CONST_INPUT_HOOK), 
-    'block_output': ("layers[%s]", CONST_OUTPUT_HOOK), 
-    'mlp_activation': ("layers[%s].mlp.act_fn", CONST_OUTPUT_HOOK), 
-    'mlp_output': ("layers[%s].mlp", CONST_OUTPUT_HOOK), 
-    'mlp_input': ("layers[%s].mlp", CONST_INPUT_HOOK), 
-    'attention_value_output': ("layers[%s].self_attn.o_proj", CONST_INPUT_HOOK),
-    'head_attention_value_output': ("layers[%s].self_attn.o_proj", CONST_INPUT_HOOK),
-    'attention_output': ("layers[%s].self_attn", CONST_OUTPUT_HOOK),
-    'attention_input': ("layers[%s].self_attn", CONST_INPUT_HOOK),
-    'query_output': ("layers[%s].self_attn.q_proj", CONST_OUTPUT_HOOK),
-    'key_output': ("layers[%s].self_attn.k_proj", CONST_OUTPUT_HOOK),
-    'value_output': ("layers[%s].self_attn.v_proj", CONST_OUTPUT_HOOK),
-    'head_query_output': ("layers[%s].self_attn.q_proj", CONST_OUTPUT_HOOK),
-    'head_key_output': ("layers[%s].self_attn.k_proj", CONST_OUTPUT_HOOK),
-    'head_value_output': ("layers[%s].self_attn.v_proj", CONST_OUTPUT_HOOK),
+    "block_input": ("layers[%s]", CONST_INPUT_HOOK),
+    "block_output": ("layers[%s]", CONST_OUTPUT_HOOK),
+    "mlp_activation": ("layers[%s].mlp.act_fn", CONST_OUTPUT_HOOK),
+    "mlp_output": ("layers[%s].mlp", CONST_OUTPUT_HOOK),
+    "mlp_input": ("layers[%s].mlp", CONST_INPUT_HOOK),
+    "attention_value_output": ("layers[%s].self_attn.o_proj", CONST_INPUT_HOOK),
+    "head_attention_value_output": ("layers[%s].self_attn.o_proj", CONST_INPUT_HOOK),
+    "attention_output": ("layers[%s].self_attn", CONST_OUTPUT_HOOK),
+    "attention_input": ("layers[%s].self_attn", CONST_INPUT_HOOK),
+    "query_output": ("layers[%s].self_attn.q_proj", CONST_OUTPUT_HOOK),
+    "key_output": ("layers[%s].self_attn.k_proj", CONST_OUTPUT_HOOK),
+    "value_output": ("layers[%s].self_attn.v_proj", CONST_OUTPUT_HOOK),
+    "head_query_output": ("layers[%s].self_attn.q_proj", CONST_OUTPUT_HOOK),
+    "head_key_output": ("layers[%s].self_attn.k_proj", CONST_OUTPUT_HOOK),
+    "head_value_output": ("layers[%s].self_attn.v_proj", CONST_OUTPUT_HOOK),
 }
 
 
 llama_type_to_dimension_mapping = {
-    'block_input': ("hidden_size", ), 
-    'block_output': ("hidden_size", ), 
-    'mlp_activation': ("intermediate_size", ), 
-    'mlp_output': ("hidden_size", ), 
-    'mlp_input': ("hidden_size", ), 
-    'attention_value_output': ("hidden_size", ),
-    'head_attention_value_output': ("hidden_size/num_attention_heads", ),
-    'attention_output': ("hidden_size", ),
-    'attention_input': ("hidden_size", ),
-    'query_output': ("hidden_size", ),
-    'key_output': ("hidden_size", ),
-    'value_output': ("hidden_size", ),
-    'head_query_output': ("hidden_size/num_attention_heads", ),
-    'head_key_output': ("hidden_size/num_attention_heads", ),
-    'head_value_output': ("hidden_size/num_attention_heads", ),
+    "block_input": ("hidden_size",),
+    "block_output": ("hidden_size",),
+    "mlp_activation": ("intermediate_size",),
+    "mlp_output": ("hidden_size",),
+    "mlp_input": ("hidden_size",),
+    "attention_value_output": ("hidden_size",),
+    "head_attention_value_output": ("hidden_size/num_attention_heads",),
+    "attention_output": ("hidden_size",),
+    "attention_input": ("hidden_size",),
+    "query_output": ("hidden_size",),
+    "key_output": ("hidden_size",),
+    "value_output": ("hidden_size",),
+    "head_query_output": ("hidden_size/num_attention_heads",),
+    "head_key_output": ("hidden_size/num_attention_heads",),
+    "head_value_output": ("hidden_size/num_attention_heads",),
 }
 
 
@@ -69,16 +69,19 @@ def split_heads(tensor, num_heads, attn_head_size):
     return tensor.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
 
 
-def create_llama(name="sharpbai/alpaca-7b-merged", cache_dir="../../.huggingface_cache"):
+def create_llama(
+    name="sharpbai/alpaca-7b-merged", cache_dir="../../.huggingface_cache"
+):
     """Creates a LLaMA Causal LM model, config, and tokenizer from the given name and revision"""
     from transformers import LlamaForCausalLM, LlamaTokenizer, LlamaConfig
-    
+
     config = LlamaConfig.from_pretrained(name, cache_dir=cache_dir)
     tokenizer = LlamaTokenizer.from_pretrained(name, cache_dir=cache_dir)
     llama = LlamaForCausalLM.from_pretrained(
-        name, config=config, cache_dir=cache_dir, 
-        torch_dtype=torch.bfloat16 # save memory
+        name,
+        config=config,
+        cache_dir=cache_dir,
+        torch_dtype=torch.bfloat16,  # save memory
     )
     print("loaded model")
     return config, tokenizer, llama
-

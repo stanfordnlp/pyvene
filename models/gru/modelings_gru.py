@@ -8,24 +8,29 @@ from transformers.utils import ModelOutput
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from transformers import PretrainedConfig, PreTrainedModel
 from transformers.activations import ACT2FN
-from transformers.modeling_outputs import ModelOutput, SequenceClassifierOutput, CausalLMOutput
+from transformers.modeling_outputs import (
+    ModelOutput,
+    SequenceClassifierOutput,
+    CausalLMOutput,
+)
 
 
 class GRUConfig(PretrainedConfig):
-    model_type="gru"
+    model_type = "gru"
+
     def __init__(
         self,
-        include_emb = False,
-        vocab_size = 50_257,
-        max_position_embeddings = 512,
-        n_layer = 2,
-        h_dim = 512,
-        n_labels = 2,
-        include_bias = True,
-        pdrop = 0.3,
-        problem_type = "single_label_classification",
-        initializer_range = 0.02,
-        **kwargs
+        include_emb=False,
+        vocab_size=50_257,
+        max_position_embeddings=512,
+        n_layer=2,
+        h_dim=512,
+        n_labels=2,
+        include_bias=True,
+        pdrop=0.3,
+        problem_type="single_label_classification",
+        initializer_range=0.02,
+        **kwargs,
     ):
         self.include_emb = include_emb
         self.vocab_size = vocab_size
@@ -38,43 +43,32 @@ class GRUConfig(PretrainedConfig):
         self.problem_type = problem_type
         self.initializer_range = initializer_range
         super().__init__(**kwargs)
-        
-        
+
+
 class GRUCell(nn.Module):
     def __init__(self, config):
         super(GRUCell, self).__init__()
         self.h_dim = config.h_dim
         self.include_bias = config.include_bias
 
-        self.x2h = nn.Linear(
-            self.h_dim, 3 * self.h_dim, 
-            bias=self.include_bias
-        )
-        self.h2h = nn.Linear(
-            self.h_dim, 3 * self.h_dim, 
-            bias=self.include_bias
-        )
-        
+        self.x2h = nn.Linear(self.h_dim, 3 * self.h_dim, bias=self.include_bias)
+        self.h2h = nn.Linear(self.h_dim, 3 * self.h_dim, bias=self.include_bias)
+
         self.reset_act = nn.Sigmoid()
         self.update_act = nn.Sigmoid()
         self.new_act = nn.Tanh()
-        
+
         self.reset_parameters()
 
-        
     def reset_parameters(self):
         std = 1.0 / np.sqrt(self.h_dim)
         for w in self.parameters():
             w.data.uniform_(-std, std)
 
-            
     def forward(self, current_states, hidden_states=None):
-
         if hidden_states is None:
             hidden_states = Variable(
-                current_states.new_zeros(
-                    current_states.size(0), self.hidden_size
-                )
+                current_states.new_zeros(current_states.size(0), self.hidden_size)
             )
 
         x_t = self.x2h(current_states)
@@ -90,29 +84,27 @@ class GRUCell(nn.Module):
         hy = update_gate * hidden_states + (1 - update_gate) * new_gate
 
         return hy
-    
-    
+
+
 @dataclass
 class GRUModelOutput(ModelOutput):
     last_hidden_state: torch.FloatTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
-        
+
 
 class GRUPreTrainedModel(PreTrainedModel):
     def __init__(self, *inputs, **kwargs):
         super().__init__(*inputs, **kwargs)
-    
+
     def _init_weights(self, module):
         """Initialize the weights."""
         if isinstance(module, nn.Embedding):
             module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
             if module.padding_idx is not None:
                 module.weight.data[module.padding_idx].zero_()
-        
-        
+
+
 class GRUModel(GRUPreTrainedModel):
-    
-    
     def __init__(self, config):
         super().__init__(config)
         self.config = config
@@ -123,25 +115,21 @@ class GRUModel(GRUPreTrainedModel):
             self.wte = nn.Embedding(config.vocab_size, self.h_dim)
             self.wpe = nn.Embedding(config.max_position_embeddings, self.h_dim)
 
-        self.cells = nn.ModuleList([
-            GRUCell(self.config) 
-            for _ in range(0, self.n_layer)
-        ])
+        self.cells = nn.ModuleList(
+            [GRUCell(self.config) for _ in range(0, self.n_layer)]
+        )
 
         # Initialize weights and apply final processing
         self.post_init()
-        
-        
+
     def get_input_embeddings(self):
         return self.wte
 
-    
     def set_input_embeddings(self, new_embeddings):
         self.wte = new_embeddings
-        
-        
+
     def forward(
-        self, 
+        self,
         input_ids: Optional[torch.LongTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
@@ -154,51 +142,42 @@ class GRUModel(GRUPreTrainedModel):
         if position_ids is not None:
             position_embeds = self.wpe(position_ids)
             inputs_embeds += position_embeds
-        
+
         batch_size = inputs_embeds.shape[0]
         max_seq_len = inputs_embeds.shape[1]
         if hidden_states is None:
-            h0 = Variable(
-                torch.zeros(
-                    self.n_layer, 
-                    batch_size, 
-                    self.h_dim
-                )
-            ).to(inputs_embeds.device)
+            h0 = Variable(torch.zeros(self.n_layer, batch_size, self.h_dim)).to(
+                inputs_embeds.device
+            )
         else:
-             h0 = hidden_states
-        all_layer_hidden_states = [
-            h0[layer, :, :] for layer in range(self.n_layer)
-        ]
-        
+            h0 = hidden_states
+        all_layer_hidden_states = [h0[layer, :, :] for layer in range(self.n_layer)]
+
         all_hidden_states = []
         for t in range(max_seq_len):
             for layer in range(self.n_layer):
                 if layer == 0:
-                    current_layer_hidden_state = \
-                        self.cells[layer](
-                        inputs_embeds[:, t, :], 
-                        all_layer_hidden_states[layer]
+                    current_layer_hidden_state = self.cells[layer](
+                        inputs_embeds[:, t, :], all_layer_hidden_states[layer]
                     )
                 else:
-                    current_layer_hidden_state = \
-                        self.cells[layer](
-                        all_layer_hidden_states[layer - 1], 
-                        all_layer_hidden_states[layer]
+                    current_layer_hidden_state = self.cells[layer](
+                        all_layer_hidden_states[layer - 1],
+                        all_layer_hidden_states[layer],
                     )
                 all_layer_hidden_states[layer] = current_layer_hidden_state
 
             all_hidden_states.append(current_layer_hidden_state)
-        
+
         all_hidden_states = torch.stack(all_hidden_states, dim=1)
-        
+
         if not return_dict:
             return tuple(
                 v
                 for v in [all_hidden_states, current_layer_hidden_state]
                 if v is not None
             )
-        
+
         return GRUModelOutput(
             hidden_states=all_hidden_states,
             last_hidden_state=current_layer_hidden_state,
@@ -206,17 +185,14 @@ class GRUModel(GRUPreTrainedModel):
 
 
 class GRUForClassification(GRUPreTrainedModel):
-    def __init__(
-        self, config
-    ):
+    def __init__(self, config):
         super().__init__(config)
         self.n_labels = config.n_labels
         self.gru = GRUModel(config)
         self.score = nn.Linear(config.h_dim, self.n_labels, bias=False)
 
-
     def forward(
-        self, 
+        self,
         input_ids: Optional[torch.LongTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
@@ -233,24 +209,29 @@ class GRUForClassification(GRUPreTrainedModel):
             return_dict,
         )
         hidden_states = gru_outputs[0]
-        
+
         if input_ids is not None:
             batch_size, sequence_length = input_ids.shape[:2]
         else:
             batch_size, sequence_length = inputs_embeds.shape[:2]
-        
+
         if attention_mask is None:
             if input_ids is not None:
                 sequence_lengths = torch.ones_like(input_ids).sum(dim=-1).int() - 1
             else:
-                sequence_lengths = torch.ones(
-                    inputs_embeds.shape[0], inputs_embeds.shape[1]).to(
-                    inputs_embeds.device).sum(dim=-1).int() - 1
+                sequence_lengths = (
+                    torch.ones(inputs_embeds.shape[0], inputs_embeds.shape[1])
+                    .to(inputs_embeds.device)
+                    .sum(dim=-1)
+                    .int()
+                    - 1
+                )
         else:
             sequence_lengths = attention_mask.sum(dim=-1).int() - 1
 
         pooled_hidden_states = hidden_states[
-            torch.arange(batch_size, device=hidden_states.device), sequence_lengths]
+            torch.arange(batch_size, device=hidden_states.device), sequence_lengths
+        ]
         pooled_logits = self.score(pooled_hidden_states)
 
         loss = None
@@ -258,7 +239,9 @@ class GRUForClassification(GRUPreTrainedModel):
             if self.config.problem_type is None:
                 if self.num_labels == 1:
                     self.config.problem_type = "regression"
-                elif self.num_labels > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
+                elif self.num_labels > 1 and (
+                    labels.dtype == torch.long or labels.dtype == torch.int
+                ):
                     self.config.problem_type = "single_label_classification"
                 else:
                     self.config.problem_type = "multi_label_classification"
@@ -271,11 +254,13 @@ class GRUForClassification(GRUPreTrainedModel):
                     loss = loss_fct(pooled_logits, labels)
             elif self.config.problem_type == "single_label_classification":
                 loss_fct = CrossEntropyLoss()
-                loss = loss_fct(pooled_logits.view(-1, self.num_labels), labels.view(-1))
+                loss = loss_fct(
+                    pooled_logits.view(-1, self.num_labels), labels.view(-1)
+                )
             elif self.config.problem_type == "multi_label_classification":
                 loss_fct = BCEWithLogitsLoss()
                 loss = loss_fct(pooled_logits, labels)
-        
+
         if not return_dict:
             output = (pooled_logits,) + gru_outputs[1:]
             return ((loss,) + output) if loss is not None else output
@@ -286,28 +271,24 @@ class GRUForClassification(GRUPreTrainedModel):
             hidden_states=mlp_outputs.hidden_states,
         )
 
-    
+
 class GRULMHeadModel(GRUPreTrainedModel):
     _tied_weights_keys = ["lm_head.weight"]
-    def __init__(
-        self, config
-    ):
+
+    def __init__(self, config):
         super().__init__(config)
         self.n_labels = config.n_labels
         self.gru = GRUModel(config)
         self.lm_head = nn.Linear(config.h_dim, config.vocab_size, bias=False)
 
-        
     def get_output_embeddings(self):
         return self.lm_head
 
-    
     def set_output_embeddings(self, new_embeddings):
         self.lm_head = new_embeddings
-        
-        
+
     def forward(
-        self, 
+        self,
         input_ids: Optional[torch.LongTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
@@ -323,7 +304,7 @@ class GRULMHeadModel(GRUPreTrainedModel):
             return_dict,
         )
         hidden_states = gru_outputs[0]
-        
+
         lm_logits = self.lm_head(hidden_states)
 
         loss = None
@@ -335,7 +316,9 @@ class GRULMHeadModel(GRUPreTrainedModel):
             shift_labels = labels[..., 1:].contiguous()
             # Flatten the tokens
             loss_fct = CrossEntropyLoss()
-            loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+            loss = loss_fct(
+                shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1)
+            )
 
         if not return_dict:
             output = (lm_logits,) + gru_outputs[1:]
@@ -346,5 +329,3 @@ class GRULMHeadModel(GRUPreTrainedModel):
             logits=lm_logits,
             hidden_states=gru_outputs.hidden_states,
         )
-        
-        
