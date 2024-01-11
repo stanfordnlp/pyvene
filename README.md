@@ -1,6 +1,6 @@
 <br />
 <div align="center">
-  <h1 align="center"><img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30">pyvene</h1>
+  <h1 align="center"><img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30">align-transformers</h1>
   <a href="https://nlp.stanford.edu/~wuzhengx/"><strong>Library Paper and Doc Forthcoming »</strong></a>
 </div>
 
@@ -13,7 +13,7 @@
 
 
 # <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Customizable Interventions on Internals of Different Neural Architectures**
-To interpret causal mechanisms of neural networks with their internals, we introduce **pyvene**, an open-source and intervention-oriented Python library that supports customizable interventions on different families of neural architectures (e.g., RNN or Transformers). The basic operation is an in-place activation modification during the computation flow of a neural model. It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) to enable practitioners to quantify counterfactual behaviors at scale to gain interpretability insights. We showcase **pyvene** out-of-box supports a wide range of intervention-based interpretability methods such as causal abstraction, circuit finding, and knowledge localization. **pyvene** provides a unified and extensible framework to perform interventions on neural models, and to share interventions with others.
+To interpret causal mechanisms of neural networks with their internals, we introduce **align-transformers**, an open-source and intervention-oriented Python library that supports customizable interventions on different families of neural architectures (e.g., RNN or Transformers). The basic operation is an in-place activation modification during the computation flow of a neural model. It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) to enable practitioners to quantify counterfactual behaviors at scale to gain interpretability insights. We showcase **align-transformers** out-of-box supports a wide range of intervention-based interpretability methods such as causal abstraction, circuit finding, and knowledge localization. **align-transformers** provides a unified and extensible framework to perform interventions on neural models, and to share interventions with others.
 
 
 ## Interventions v.s. Alignments with Model Internals
