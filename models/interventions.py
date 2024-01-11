@@ -208,7 +208,7 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention):
         self.intervention_boundaries = torch.nn.Parameter(
             torch.tensor([0.5]), requires_grad=True)
         self.temperature = torch.nn.Parameter(torch.tensor(50.0))
-        self.embed_dim = embed_dim
+        self.embed_dim = None
         self.interchange_dim = embed_dim # assuming full subspace
         self.intervention_population = torch.nn.Parameter(
             torch.arange(0, self.embed_dim), requires_grad=False)
@@ -260,7 +260,7 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention):
         rotate_layer = LowRankRotateLayer(embed_dim, kwargs["proj_dim"])
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
         self.embed_dim = embed_dim
-        self.interchange_dim = embed_dim # assuming full subspace
+        self.interchange_dim = None
         self.subspace_partition = kwargs["subspace_partition"] \
             if "subspace_partition" in kwargs else None
 

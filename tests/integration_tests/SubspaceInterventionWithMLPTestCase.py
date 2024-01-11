@@ -13,10 +13,10 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
             )
         )
         
-        self.test_subspace_intervention_link_alignable_config = AlignableConfig(
-            alignable_model_type=type(self.mlp),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        self.test_subspace_intervention_link_intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.mlp),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     0,
                     "mlp_activation",
                     "pos",                            # mlp layer creates a single token reprs
@@ -24,7 +24,7 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
                     subspace_partition=[[1,3],[0,1]], # partition into two sets of subspaces
                     intervention_link_key=0           # linked ones target the same subspace
                 ),
-                AlignableRepresentationConfig(
+                IntervenableRepresentationConfig(
                     0,
                     "mlp_activation",
                     "pos",                            # mlp layer creates a single token reprs
@@ -33,20 +33,20 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
                     intervention_link_key=0           # linked ones target the same subspace
                 ),
             ],
-            alignable_interventions_type=VanillaIntervention,
+            intervenable_interventions_type=VanillaIntervention,
         )
         
-        self.test_subspace_no_intervention_link_alignable_config = AlignableConfig(
-            alignable_model_type=type(self.mlp),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        self.test_subspace_no_intervention_link_intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.mlp),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     0,
                     "mlp_activation",
                     "pos",                            # mlp layer creates a single token reprs
                     1,
                     subspace_partition=[[0,1],[1,3]], # partition into two sets of subspaces
                 ),
-                AlignableRepresentationConfig(
+                IntervenableRepresentationConfig(
                     0,
                     "mlp_activation",
                     "pos",                            # mlp layer creates a single token reprs
@@ -54,30 +54,30 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
                     subspace_partition=[[0,1],[1,3]], # partition into two sets of subspaces
                 ),
             ],
-            alignable_interventions_type=VanillaIntervention,
+            intervenable_interventions_type=VanillaIntervention,
         )
         
-        self.test_subspace_no_intervention_link_trainable_alignable_config = AlignableConfig(
-            alignable_model_type=type(self.mlp),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        self.test_subspace_no_intervention_link_trainable_intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.mlp),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     0,
                     "mlp_activation",
                     "pos",                            # mlp layer creates a single token reprs
                     1,
-                    alignable_low_rank_dimension=2,
+                    intervenable_low_rank_dimension=2,
                     subspace_partition=[[0,1],[1,2]], # partition into two sets of subspaces
                 ),
-                AlignableRepresentationConfig(
+                IntervenableRepresentationConfig(
                     0,
                     "mlp_activation",
                     "pos",                            # mlp layer creates a single token reprs
                     1,
-                    alignable_low_rank_dimension=2,
+                    intervenable_low_rank_dimension=2,
                     subspace_partition=[[0,1],[1,2]], # partition into two sets of subspaces
                 ),
             ],
-            alignable_interventions_type=LowRankRotatedSpaceIntervention,
+            intervenable_interventions_type=LowRankRotatedSpaceIntervention,
         )
         
     def test_clean_run_positive(self):
@@ -85,18 +85,18 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
         Positive test case to check whether vanilla forward pass work
         with our object.
         """
-        alignable = AlignableModel(
-            self.test_subspace_intervention_link_alignable_config, self.mlp)
+        intervenable = IntervenableModel(
+            self.test_subspace_intervention_link_intervenable_config, self.mlp)
         base = {"inputs_embeds": torch.rand(10, 1, 3)}
         self.assertTrue(torch.allclose(
-            ONE_MLP_CLEAN_RUN(base, self.mlp), alignable(base)[0][0]))
+            ONE_MLP_CLEAN_RUN(base, self.mlp), intervenable(base)[0][0]))
         
     def test_with_subspace_positive(self):
         """
         Positive test case to intervene only a set of subspace.
         """
-        alignable = AlignableModel(
-            self.test_subspace_intervention_link_alignable_config, self.mlp)
+        intervenable = IntervenableModel(
+            self.test_subspace_intervention_link_intervenable_config, self.mlp)
         # golden label
         b_s = 10
         base = {"inputs_embeds": torch.rand(b_s, 1, 3)}
@@ -109,7 +109,7 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
         golden_out = ONE_MLP_WITH_W1_ACT_RUN(intervened_act, self.mlp)
         
         # our label
-        _, our_out = alignable(
+        _, our_out = intervenable(
             base,
             [source_1, None],
             {"sources->base": ([[[0]]*b_s, None], [[[0]]*b_s, None])},
@@ -121,8 +121,8 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
         """
         Negative test case to check input length.
         """
-        alignable = AlignableModel(
-            self.test_subspace_intervention_link_alignable_config, self.mlp)
+        intervenable = IntervenableModel(
+            self.test_subspace_intervention_link_intervenable_config, self.mlp)
         # golden label
         b_s = 10
         base = {"inputs_embeds": torch.rand(b_s, 1, 3)}
@@ -130,7 +130,7 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
         source_2 = {"inputs_embeds": torch.rand(b_s, 1, 3)}
         
         try:
-            alignable(
+            intervenable(
                 base,
                 [source_1],
                 {"sources->base": ([[[0]]*b_s], [[[0]]*b_s])},
@@ -145,8 +145,8 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
         """
         Positive test case to intervene linked subspace.
         """
-        alignable = AlignableModel(
-            self.test_subspace_intervention_link_alignable_config, self.mlp)
+        intervenable = IntervenableModel(
+            self.test_subspace_intervention_link_intervenable_config, self.mlp)
         # golden label
         b_s = 10
         base = {"inputs_embeds": torch.rand(b_s, 1, 3)}
@@ -168,7 +168,7 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
         golden_out_success = ONE_MLP_WITH_W1_ACT_RUN(intervened_act, self.mlp)
         
         # subcase where the second one accidentally overwrites the first one
-        _, our_out_overwrite = alignable(
+        _, our_out_overwrite = intervenable(
             base,
             [source_1, source_2],
             {"sources->base": ([[[0]]*b_s, [[0]]*b_s], [[[0]]*b_s, [[0]]*b_s])},
@@ -176,7 +176,7 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
         )
         
         # success
-        _, our_out_success = alignable(
+        _, our_out_success = intervenable(
             base,
             [source_1, source_2],
             {"sources->base": ([[[0]]*b_s, [[0]]*b_s], [[[0]]*b_s, [[0]]*b_s])},
@@ -190,8 +190,8 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
         """
         Positive test case to intervene not linked subspace (overwrite).
         """
-        alignable = AlignableModel(
-            self.test_subspace_no_intervention_link_alignable_config, self.mlp)
+        intervenable = IntervenableModel(
+            self.test_subspace_no_intervention_link_intervenable_config, self.mlp)
         # golden label
         b_s = 10
         base = {"inputs_embeds": torch.rand(b_s, 1, 3)}
@@ -213,7 +213,7 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
         golden_out_overwrite = ONE_MLP_WITH_W1_ACT_RUN(intervened_act, self.mlp)
         
         # subcase where the second one accidentally overwrites the first one
-        _, our_out_inplace = alignable(
+        _, our_out_inplace = intervenable(
             base,
             [source_1, source_2],
             {"sources->base": ([[[0]]*b_s, [[0]]*b_s], [[[0]]*b_s, [[0]]*b_s])},
@@ -221,7 +221,7 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
         )
         
         # overwrite
-        _, our_out_overwrite = alignable(
+        _, our_out_overwrite = intervenable(
             base,
             [source_1, source_2],
             {"sources->base": ([[[0]]*b_s, [[0]]*b_s], [[[0]]*b_s, [[0]]*b_s])},
@@ -236,8 +236,8 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
         """
         Negative test case to intervene not linked subspace with trainable interventions.
         """
-        alignable = AlignableModel(
-            self.test_subspace_no_intervention_link_trainable_alignable_config, self.mlp)
+        intervenable = IntervenableModel(
+            self.test_subspace_no_intervention_link_trainable_intervenable_config, self.mlp)
         # golden label
         b_s = 10
         base = {"inputs_embeds": torch.rand(b_s, 1, 3)}
@@ -254,7 +254,7 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
         golden_out_overwrite = ONE_MLP_WITH_W1_ACT_RUN(intervened_act, self.mlp)
 
         # overwrite
-        _, our_out_overwrite = alignable(
+        _, our_out_overwrite = intervenable(
             base,
             [source_1, source_2],
             {"sources->base": ([[[0]]*b_s, [[0]]*b_s], [[[0]]*b_s, [[0]]*b_s])},

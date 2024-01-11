@@ -8,8 +8,8 @@ from models.modeling_utils import *
 from models.intervention_utils import *
 import models.interventions
 from models.constants import CONST_QKV_INDICES
-from models.configuration_alignable_model import \
-    AlignableConfig, AlignableRepresentationConfig
+from models.configuration_intervenable_model import \
+    IntervenableConfig, IntervenableRepresentationConfig
 
 from torch import optim
 from transformers import (
@@ -18,22 +18,22 @@ from transformers import (
 from tqdm import tqdm, trange
 
         
-class AlignableModel(nn.Module):
+class IntervenableModel(nn.Module):
     """
-    Generic alignable model. Alignments are specified in the config.
+    Generic intervenable model. Alignments are specified in the config.
     """
     
 
     def __init__(
         self, 
-        alignable_config,
+        intervenable_config,
         model,
         **kwargs
     ):
         super().__init__()
-        self.alignable_config = alignable_config
-        self.mode = alignable_config.mode
-        intervention_type = alignable_config.alignable_interventions_type
+        self.intervenable_config = intervenable_config
+        self.mode = intervenable_config.mode
+        intervention_type = intervenable_config.intervenable_interventions_type
         self.is_model_stateless = is_stateless(model)
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
         if self.use_fast:
@@ -45,7 +45,7 @@ class AlignableModel(nn.Module):
             )
         # each representation can get a different intervention type
         if type(intervention_type) == list:
-            assert len(intervention_type) == len(alignable_config.alignable_representations)
+            assert len(intervention_type) == len(intervenable_config.intervenable_representations)
         
         ###
         # We instantiate intervention_layers at locations.
@@ -58,7 +58,7 @@ class AlignableModel(nn.Module):
         # To support a new model type, you need to provide a
         # mapping between supported abstract type and module name.
         ###
-        self.alignable_representations = {}
+        self.intervenable_representations = {}
         self.interventions = {}
         self._key_collision_counter = {}
         # Flags and counters below are for interventions in the model.generate
@@ -80,25 +80,25 @@ class AlignableModel(nn.Module):
         self._intervention_group = {}
         _any_group_key = False
         _original_key_order = []
-        for i, representation in enumerate(alignable_config.alignable_representations):
+        for i, representation in enumerate(intervenable_config.intervenable_representations):
             _key = self._get_representation_key(representation)
             
-            if representation.alignable_unit not in CONST_VALID_ALIGNABLE_UNIT:
+            if representation.intervenable_unit not in CONST_VALID_INTERVENABLE_UNIT:
                 raise ValueError(
-                    f"{representation.alignable_unit} is not supported as alignable unit. Valid options: ",
-                    f"{CONST_VALID_ALIGNABLE_UNIT}"
+                    f"{representation.intervenable_unit} is not supported as intervenable unit. Valid options: ",
+                    f"{CONST_VALID_INTERVENABLE_UNIT}"
                 )
             
-            if alignable_config.alignable_interventions is not None \
-                and alignable_config.alignable_interventions[0] is not None:
+            if intervenable_config.intervenable_interventions is not None \
+                and intervenable_config.intervenable_interventions[0] is not None:
                 # we leave this option open but not sure if it is a desired one
-                intervention = alignable_config.alignable_interventions[i]
+                intervention = intervenable_config.intervenable_interventions[i]
             else:
                 intervention_function = intervention_type \
                     if type(intervention_type) != list else intervention_type[i]
                 intervention = intervention_function(
-                    get_alignable_dimension(get_internal_model_type(model), model.config, representation),
-                    proj_dim=representation.alignable_low_rank_dimension,
+                    get_intervenable_dimension(get_internal_model_type(model), model.config, representation),
+                    proj_dim=representation.intervenable_low_rank_dimension,
                     # we can partition the subspace, and intervene on subspace
                     subspace_partition=representation.subspace_partition
                 )
@@ -108,9 +108,9 @@ class AlignableModel(nn.Module):
                     intervention = self._intervention_pointers[representation.intervention_link_key]
                 else:
                     intervention = intervention_function(
-                        get_alignable_dimension(
+                        get_intervenable_dimension(
                             get_internal_model_type(model), model.config, representation),
-                        proj_dim=representation.alignable_low_rank_dimension,
+                        proj_dim=representation.intervenable_low_rank_dimension,
                         # we can partition the subspace, and intervene on subspace
                         subspace_partition=representation.subspace_partition,
                         use_fast=self.use_fast
@@ -121,9 +121,9 @@ class AlignableModel(nn.Module):
                         self._intervention_reverse_link[_key] = \
                             f"link#{representation.intervention_link_key}"
                         
-            alignable_module_hook = get_alignable_module_hook(model, representation)
-            self.alignable_representations[_key] = representation
-            self.interventions[_key] = (intervention, alignable_module_hook)
+            intervenable_module_hook = get_intervenable_module_hook(model, representation)
+            self.intervenable_representations[_key] = representation
+            self.interventions[_key] = (intervention, intervenable_module_hook)
             self._key_getter_call_counter[_key] = 0 # we memo how many the hook is called, 
                                                     # usually, it's a one time call per 
                                                     # hook unless model generates.
@@ -132,28 +132,28 @@ class AlignableModel(nn.Module):
             _original_key_order += [_key]
             if representation.group_key is not None:
                 _any_group_key = True
-        if self.alignable_config.sorted_keys is not None:
+        if self.intervenable_config.sorted_keys is not None:
             logging.warn(
                 "The key is provided in the config. "
                 "Assuming this is loaded from a pretrained module."
             )
-        if self.alignable_config.sorted_keys is not None or "alignables_sort_fn" not in kwargs:
-            self.sorted_alignable_keys = _original_key_order
+        if self.intervenable_config.sorted_keys is not None or "intervenables_sort_fn" not in kwargs:
+            self.sorted_intervenable_keys = _original_key_order
         else:
             # the key order is independent of group, it is used to read out intervention locations.
-            self.sorted_alignable_keys = kwargs["alignables_sort_fn"](
+            self.sorted_intervenable_keys = kwargs["intervenables_sort_fn"](
                 model,
-                self.alignable_representations
+                self.intervenable_representations
             )
         
         # check it follows topological order
-        if not check_sorted_alignables_by_topological_order(
+        if not check_sorted_intervenables_by_topological_order(
                 model,
-                self.alignable_representations,
-                self.sorted_alignable_keys
+                self.intervenable_representations,
+                self.sorted_intervenable_keys
             ):
             raise ValueError(
-                "The alignable_representations in your config must follow the "
+                "The intervenable_representations in your config must follow the "
                 "topological order of model components. E.g., layer 2 intervention "
                 "cannot appear before layer 1 in transformers."
             )
@@ -167,8 +167,8 @@ class AlignableModel(nn.Module):
             # In case they are grouped, we would expect the execution order is given
             # by the source inputs.
             _validate_group_keys = []
-            for _key in self.sorted_alignable_keys:
-                representation = self.alignable_representations[_key]
+            for _key in self.sorted_intervenable_keys:
+                representation = self.intervenable_representations[_key]
                 assert representation.group_key is not None
                 if representation.group_key in self._intervention_group:
                     self._intervention_group[representation.group_key].append(_key)
@@ -185,7 +185,7 @@ class AlignableModel(nn.Module):
         else:
             # assign each key to an unique group based on topological order
             _group_key_inc = 0
-            for _key in self.sorted_alignable_keys:
+            for _key in self.sorted_intervenable_keys:
                 self._intervention_group[_group_key_inc] = [_key]
                 _group_key_inc += 1
         # sort group key with ascending order
@@ -212,12 +212,12 @@ class AlignableModel(nn.Module):
 
     def __str__(self):
         """
-        Print out basic info about this alignable instance
+        Print out basic info about this intervenable instance
         """
         attr_dict = {
             "model_type": self.model_type,
-            "alignable_interventions_type": self.alignable_interventions_type,
-            "alignabls": self.sorted_alignable_keys,
+            "intervenable_interventions_type": self.intervenable_interventions_type,
+            "alignabls": self.sorted_intervenable_keys,
             "mode": self.mode
         }
         return json.dumps(attr_dict, indent=4)
@@ -227,9 +227,9 @@ class AlignableModel(nn.Module):
         """
         Provide unique key for each intervention
         """
-        l = representation.alignable_layer
-        r = representation.alignable_representation_type
-        u = representation.alignable_unit
+        l = representation.intervenable_layer
+        r = representation.intervenable_representation_type
+        u = representation.intervenable_unit
         n = representation.max_number_of_units
         key_proposal = f"layer.{l}.repr.{r}.unit.{u}.nunit.{n}"
         if key_proposal not in self._key_collision_counter:
@@ -257,17 +257,21 @@ class AlignableModel(nn.Module):
         remove_forward_hooks(self.model)
     
     
-    def _cleanup_states(self):
+    def _cleanup_states(self, skip_activation_gc=False):
         """
         Clean up all old in memo states of interventions
         """
         self._is_generation = False
         self._remove_forward_hooks()
         self._reset_hook_count()
-        self.activations.clear()
-        self.hot_activations.clear()
-        self._batched_setter_activation_select.clear()
-    
+        if not skip_activation_gc:
+            self.activations.clear()
+            self.hot_activations.clear()
+            self._batched_setter_activation_select.clear()
+        else:
+            self.activations = {}
+            self.hot_activations = {}
+            self._batched_setter_activation_select = {}
     
     def get_trainable_parameters(self):
         """
@@ -392,14 +396,14 @@ class AlignableModel(nn.Module):
 
         create_directory(save_directory)
 
-        saving_config = copy.deepcopy(self.alignable_config)
-        saving_config.sorted_keys = self.sorted_alignable_keys
-        saving_config.alignable_model_type = str(saving_config.alignable_model_type)
-        saving_config.alignable_interventions_type = []
+        saving_config = copy.deepcopy(self.intervenable_config)
+        saving_config.sorted_keys = self.sorted_intervenable_keys
+        saving_config.intervenable_model_type = str(saving_config.intervenable_model_type)
+        saving_config.intervenable_interventions_type = []
         saving_config.intervention_dimensions = []
         for k, v in self.interventions.items():
             intervention = v[0]
-            saving_config.alignable_interventions_type += [
+            saving_config.intervenable_interventions_type += [
                 str(type(intervention))
             ]
             binary_filename = f"intkey_{k}.bin"
@@ -462,30 +466,30 @@ class AlignableModel(nn.Module):
             load_directory = local_directory
 
         # load config
-        saving_config = AlignableConfig.from_pretrained(load_directory)
-        saving_config.alignable_model_type = \
-            get_type_from_string(saving_config.alignable_model_type)
-        if not isinstance(model, saving_config.alignable_model_type):
+        saving_config = IntervenableConfig.from_pretrained(load_directory)
+        saving_config.intervenable_model_type = \
+            get_type_from_string(saving_config.intervenable_model_type)
+        if not isinstance(model, saving_config.intervenable_model_type):
             raise ValueError(
                 f"model type {str(type(model))} is not "
-                f"matching with {str(saving_config.alignable_model_type)}"
+                f"matching with {str(saving_config.intervenable_model_type)}"
             )
-        casted_alignable_interventions_type = []
-        for type_str in saving_config.alignable_interventions_type:
-            casted_alignable_interventions_type += [
+        casted_intervenable_interventions_type = []
+        for type_str in saving_config.intervenable_interventions_type:
+            casted_intervenable_interventions_type += [
                 get_type_from_string(type_str)
             ]
-        saving_config.alignable_interventions_type = casted_alignable_interventions_type
-        casted_alignable_representations = []
-        for alignable_representation_opts in saving_config.alignable_representations:
-            casted_alignable_representations += [
-                AlignableRepresentationConfig(*alignable_representation_opts)
+        saving_config.intervenable_interventions_type = casted_intervenable_interventions_type
+        casted_intervenable_representations = []
+        for intervenable_representation_opts in saving_config.intervenable_representations:
+            casted_intervenable_representations += [
+                IntervenableRepresentationConfig(*intervenable_representation_opts)
             ]
-        saving_config.alignable_representations = casted_alignable_representations
-        alignable = AlignableModel(saving_config, model)
+        saving_config.intervenable_representations = casted_intervenable_representations
+        intervenable = IntervenableModel(saving_config, model)
 
         # load binary files
-        for i, (k, v) in enumerate(alignable.interventions.items()):
+        for i, (k, v) in enumerate(intervenable.interventions.items()):
             intervention = v[0]
             binary_filename = f"intkey_{k}.bin"
             if isinstance(intervention, models.interventions.TrainableIntervention):
@@ -500,20 +504,20 @@ class AlignableModel(nn.Module):
                     torch.load(os.path.join(load_directory, binary_filename)))
             intervention.interchange_dim = saving_config.intervention_dimensions[i]
 
-        return alignable
+        return intervenable
                 
     
     def _gather_intervention_output(
         self, output,
-        alignable_representations_key,
+        intervenable_representations_key,
         unit_locations
     ) -> torch.Tensor:
         """
         Gather intervening activations from the output based on indices
         """
         
-        if alignable_representations_key in self._intervention_reverse_link and \
-            self._intervention_reverse_link[alignable_representations_key] in self.hot_activations:
+        if intervenable_representations_key in self._intervention_reverse_link and \
+            self._intervention_reverse_link[intervenable_representations_key] in self.hot_activations:
             # hot gather
             # clone is needed here by acting as a different module
             # to avoid gradient conflict.
@@ -521,7 +525,7 @@ class AlignableModel(nn.Module):
             # enable the following line when an error is hit
             # torch.autograd.set_detect_anomaly(True)
             selected_output = self.hot_activations[
-                self._intervention_reverse_link[alignable_representations_key]].clone()
+                self._intervention_reverse_link[intervenable_representations_key]]
         else:
             # cold gather
             original_output = output
@@ -531,20 +535,23 @@ class AlignableModel(nn.Module):
             # gather subcomponent
             original_output = self._output_to_subcomponent(
                 original_output,
-                alignable_representations_key
+                intervenable_representations_key
             )
+
             # gather based on intervention locations
             selected_output = gather_neurons(
                 original_output,
-                self.alignable_representations[
-                    alignable_representations_key].alignable_unit,
+                self.intervenable_representations[
+                    intervenable_representations_key].intervenable_unit,
                 unit_locations
             )
+        
+        
         return selected_output
 
 
     def _output_to_subcomponent(
-        self, output, alignable_representations_key,
+        self, output, intervenable_representations_key,
     ) -> List[torch.Tensor]:
         """
         Helps to get subcomponent of inputs/outputs of a hook
@@ -554,9 +561,9 @@ class AlignableModel(nn.Module):
         """
         return output_to_subcomponent(
             output, 
-            self.alignable_representations[
-                alignable_representations_key
-            ].alignable_representation_type, 
+            self.intervenable_representations[
+                intervenable_representations_key
+            ].intervenable_representation_type, 
             self.model_type,
             self.model_config
         )
@@ -564,7 +571,7 @@ class AlignableModel(nn.Module):
     
     def _scatter_intervention_output(
         self, output, intervened_representation,
-        alignable_representations_key,
+        intervenable_representations_key,
         unit_locations
     ) -> torch.Tensor:
         """
@@ -575,18 +582,18 @@ class AlignableModel(nn.Module):
         if isinstance(output, tuple):
             original_output = output[0]
         
-        alignable_representation_type = self.alignable_representations[
-            alignable_representations_key
-        ].alignable_representation_type
-        alignable_unit = self.alignable_representations[
-            alignable_representations_key
-        ].alignable_unit
+        intervenable_representation_type = self.intervenable_representations[
+            intervenable_representations_key
+        ].intervenable_representation_type
+        intervenable_unit = self.intervenable_representations[
+            intervenable_representations_key
+        ].intervenable_unit
             
         replaced_output = scatter_neurons(
             original_output, 
             intervened_representation, 
-            alignable_representation_type,
-            alignable_unit,
+            intervenable_representation_type,
+            intervenable_unit,
             unit_locations, 
             self.model_type,
             self.model_config,
@@ -596,14 +603,14 @@ class AlignableModel(nn.Module):
     
 
     def _intervention_getter(
-        self, alignable_keys, unit_locations,
+        self, intervenable_keys, unit_locations,
     ) -> HandlerList:  
         """
         Create a list of getter handlers that will fetch activations
         """
         handlers = []
-        for key_i, key in enumerate(alignable_keys):
-            intervention, alignable_module_hook = self.interventions[key]
+        for key_i, key in enumerate(intervenable_keys):
+            intervention, intervenable_module_hook = self.interventions[key]
             def hook_callback(model, args, kwargs, output=None):
                 if self._is_generation:
                     is_prompt = self._key_getter_call_counter[key] == 0
@@ -649,7 +656,7 @@ class AlignableModel(nn.Module):
                 # set version for stateful models
                 self._intervention_state[key].inc_getter_version()
                 
-            handlers.append(alignable_module_hook(hook_callback, with_kwargs=True))
+            handlers.append(intervenable_module_hook(hook_callback, with_kwargs=True))
 
         return HandlerList(handlers)
     
@@ -717,7 +724,7 @@ class AlignableModel(nn.Module):
         
         
     def _intervention_setter(
-        self, alignable_keys, 
+        self, intervenable_keys, 
         unit_locations_base, subspaces,
     ) -> HandlerList: 
         
@@ -727,8 +734,8 @@ class AlignableModel(nn.Module):
         self._tidy_stateful_activations()
         
         handlers = []
-        for key_i, key in enumerate(alignable_keys):
-            intervention, alignable_module_hook = self.interventions[key]
+        for key_i, key in enumerate(intervenable_keys):
+            intervention, intervenable_module_hook = self.interventions[key]
             self._batched_setter_activation_select[key] = \
                 [0 for _ in range(len(unit_locations_base[0]))] # batch_size
             def hook_callback(model, args, kwargs, output=None):
@@ -762,18 +769,18 @@ class AlignableModel(nn.Module):
                     intervention, 
                     subspaces[key_i] if subspaces is not None else None
                 )
+                # setter can produce hot activations for shared subspace interventions if linked
+                if key in self._intervention_reverse_link:
+                    self.hot_activations[self._intervention_reverse_link[key]] = intervened_representation.clone()
                 # patched in the intervned activations
                 output = self._scatter_intervention_output(
                     output, intervened_representation,
                     key, unit_locations_base[key_i]
                 )
-                # setter can produce hot activations for shared subspace interventions if linked
-                if key in self._intervention_reverse_link:
-                    self.hot_activations[self._intervention_reverse_link[key]] = output
                 # set version for stateful models
                 self._intervention_state[key].inc_setter_version()
 
-            handlers.append(alignable_module_hook(hook_callback, with_kwargs=True))
+            handlers.append(intervenable_module_hook(hook_callback, with_kwargs=True))
             
         return HandlerList(handlers)
     
@@ -870,14 +877,14 @@ class AlignableModel(nn.Module):
         # at each aligning representations
         if activations_sources is None:
             assert len(sources) == len(self._intervention_group)
-            for group_id, alignable_keys in self._intervention_group.items():
+            for group_id, intervenable_keys in self._intervention_group.items():
                 if sources[group_id] is None:
                     continue # smart jump for advance usage only
                 group_get_handlers = HandlerList([])
-                for alignable_key in alignable_keys:
+                for intervenable_key in intervenable_keys:
                     get_handlers = self._intervention_getter(
-                        [alignable_key],
-                        [unit_locations_sources[self.sorted_alignable_keys.index(alignable_key)]],
+                        [intervenable_key],
+                        [unit_locations_sources[self.sorted_intervenable_keys.index(intervenable_key)]],
                     )
                     group_get_handlers.extend(get_handlers)
                 _ = self.model(**sources[group_id])
@@ -885,21 +892,21 @@ class AlignableModel(nn.Module):
         else:
             # simply patch in the ones passed in
             self.activations = activations_sources
-            for _, passed_in_alignable_key in enumerate(self.activations):
-                assert passed_in_alignable_key in self.sorted_alignable_keys
+            for _, passed_in_intervenable_key in enumerate(self.activations):
+                assert passed_in_intervenable_key in self.sorted_intervenable_keys
 
         # in parallel mode, we swap cached activations all into
         # base at once
-        for group_id, alignable_keys in self._intervention_group.items():
-            for alignable_key in alignable_keys:
+        for group_id, intervenable_keys in self._intervention_group.items():
+            for intervenable_key in intervenable_keys:
                 # skip in case smart jump
-                if alignable_key in self.activations:
+                if intervenable_key in self.activations:
                     set_handlers = self._intervention_setter(
-                        [alignable_key],
-                        [unit_locations_base[self.sorted_alignable_keys.index(alignable_key)]],
+                        [intervenable_key],
+                        [unit_locations_base[self.sorted_intervenable_keys.index(intervenable_key)]],
                         # assume same group targeting the same subspace
                         [subspaces[
-                            self.sorted_alignable_keys.index(alignable_key)]] \
+                            self.sorted_intervenable_keys.index(intervenable_key)]] \
                         if subspaces is not None else None
                     )
                     # for setters, we don't remove them.
@@ -915,31 +922,31 @@ class AlignableModel(nn.Module):
         subspaces: Optional[List] = None,
     ):
         all_set_handlers = HandlerList([])
-        for group_id, alignable_keys in self._intervention_group.items():
+        for group_id, intervenable_keys in self._intervention_group.items():
             if sources[group_id] is None:
                 continue # smart jump for advance usage only
-            for alignable_key_id, alignable_key in enumerate(alignable_keys):
+            for intervenable_key_id, intervenable_key in enumerate(intervenable_keys):
                 if group_id != len(self._intervention_group)-1:
                     unit_locations_key = f"source_{group_id}->source_{group_id+1}"
                 else:
                     unit_locations_key = f"source_{group_id}->base"
                 unit_locations_source = \
                     unit_locations[
-                    unit_locations_key][0][alignable_key_id]
+                    unit_locations_key][0][intervenable_key_id]
                 if unit_locations_source is None:
                     continue # smart jump for advance usage only
 
                 unit_locations_base = \
                     unit_locations[
-                    unit_locations_key][1][alignable_key_id]
+                    unit_locations_key][1][intervenable_key_id]
                 if activations_sources is None:
                     # get activation from source_i
                     get_handlers = self._intervention_getter(
-                        [alignable_key],
+                        [intervenable_key],
                         [unit_locations_source],
                     )
                 else:
-                    self.activations[alignable_key] = activations_sources[alignable_key]
+                    self.activations[intervenable_key] = activations_sources[intervenable_key]
             # call once per group. each intervention is by its own group by default
             if activations_sources is None:
                 # this is when previous setter and THEN the getter get called
@@ -950,16 +957,16 @@ class AlignableModel(nn.Module):
                     all_set_handlers.remove()
                     all_set_handlers = HandlerList([]) 
 
-            for alignable_key in alignable_keys:
+            for intervenable_key in intervenable_keys:
                 # skip in case smart jump
-                if alignable_key in self.activations:
+                if intervenable_key in self.activations:
                     # set with intervened activation to source_i+1
                     set_handlers = self._intervention_setter(
-                        [alignable_key],
+                        [intervenable_key],
                         [unit_locations_base],
                         # assume the order
                         [subspaces[
-                            self.sorted_alignable_keys.index(alignable_key)]] \
+                            self.sorted_intervenable_keys.index(intervenable_key)]] \
                         if subspaces is not None else None
                     )
                     # for setters, we don't remove them.
@@ -1058,28 +1065,35 @@ class AlignableModel(nn.Module):
         with torch.inference_mode():
             base_outputs = self.model(**base)
         
-        # intervene
-        if self.mode == "parallel":
-            set_handlers_to_remove = self._wait_for_forward_with_parallel_intervention(
-                sources,
-                unit_locations,
-                activations_sources,
-                subspaces,
-            )
-        elif self.mode == "serial":
-            set_handlers_to_remove = self._wait_for_forward_with_serial_intervention(
-                sources,
-                unit_locations,
-                activations_sources,
-                subspaces,
+        try:
+            # intervene
+            if self.mode == "parallel":
+                set_handlers_to_remove = self._wait_for_forward_with_parallel_intervention(
+                    sources,
+                    unit_locations,
+                    activations_sources,
+                    subspaces,
+                )
+            elif self.mode == "serial":
+                set_handlers_to_remove = self._wait_for_forward_with_serial_intervention(
+                    sources,
+                    unit_locations,
+                    activations_sources,
+                    subspaces,
+                )
+
+            # run intervened forward
+            counterfactual_outputs = self.model(**base)
+            set_handlers_to_remove.remove()
+
+            self._output_validation()
+        except Exception as e:
+            raise e
+        finally:
+            self._cleanup_states(
+                skip_activation_gc=sources is None and activations_sources is not None
             )
         
-        # run intervened forward
-        counterfactual_outputs = self.model(**base)
-        set_handlers_to_remove.remove()
-        
-        self._output_validation()
-                
         return base_outputs, counterfactual_outputs
     
 
@@ -1134,6 +1148,7 @@ class AlignableModel(nn.Module):
             sources,
             unit_locations,
             activations_sources,
+            subspaces,
         )
 
         # returning un-intervened output without gradients
@@ -1142,30 +1157,39 @@ class AlignableModel(nn.Module):
                 inputs=base["input_ids"],
                 **kwargs
             )
-        
-        # intervene
-        if self.mode == "parallel":
-            set_handlers_to_remove = self._wait_for_forward_with_parallel_intervention(
-                sources,
-                unit_locations,
-                activations_sources,
-                subspaces,
+            
+        set_handlers_to_remove = None
+        try:
+            # intervene
+            if self.mode == "parallel":
+                set_handlers_to_remove = self._wait_for_forward_with_parallel_intervention(
+                    sources,
+                    unit_locations,
+                    activations_sources,
+                    subspaces,
+                )
+            elif self.mode == "serial":
+                set_handlers_to_remove = self._wait_for_forward_with_serial_intervention(
+                    sources,
+                    unit_locations,
+                    activations_sources,
+                    subspaces,
+                )
+
+            # run intervened generate
+            counterfactual_outputs = self.model.generate(
+                inputs=base["input_ids"],
+                **kwargs
             )
-        elif self.mode == "serial":
-            set_handlers_to_remove = self._wait_for_forward_with_serial_intervention(
-                sources,
-                unit_locations,
-                activations_sources,
-                subspaces,
+        except Exception as e:
+            raise e
+        finally:
+            if set_handlers_to_remove is not None:
+                set_handlers_to_remove.remove()
+            self._is_generation = False
+            self._cleanup_states(
+                skip_activation_gc=sources is None and activations_sources is not None
             )
-        
-        # run intervened generate
-        counterfactual_outputs = self.model.generate(
-            inputs=base["input_ids"],
-            **kwargs
-        )
-        set_handlers_to_remove.remove()
-        self._is_generation = False
         
         return base_outputs, counterfactual_outputs
 
@@ -1176,7 +1200,7 @@ class AlignableModel(nn.Module):
     ):
         """
         Convert original data batch according
-        to the alignable settings.
+        to the intervenable settings.
 
         The function respects inputs in the following
         data format.
@@ -1233,19 +1257,19 @@ class AlignableModel(nn.Module):
             _curr_source_ind = 0
             _parallel_aggr_left = []
             _parallel_aggr_right = []
-            for _, rep in self.alignable_representations.items():
+            for _, rep in self.intervenable_representations.items():
                 _curr_source_ind_inc = _curr_source_ind + 1
                 _prefix = f"source_{_curr_source_ind}->base"
                 _prefix_left = f"{_prefix}.0"
                 _prefix_right = f"{_prefix}.1"
                 _sub_loc_aggr_left = [] # 3d
                 _sub_loc_aggr_right = [] # 3d
-                for sub_loc in rep.alignable_unit.split("."):
+                for sub_loc in rep.intervenable_unit.split("."):
                     _sub_loc_aggr_left += [
                         inputs[f"{_prefix_left}.{sub_loc}"]]
                     _sub_loc_aggr_right += [
                         inputs[f"{_prefix_right}.{sub_loc}"]]
-                if len(rep.alignable_unit.split(".")) == 1:
+                if len(rep.intervenable_unit.split(".")) == 1:
                     _sub_loc_aggr_left = _sub_loc_aggr_left[0]
                     _sub_loc_aggr_right = _sub_loc_aggr_right[0]
                 _parallel_aggr_left += [_sub_loc_aggr_left] # 3D or 4D
@@ -1260,21 +1284,21 @@ class AlignableModel(nn.Module):
         else:
             # source into another source and finally to the base engaging different locations
             _curr_source_ind = 0
-            for _, rep in self.alignable_representations.items():
+            for _, rep in self.intervenable_representations.items():
                 _curr_source_ind_inc = _curr_source_ind + 1
                 _prefix = f"source_{_curr_source_ind}->base" if _curr_source_ind+1 == \
-                    len(self.alignable_representations) else \
+                    len(self.intervenable_representations) else \
                     f"source_{_curr_source_ind}->source{_curr_source_ind_inc}"
                 _prefix_left = f"{_prefix}.0"
                 _prefix_right = f"{_prefix}.1"
                 _sub_loc_aggr_left = [] # 3d
                 _sub_loc_aggr_right = [] # 3d
-                for sub_loc in rep.alignable_unit.split("."):
+                for sub_loc in rep.intervenable_unit.split("."):
                     _sub_loc_aggr_left += [
                         inputs[f"{_prefix_left}.{sub_loc}"]]
                     _sub_loc_aggr_right += [
                         inputs[f"{_prefix_right}.{sub_loc}"]]
-                if len(rep.alignable_unit.split(".")) == 1:
+                if len(rep.intervenable_unit.split(".")) == 1:
                     _sub_loc_aggr_left = _sub_loc_aggr_left[0]
                     _sub_loc_aggr_right = _sub_loc_aggr_right[0]
                 _curr_source_ind += 1

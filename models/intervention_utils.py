@@ -95,6 +95,11 @@ def _do_intervention_by_swap(
                 base[example_i, ..., sel_subspace_indices] -= \
                     source[example_i, ..., sel_subspace_indices]
     else:
-        base[..., :interchange_dim] = source[..., :interchange_dim]
+        if mode == "interchange":
+            base[..., :interchange_dim] = source[..., :interchange_dim]
+        elif mode == "add":
+            base[..., :interchange_dim] += source[..., :interchange_dim]
+        elif mode == "subtract":
+            base[..., :interchange_dim] -= source[..., :interchange_dim]
     
     return base

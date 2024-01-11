@@ -20,17 +20,17 @@ class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
                 vocab_size=10,
             )
         )
-        self.vanilla_block_output_alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        self.vanilla_block_output_intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
                 ),
             ],
-            alignable_interventions_type=VanillaIntervention,
+            intervenable_interventions_type=VanillaIntervention,
         )
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.gpt2 = self.gpt2.to(self.device)
@@ -52,41 +52,41 @@ class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
         Positive test case to check whether vanilla forward pass work
         with our object.
         """
-        alignable = AlignableModel(
-            self.vanilla_block_output_alignable_config, self.gpt2)
-        alignable.set_device(self.device)
+        intervenable = IntervenableModel(
+            self.vanilla_block_output_intervenable_config, self.gpt2)
+        intervenable.set_device(self.device)
         base = {"input_ids": torch.randint(0, 10, (10, 5)).to(self.device)}
         golden_out = self.gpt2(**base).logits
-        our_output = alignable(base)[0][0]        
+        our_output = intervenable(base)[0][0]        
         self.assertTrue(torch.allclose(
             golden_out, our_output))
         # make sure the toolkit also works
         self.assertTrue(torch.allclose(
             GPT2_RUN(self.gpt2, base["input_ids"], {}, {}), golden_out))
         
-    def test_invalid_alignable_unit_negative(self):
+    def test_invalid_intervenable_unit_negative(self):
         """
-        Invalid alignable unit.
+        Invalid intervenable unit.
         """
-        alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     0,
                     "block_output",
                     "pos.h",
                     1,
                 ),
             ],
-            alignable_interventions_type=VanillaIntervention,
+            intervenable_interventions_type=VanillaIntervention,
         )
         try:
-            alignable = AlignableModel(
-                alignable_config, self.gpt2)
+            intervenable = IntervenableModel(
+                intervenable_config, self.gpt2)
         except ValueError:
             pass
         else:
-            raise ValueError("ValueError for invalid alignable unit is not thrown")
+            raise ValueError("ValueError for invalid intervenable unit is not thrown")
     
     def _test_with_position_intervention(
         self,
@@ -101,22 +101,22 @@ class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
         base = {"input_ids": torch.randint(0, 10, (b_s, max_position+1)).to(self.device)}
         source = {"input_ids": torch.randint(0, 10, (b_s, max_position+2)).to(self.device)}
         
-        alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     intervention_layer,
                     intervention_stream,
                     "pos",
                     len(positions),
                 )
             ],
-            alignable_interventions_type=intervention_type,
+            intervenable_interventions_type=intervention_type,
         )
-        alignable = AlignableModel(
-            alignable_config, self.gpt2, use_fast=use_fast
+        intervenable = IntervenableModel(
+            intervenable_config, self.gpt2, use_fast=use_fast
         )
-        intervention = list(alignable.interventions.values())[0][0]
+        intervention = list(intervenable.interventions.values())[0][0]
 
         base_activations = {}
         source_activations = {}
@@ -141,13 +141,13 @@ class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
         })
         
         if isinstance(positions[0], list):
-            _, out_output = alignable(
+            _, out_output = intervenable(
                 base,
                 [source],
                 {"sources->base": ([positions], [positions])}
             )
         else:
-            _, out_output = alignable(
+            _, out_output = intervenable(
                 base,
                 [source],
                 {"sources->base": ([[positions]*b_s], [[positions]*b_s])}
@@ -208,21 +208,21 @@ class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
         base = {"input_ids": torch.randint(0, 10, (b_s, max_position+1)).to(self.device)}
         source = {"input_ids": torch.randint(0, 10, (b_s, max_position+2)).to(self.device)}
         
-        alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     intervention_layer,
                     intervention_stream,
                     "h.pos",
                     len(positions),
                 )
             ],
-            alignable_interventions_type=intervention_type,
+            intervenable_interventions_type=intervention_type,
         )
-        alignable = AlignableModel(
-            alignable_config, self.gpt2)
-        intervention = list(alignable.interventions.values())[0][0]
+        intervenable = IntervenableModel(
+            intervenable_config, self.gpt2)
+        intervention = list(intervenable.interventions.values())[0][0]
 
         base_activations = {}
         source_activations = {}
@@ -249,13 +249,13 @@ class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
         })
         
         if isinstance(positions[0], list):
-            _, out_output = alignable(
+            _, out_output = intervenable(
                 base,
                 [source],
                 {"sources->base": ([[heads, positions]], [[heads, positions]])}
             )
         else:
-            _, out_output = alignable(
+            _, out_output = intervenable(
                 base,
                 [source],
                 {"sources->base": ([[[heads]*b_s, [positions]*b_s]], [[[heads]*b_s, [positions]*b_s]])}
@@ -319,7 +319,7 @@ def suite():
     suite.addTest(VanillaInterventionWithTransformerTestCase(
         'test_clean_run_positive'))
     suite.addTest(VanillaInterventionWithTransformerTestCase(
-        'test_invalid_alignable_unit_negative'))
+        'test_invalid_intervenable_unit_negative'))
     suite.addTest(VanillaInterventionWithTransformerTestCase(
         'test_with_single_position_vanilla_intervention_positive'))
     suite.addTest(VanillaInterventionWithTransformerTestCase(

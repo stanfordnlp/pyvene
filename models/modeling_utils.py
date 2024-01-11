@@ -1,7 +1,7 @@
 import torch, random
 from torch import nn
 import numpy as np
-from models.alignable_modelcard import *
+from models.intervenable_modelcard import *
 
 
 def get_internal_model_type(model):
@@ -89,7 +89,7 @@ def getattr_for_torch_module(
     return current_module
 
 
-def get_alignable_dimension(
+def get_intervenable_dimension(
     model_type, model_config, representation
 ) -> int:
     """Based on the representation, get the aligning dimension size"""
@@ -97,7 +97,7 @@ def get_alignable_dimension(
     dimension_proposals = type_to_dimension_mapping[
         model_type
     ][
-        representation.alignable_representation_type
+        representation.intervenable_representation_type
     ]
     for proposal in dimension_proposals:
         if "*" in proposal:
@@ -163,20 +163,20 @@ def get_representation_dimension_by_type(
     assert False
 
 
-def get_alignable_module_hook(
+def get_intervenable_module_hook(
     model, representation
 ) -> nn.Module:
     """Render the intervening module with a hook"""
     type_info = type_to_module_mapping[
         get_internal_model_type(model)
     ][
-        representation.alignable_representation_type
+        representation.intervenable_representation_type
     ]
     parameter_name = type_info[0]
     hook_type = type_info[1]
     if "%s" in parameter_name:
         # we assume it is for the layer.
-        parameter_name = parameter_name % (representation.alignable_layer)
+        parameter_name = parameter_name % (representation.intervenable_layer)
 
     module = getattr_for_torch_module(
         model,
@@ -187,10 +187,10 @@ def get_alignable_module_hook(
     return module_hook
 
 
-def check_sorted_alignables_by_topological_order(
+def check_sorted_intervenables_by_topological_order(
     model,
-    alignable_representations,
-    sorted_alignable_keys
+    intervenable_representations,
+    sorted_intervenable_keys
 ):
     """Sort the intervention with topology in transformer arch"""
     if is_transformer(model):
@@ -201,14 +201,14 @@ def check_sorted_alignables_by_topological_order(
         TOPOLOGICAL_ORDER = CONST_GRU_TOPOLOGICAL_ORDER
 
     scores = {}
-    for k, _ in alignable_representations.items():
+    for k, _ in intervenable_representations.items():
         l = int(k.split('.')[1]) + 1
         r = TOPOLOGICAL_ORDER.index(k.split('.')[3])
         # incoming order in case they are ordered
         o = int(k.split('#')[1]) + 1
         scores[k] = l*r*o
     sorted_keys_by_topological_order = sorted(scores.keys(), key=lambda x: scores[x])
-    return sorted_alignable_keys == sorted_keys_by_topological_order
+    return sorted_intervenable_keys == sorted_keys_by_topological_order
 
 class HandlerList():
     """General class to set hooks and set off hooks"""
@@ -266,20 +266,20 @@ def bs_hd_to_bhsd(tensor, d):
 
 def gather_neurons(
     tensor_input,
-    alignable_unit,
+    intervenable_unit,
     unit_locations_as_list
 ):
     """Gather intervening neurons"""
 
-    if "." in alignable_unit:
+    if "." in intervenable_unit:
         unit_locations = (
             torch.tensor(unit_locations_as_list[0], device=tensor_input.device),
             torch.tensor(unit_locations_as_list[1], device=tensor_input.device),
         )
     else:
         unit_locations = torch.tensor(unit_locations_as_list, device=tensor_input.device)
-
-    if alignable_unit in {"pos", "h"}:
+        
+    if intervenable_unit in {"pos", "h"}:
         tensor_output = torch.gather(
             tensor_input, 1,
             unit_locations.reshape(
@@ -291,7 +291,7 @@ def gather_neurons(
         )
 
         return tensor_output
-    elif alignable_unit in {"h.pos"}:
+    elif intervenable_unit in {"h.pos"}:
         # we assume unit_locations is a tuple
         head_unit_locations = unit_locations[0]
         pos_unit_locations = unit_locations[1]
@@ -319,11 +319,11 @@ def gather_neurons(
         tensor_output = bs_hd_to_bhsd(pos_tensor_output, d)
 
         return tensor_output # b, num_unit (h), num_unit (pos), d
-    elif alignable_unit in {"t"}:
+    elif intervenable_unit in {"t"}:
         # for stateful models, intervention location is guarded outside gather
         return tensor_input
-    elif alignable_unit in {"dim", "pos.dim", "h.dim", "h.pos.dim"}:
-        assert False, f"Not Implemented Gathering with Unit = {alignable_unit}"
+    elif intervenable_unit in {"dim", "pos.dim", "h.dim", "h.pos.dim"}:
+        assert False, f"Not Implemented Gathering with Unit = {intervenable_unit}"
 
 
 def split_heads(tensor, num_heads, attn_head_size):
@@ -336,9 +336,9 @@ def split_heads(tensor, num_heads, attn_head_size):
 
 
 def output_to_subcomponent(
-    output, alignable_representation_type, model_type, model_config
+    output, intervenable_representation_type, model_type, model_config
 ):
-    if "head" in alignable_representation_type or alignable_representation_type in {
+    if "head" in intervenable_representation_type or intervenable_representation_type in {
         "query_output", "key_output", "value_output"
     }:
         n_embd = get_representation_dimension_by_type(model_type, model_config, "block_output")
@@ -352,7 +352,7 @@ def output_to_subcomponent(
         hf_models.gpt2.modeling_gpt2.GPT2Model,
         hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel
     }:
-        if alignable_representation_type in {
+        if intervenable_representation_type in {
             "query_output", "key_output", "value_output",
             "head_query_output", "head_key_output", "head_value_output",
         }:
@@ -360,7 +360,7 @@ def output_to_subcomponent(
                 n_embd,
                 dim=2
             )
-            if alignable_representation_type in {
+            if intervenable_representation_type in {
                 "head_query_output", "head_key_output", "head_value_output",
             }:
                 qkv = (
@@ -368,26 +368,26 @@ def output_to_subcomponent(
                     split_heads(qkv[1], num_heads, attn_head_size),
                     split_heads(qkv[2], num_heads, attn_head_size),
                 ) # each with (batch, head, seq_length, head_features)
-            return qkv[CONST_QKV_INDICES[alignable_representation_type]]
-        elif alignable_representation_type in {"head_attention_value_output"}:
+            return qkv[CONST_QKV_INDICES[intervenable_representation_type]]
+        elif intervenable_representation_type in {"head_attention_value_output"}:
             return split_heads(output, num_heads, attn_head_size)
         else:
             return output
     elif model_type in {
         GRUModel, GRULMHeadModel, GRUForClassification
     }:
-        if alignable_representation_type in {
+        if intervenable_representation_type in {
             'reset_x2h_output', 'new_x2h_output', 'reset_h2h_output',
             'reset_h2h_output', 'update_h2h_output', 'new_h2h_output',
         }:
             n_embd = get_representation_dimension_by_type(model_type, model_config, "cell_output")
-            start_index = CONST_RUN_INDICES[alignable_representation_type]*n_embd
-            end_index = (CONST_RUN_INDICES[alignable_representation_type]+1)*n_embd
+            start_index = CONST_RUN_INDICES[intervenable_representation_type]*n_embd
+            end_index = (CONST_RUN_INDICES[intervenable_representation_type]+1)*n_embd
             return output[..., start_index:end_index]
         else:
             return output
     else:
-        if alignable_representation_type in {
+        if intervenable_representation_type in {
             "head_query_output", "head_key_output", "head_value_output",
             "head_attention_value_output",
         }:
@@ -399,14 +399,14 @@ def output_to_subcomponent(
 def scatter_neurons(
     tensor_input,
     replacing_tensor_input,
-    alignable_representation_type,
-    alignable_unit,
+    intervenable_representation_type,
+    intervenable_unit,
     unit_locations_as_list,
     model_type,
     model_config,
     use_fast
 ):
-    if "." in alignable_unit:
+    if "." in intervenable_unit:
         # extra dimension for multi-level intervention
         unit_locations = (
             torch.tensor(unit_locations_as_list[0], device=tensor_input.device),
@@ -415,7 +415,7 @@ def scatter_neurons(
     else:
         unit_locations = torch.tensor(unit_locations_as_list, device=tensor_input.device)
 
-    if "head" in alignable_representation_type or alignable_representation_type in {
+    if "head" in intervenable_representation_type or intervenable_representation_type in {
         "query_output", "key_output", "value_output"
     }:
         n_embd = get_representation_dimension_by_type(model_type, model_config, "block_output")
@@ -429,41 +429,41 @@ def scatter_neurons(
         hf_models.gpt2.modeling_gpt2.GPT2Model,
         hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel
     }:
-        if ("query" in alignable_representation_type or \
-            "key" in alignable_representation_type or \
-            "value" in alignable_representation_type) and \
-            "attention" not in alignable_representation_type:
-            start_index = CONST_QKV_INDICES[alignable_representation_type]*n_embd
-            end_index = (CONST_QKV_INDICES[alignable_representation_type]+1)*n_embd
+        if ("query" in intervenable_representation_type or \
+            "key" in intervenable_representation_type or \
+            "value" in intervenable_representation_type) and \
+            "attention" not in intervenable_representation_type:
+            start_index = CONST_QKV_INDICES[intervenable_representation_type]*n_embd
+            end_index = (CONST_QKV_INDICES[intervenable_representation_type]+1)*n_embd
         else:
             start_index, end_index = None, None
     elif model_type in {
         GRUModel, GRULMHeadModel, GRUForClassification
     }:
-        if alignable_representation_type in {
+        if intervenable_representation_type in {
             'reset_x2h_output', 'new_x2h_output', 'reset_h2h_output',
             'reset_h2h_output', 'update_h2h_output', 'new_h2h_output',
         }:
             n_embd = get_representation_dimension_by_type(model_type, model_config, "cell_output")
-            start_index = CONST_RUN_INDICES[alignable_representation_type]*n_embd
-            end_index = (CONST_RUN_INDICES[alignable_representation_type]+1)*n_embd
+            start_index = CONST_RUN_INDICES[intervenable_representation_type]*n_embd
+            end_index = (CONST_RUN_INDICES[intervenable_representation_type]+1)*n_embd
         else:
             start_index, end_index = None, None
     else:
         start_index, end_index = None, None
 
-    if alignable_unit == "t":
+    if intervenable_unit == "t":
         # time series models, e.g., gru
         for batch_i, _ in enumerate(unit_locations):
             tensor_input[
                 batch_i, start_index:end_index
             ] = replacing_tensor_input[batch_i]
     else:
-        if "head" in alignable_representation_type:
+        if "head" in intervenable_representation_type:
             start_index = 0 if start_index is None else start_index
             end_index = 0 if end_index is None else end_index
             # head-based scattering
-            if alignable_unit in {"h.pos"}:
+            if intervenable_unit in {"h.pos"}:
                 # we assume unit_locations is a tuple
                 for head_batch_i, head_locations in enumerate(unit_locations[0]):
                     for head_loc_i, head_loc in enumerate(head_locations):
@@ -546,7 +546,7 @@ def do_intervention(
 
 
 def simple_output_to_subcomponent(
-    output, alignable_representation_type, model_config
+    output, intervenable_representation_type, model_config
 ):
     """This is an oversimplied version for demo"""
     return output
@@ -554,7 +554,7 @@ def simple_output_to_subcomponent(
 
 def simple_scatter_intervention_output(
     original_output, intervened_representation,
-    alignable_representation_type, alignable_unit,
+    intervenable_representation_type, intervenable_unit,
     unit_locations, model_config
 ):
     """This is an oversimplied version for demo"""

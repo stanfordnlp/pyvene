@@ -40,10 +40,10 @@ class SubspaceInterventionWithTransformerTestCase(unittest.TestCase):
         Positive test case to check whether vanilla forward pass work
         with our object.
         """
-        alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     0,
                     "block_output",
                     "pos",
@@ -51,14 +51,14 @@ class SubspaceInterventionWithTransformerTestCase(unittest.TestCase):
                     subspace_partition=[[0,6],[6,24]]
                 ),
             ],
-            alignable_interventions_type=VanillaIntervention,
+            intervenable_interventions_type=VanillaIntervention,
         )
-        alignable = AlignableModel(
-            alignable_config, self.gpt2)
-        alignable.set_device(self.device)
+        intervenable = IntervenableModel(
+            intervenable_config, self.gpt2)
+        intervenable.set_device(self.device)
         base = {"input_ids": torch.randint(0, 10, (10, 5)).to(self.device)}
         golden_out = self.gpt2(**base).logits
-        our_output = alignable(base)[0][0]        
+        our_output = intervenable(base)[0][0]        
         self.assertTrue(torch.allclose(
             golden_out, our_output))
         # make sure the toolkit also works
@@ -71,57 +71,57 @@ class SubspaceInterventionWithTransformerTestCase(unittest.TestCase):
         Provide subpace intervention indices in the forward only.
         """
         batch_size = 10
-        with_partition_alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        with_partition_intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
-                    alignable_low_rank_dimension=24,
+                    intervenable_low_rank_dimension=24,
                     subspace_partition=[[0,6],[6,24]]
                 ),
             ],
-            alignable_interventions_type=intervention_type,
+            intervenable_interventions_type=intervention_type,
         )
-        alignable = AlignableModel(
-            with_partition_alignable_config, self.gpt2, use_fast=False
+        intervenable = IntervenableModel(
+            with_partition_intervenable_config, self.gpt2, use_fast=False
         )
-        alignable.set_device(self.device)
+        intervenable.set_device(self.device)
         base = {"input_ids": torch.randint(0, 10, (batch_size, 5)).to(self.device)}
         source = {"input_ids": torch.randint(0, 10, (batch_size, 5)).to(self.device)}
-        _, with_partition_our_output = alignable(
+        _, with_partition_our_output = intervenable(
             base,
             [source],
             {"sources->base": ([[[0]]*batch_size], [[[0]]*batch_size])},
             subspaces = [[[0]]*batch_size]
         )       
 
-        without_partition_alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        without_partition_intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
-                    alignable_low_rank_dimension=24
+                    intervenable_low_rank_dimension=24
                 ),
             ],
-            alignable_interventions_type=intervention_type,
+            intervenable_interventions_type=intervention_type,
         )
-        alignable_fast = AlignableModel(
-            without_partition_alignable_config, 
+        intervenable_fast = IntervenableModel(
+            without_partition_intervenable_config, 
             self.gpt2, use_fast=True
         )
-        alignable_fast.set_device(self.device)
+        intervenable_fast.set_device(self.device)
         if intervention_type in {
             RotatedSpaceIntervention, LowRankRotatedSpaceIntervention}:
-            list(alignable_fast.interventions.values())[0][0].rotate_layer.weight = \
-                list(alignable.interventions.values())[0][0].rotate_layer.weight
+            list(intervenable_fast.interventions.values())[0][0].rotate_layer.weight = \
+                list(intervenable.interventions.values())[0][0].rotate_layer.weight
         
-        _, without_partition_our_output = alignable_fast(
+        _, without_partition_our_output = intervenable_fast(
             base,
             [source],
             {"sources->base": ([[[0]]*batch_size], [[[0]]*batch_size])},

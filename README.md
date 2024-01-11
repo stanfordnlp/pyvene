@@ -11,8 +11,9 @@
 [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/advance_tutorials/DAS_with_IOI.ipynb) [**IOI Circuit with DAS**]    
 
 
-# <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Intervene on NN's Activations to Trace Causal Mechanism**
-We have released a **new** generic library for studying model internals, which encapsulates **interchange intervention**[^ii], **path patching**[^pp], or **causal scrubbing**[^cs]. These methods were introduced recently to find or to help us find causal alignments with the internals of neural models. This library is designed as a playground for inventing new interventions, whether they're trainable or not, to uncover the causal mechanisms of neural models. Additionally, the library emphasizes scaling these methods to LLMs with billions of parameters. **This library focuses on Transformer-based models yet is made to be compatible with other architectures (e.g., see our tutorials about [MLP](https://github.com/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/NonTransformer_MLP_Intervention.ipynb) and [GRU](https://github.com/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/NonTransformer_GRU_Intervention.ipynb)).**
+# <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Intervene on NN's Internals to Understand Its Causal Mechanism**
+To interpret causal mechanisms of neural networks with their internals, we introduce **align-transformer**, an open-source and intervention-oriented Python library that supports customizable interventions on different families of neural architectures (e.g., RNN or Transformers). The basic operation is an in-place activation modification during the computation flow of a neural model. It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) to enable practitioners to quantify counterfactual behaviors at scale to gain interpretability insights. We showcase **align-transformer** out-of-box supports a wide range of intervention-based interpretability methods such as causal abstraction, circuit finding, and knowledge localization. **align-transformer** provides a unified and extensible framework to perform interventions on neural models, and to share interventions with others.
+
 
 ## Interventions v.s. Alignments with Model Internals
 In this section, we discuss topics from interventions to alignments with model internals.
@@ -27,12 +28,12 @@ from models.utils import create_gpt2
 config, tokenizer, gpt = create_gpt2()
 ```
 
-#### Create a simple alignable config
+#### Create a simple intervenable config
 ```py
-alignable_config = AlignableConfig(
-    alignable_model_type="gpt2",
-    alignable_representations=[
-        AlignableRepresentationConfig(
+intervenable_config = IntervenableConfig(
+    intervenable_model_type="gpt2",
+    intervenable_representations=[
+        IntervenableRepresentationConfig(
             0,            # intervening layer 0
             "mlp_output", # intervening mlp output
             "pos",        # intervening based on positional indices of tokens
@@ -42,10 +43,10 @@ alignable_config = AlignableConfig(
 )
 ```
 
-#### Turn the model into an alignable object
-The basic idea is to consider the alignable model as a regular HuggingFace model, except that it supports an intervenable forward function.
+#### Turn the model into an intervenable object
+The basic idea is to consider the intervenable model as a regular HuggingFace model, except that it supports an intervenable forward function.
 ```py
-alignable_gpt = AlignableModel(alignable_config, gpt)
+intervenable_gpt = IntervenableModel(intervenable_config, gpt)
 ```
 
 #### Intervene by swapping activations between examples
@@ -53,7 +54,7 @@ alignable_gpt = AlignableModel(alignable_config, gpt)
 base = tokenizer("The capital of Spain is", return_tensors="pt")
 sources = [tokenizer("The capital of Italy is", return_tensors="pt")]
 
-_, counterfactual_outputs = alignable_gpt(
+_, counterfactual_outputs = intervenable_gpt(
     base,
     sources,
     {"sources->base": ([[[4]]], [[[4]]])} # intervene base with sources
@@ -76,7 +77,7 @@ The function solves a 3-digit sum problem. Let's say, we trained a neural networ
 
 To translate the above steps into API calls with the library, it will be a single call,
 ```py
-alignable.evaluate_alignment(
+intervenable.evaluate_alignment(
     train_dataloader=test_dataloader,
     compute_metrics=compute_metrics,
     inputs_collator=inputs_collator
@@ -107,7 +108,7 @@ Instead of activation swapping in the original representation space, we first **
 
 You can now also make a single API call to train your intervention,
 ```py
-alignable.find_alignment(
+intervenable.find_alignment(
     train_dataloader=train_dataloader,
     compute_loss=compute_loss,
     compute_metrics=compute_metrics,

@@ -2,11 +2,11 @@ import unittest
 from tests.utils import *
 
 
-class AlignableUnitTestCase(unittest.TestCase):
+class IntervenableUnitTestCase(unittest.TestCase):
     
     @classmethod
     def setUpClass(self):
-        print("=== Test Suite: AlignableUnitTestCase ===")
+        print("=== Test Suite: IntervenableUnitTestCase ===")
         self.config, self.tokenizer, self.gpt2 = create_gpt2_lm(
             config = GPT2Config(
                 n_embd=24,
@@ -25,68 +25,68 @@ class AlignableUnitTestCase(unittest.TestCase):
         self.test_output_dir_pool = []
 
     def test_initialization_positive(self):
-        alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
                 ),
-                AlignableRepresentationConfig(
+                IntervenableRepresentationConfig(
                     1,
                     "block_output",
                     "pos",
                     1,
                 ),
             ],
-            alignable_interventions_type=VanillaIntervention,
+            intervenable_interventions_type=VanillaIntervention,
         )
         
-        alignable = AlignableModel(alignable_config, self.gpt2)
+        intervenable = IntervenableModel(intervenable_config, self.gpt2)
         
-        assert alignable.mode == "parallel"
-        self.assertTrue(alignable.is_model_stateless)
-        assert alignable.use_fast == False
+        assert intervenable.mode == "parallel"
+        self.assertTrue(intervenable.is_model_stateless)
+        assert intervenable.use_fast == False
     
-        assert len(alignable.interventions) == 2
+        assert len(intervenable.interventions) == 2
         key_list = []
         counter = 0
-        for k, _ in alignable.interventions.items():
+        for k, _ in intervenable.interventions.items():
             assert "#" in k
             assert int(k.split("#")[-1]) <= counter
             counter += 1
             assert "block_output" in k
         
-        assert len(alignable._intervention_group) == 2
-        assert len(alignable._key_getter_call_counter) == 2
-        assert len(alignable._key_setter_call_counter) == 2
-        assert len(alignable.activations) == 0
-        assert len(alignable.hot_activations) == 0
-        assert len(alignable._batched_setter_activation_select) == 0
+        assert len(intervenable._intervention_group) == 2
+        assert len(intervenable._key_getter_call_counter) == 2
+        assert len(intervenable._key_setter_call_counter) == 2
+        assert len(intervenable.activations) == 0
+        assert len(intervenable.hot_activations) == 0
+        assert len(intervenable._batched_setter_activation_select) == 0
         
     def test_initialization_invalid_order_negative(self):
-        alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     1,
                     "block_output",
                     "pos",
                     1,
                 ),
-                AlignableRepresentationConfig(
+                IntervenableRepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
                 ),
             ],
-            alignable_interventions_type=VanillaIntervention,
+            intervenable_interventions_type=VanillaIntervention,
         )
         try:
-            alignable = AlignableModel(alignable_config, self.gpt2)
+            intervenable = IntervenableModel(intervenable_config, self.gpt2)
         except ValueError:
             pass
         else:
@@ -95,26 +95,26 @@ class AlignableUnitTestCase(unittest.TestCase):
                 "order is not thrown"
             )
         
-        alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
                 ),
-                AlignableRepresentationConfig(
+                IntervenableRepresentationConfig(
                     0,
                     "mlp_output",
                     "pos",
                     1,
                 ),
             ],
-            alignable_interventions_type=VanillaIntervention,
+            intervenable_interventions_type=VanillaIntervention,
         )
         try:
-            alignable = AlignableModel(alignable_config, self.gpt2)
+            intervenable = IntervenableModel(intervenable_config, self.gpt2)
         except ValueError:
             pass
         else:
@@ -125,26 +125,26 @@ class AlignableUnitTestCase(unittest.TestCase):
         
         
     def test_initialization_invalid_repr_name_negative(self):
-        alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     1,
                     "block_output",
                     "pos",
                     1,
                 ),
-                AlignableRepresentationConfig(
+                IntervenableRepresentationConfig(
                     0,
                     "strange_stream_me",
                     "pos",
                     1,
                 ),
             ],
-            alignable_interventions_type=VanillaIntervention,
+            intervenable_interventions_type=VanillaIntervention,
         )
         try:
-            alignable = AlignableModel(alignable_config, self.gpt2)
+            intervenable = IntervenableModel(intervenable_config, self.gpt2)
         except KeyError:
             pass
         else:
@@ -154,31 +154,31 @@ class AlignableUnitTestCase(unittest.TestCase):
             )
         
     def test_local_non_trainable_save_positive(self):
-        alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
                 ),
-                AlignableRepresentationConfig(
+                IntervenableRepresentationConfig(
                     1,
                     "block_output",
                     "pos",
                     1,
                 ),
             ],
-            alignable_interventions_type=VanillaIntervention,
+            intervenable_interventions_type=VanillaIntervention,
         )
         
-        alignable = AlignableModel(alignable_config, self.gpt2)
+        intervenable = IntervenableModel(intervenable_config, self.gpt2)
         _uuid = str(uuid.uuid4())[:6]
         _test_dir = os.path.join(f"./test_output_dir_prefix-{_uuid}")
         self.test_output_dir_pool += [_test_dir]
         
-        alignable.save(
+        intervenable.save(
             save_directory=_test_dir, 
             save_to_hf_hub=False
         )
@@ -194,31 +194,31 @@ class AlignableUnitTestCase(unittest.TestCase):
                 )
         
     def test_local_trainable_save_positive(self):
-        alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
                 ),
-                AlignableRepresentationConfig(
+                IntervenableRepresentationConfig(
                     1,
                     "block_output",
                     "pos",
                     1,
                 ),
             ],
-            alignable_interventions_type=RotatedSpaceIntervention,
+            intervenable_interventions_type=RotatedSpaceIntervention,
         )
         
-        alignable = AlignableModel(alignable_config, self.gpt2)
+        intervenable = IntervenableModel(intervenable_config, self.gpt2)
         _uuid = str(uuid.uuid4())[:6]
         _test_dir = os.path.join(f"./test_output_dir_prefix-{_uuid}")
         self.test_output_dir_pool += [_test_dir]
         
-        alignable.save(
+        intervenable.save(
             save_directory=_test_dir, 
             save_to_hf_hub=False
         )
@@ -236,57 +236,57 @@ class AlignableUnitTestCase(unittest.TestCase):
                 "there should binary file for each of them."
             )
     
-    def _test_local_trainable_load_positive(self, alignable_interventions_type):
+    def _test_local_trainable_load_positive(self, intervenable_interventions_type):
         b_s = 10
         
-        alignable_config = AlignableConfig(
-            alignable_model_type=type(self.gpt2),
-            alignable_representations=[
-                AlignableRepresentationConfig(
+        intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
-                    alignable_low_rank_dimension=4
+                    intervenable_low_rank_dimension=4
                 ),
-                AlignableRepresentationConfig(
+                IntervenableRepresentationConfig(
                     1,
                     "block_output",
                     "pos",
                     1,
-                    alignable_low_rank_dimension=4
+                    intervenable_low_rank_dimension=4
                 ),
             ],
-            alignable_interventions_type=alignable_interventions_type,
+            intervenable_interventions_type=intervenable_interventions_type,
         )
         
-        alignable = AlignableModel(alignable_config, self.gpt2)
+        intervenable = IntervenableModel(intervenable_config, self.gpt2)
         _uuid = str(uuid.uuid4())[:6]
         _test_dir = os.path.join(f"./test_output_dir_prefix-{_uuid}")
         self.test_output_dir_pool += [_test_dir]
         
-        alignable.save(
+        intervenable.save(
             save_directory=_test_dir, 
             save_to_hf_hub=False
         )
         
-        alignable_loaded = AlignableModel.load(
+        intervenable_loaded = IntervenableModel.load(
             load_directory=_test_dir, 
             model=self.gpt2,
         )
         
-        assert alignable != alignable_loaded
+        assert intervenable != intervenable_loaded
         
         base = {"input_ids": torch.randint(0, 10, (b_s, 10))}
         source = {"input_ids": torch.randint(0, 10, (b_s, 10))}
         
-        _, counterfactual_outputs_unsaved = alignable(
+        _, counterfactual_outputs_unsaved = intervenable(
             base,
             [source, source],
             {"sources->base": ([[[3]], [[4]]], [[[3]], [[4]]])}
         )
         
-        _, counterfactual_outputs_loaded = alignable_loaded(
+        _, counterfactual_outputs_loaded = intervenable_loaded(
             base,
             [source, source],
             {"sources->base": ([[[3]], [[4]]], [[[3]], [[4]]])}
@@ -312,17 +312,17 @@ class AlignableUnitTestCase(unittest.TestCase):
     
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(AlignableUnitTestCase(
+    suite.addTest(IntervenableUnitTestCase(
         'test_initialization_positive'))
-    suite.addTest(AlignableUnitTestCase(
+    suite.addTest(IntervenableUnitTestCase(
         'test_initialization_invalid_order_negative'))
-    suite.addTest(AlignableUnitTestCase(
+    suite.addTest(IntervenableUnitTestCase(
         'test_initialization_invalid_repr_name_negative'))
-    suite.addTest(AlignableUnitTestCase(
+    suite.addTest(IntervenableUnitTestCase(
         'test_local_non_trainable_save_positive'))
-    suite.addTest(AlignableUnitTestCase(
+    suite.addTest(IntervenableUnitTestCase(
         'test_local_trainable_save_positive'))
-    suite.addTest(AlignableUnitTestCase(
+    suite.addTest(IntervenableUnitTestCase(
         'test_local_load_positive'))
     return suite
 

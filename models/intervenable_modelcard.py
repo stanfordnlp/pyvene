@@ -1,11 +1,11 @@
 from models.constants import *
-from models.llama.modelings_alignable_llama import *
-from models.gpt2.modelings_alignable_gpt2 import *
-from models.gpt_neo.modelings_alignable_gpt_neo import *
-from models.gpt_neox.modelings_alignable_gpt_neox import *
-from models.mlp.modelings_alignable_mlp import *
-from models.gru.modelings_alignable_gru import *
-from models.blip.modelings_alignable_blip import *
+from models.llama.modelings_intervenable_llama import *
+from models.gpt2.modelings_intervenable_gpt2 import *
+from models.gpt_neo.modelings_intervenable_gpt_neo import *
+from models.gpt_neox.modelings_intervenable_gpt_neox import *
+from models.mlp.modelings_intervenable_mlp import *
+from models.gru.modelings_intervenable_gru import *
+from models.blip.modelings_intervenable_blip import *
 
 
 #########################################################################
