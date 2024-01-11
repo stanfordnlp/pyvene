@@ -32,12 +32,11 @@ from torch import Tensor
 from torch.nn import Parameter
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
-from models.intervenable_base import IntervenableModel
-from models.configuration_intervenable_model import (
+
+from pyvene import (
+    IntervenableModel,
     IntervenableRepresentationConfig,
     IntervenableConfig,
-)
-from models.interventions import (
     LowRankRotatedSpaceIntervention,
     SkipIntervention,
     VanillaIntervention,

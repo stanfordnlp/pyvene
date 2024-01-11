@@ -25,34 +25,33 @@ Install this package directly from the source code as,
 ## Basic Interventions
 You can intervene with supported models as,
 ```python
-# helper functions to load gpt2 from huggingface
-from pyvene.models.gpt2.modelings_intervenable_gpt2 import create_gpt2
-
+import pyvene
 from pyvene import IntervenableRepresentationConfig, IntervenableConfig, IntervenableModel
 from pyvene import VanillaIntervention
 
-config, tokenizer, gpt2 = create_gpt2()
+# provided wrapper for huggingface gpt2 model
+_, tokenizer, gpt2 = pyvene.create_gpt2()
 
-intervenable_config = IntervenableConfig(
-    intervenable_representations=[
-        IntervenableRepresentationConfig(
-            0,            # intervening layer 0
-            "mlp_output", # intervening mlp output
-            "pos",        # intervening based on positional indices of tokens
-            1             # maximally intervening one token
-        ),
-    ],
+# turn gpt2 into intervenable_gpt2
+intervenable_gpt2 = IntervenableModel(
+    intervenable_config = IntervenableConfig(
+        intervenable_representations=[
+            IntervenableRepresentationConfig(
+                0,            # intervening layer 0
+                "mlp_output", # intervening mlp output
+                "pos",        # intervening based on positional indices of tokens
+                1             # maximally intervening one token
+            ),
+        ],
+    ), 
+    gpt2
 )
 
-intervenable_gpt2 = IntervenableModel(intervenable_config, gpt2)
-
-base = tokenizer("The capital of Spain is", return_tensors="pt")
-sources = [tokenizer("The capital of Italy is", return_tensors="pt")]
-
+# intervene base with sources on the fourth token.
 original_outputs, intervened_outputs = intervenable_gpt2(
-    base,
-    sources,
-    {"sources->base": ([[[4]]], [[[4]]])} # intervene base with sources on the fourth token.
+    tokenizer("The capital of Spain is", return_tensors="pt"),
+    [tokenizer("The capital of Italy is", return_tensors="pt")],
+    {"sources->base": ([[[4]]], [[[4]]])}
 )
 original_outputs.last_hidden_state - intervened_outputs.last_hidden_state
 ```
@@ -65,19 +64,22 @@ tensor([[[ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
          [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
          [ 0.0008, -0.0078, -0.0066,  ...,  0.0007, -0.0018,  0.0060]]])
 ```
-showing that we have causal effects only on the last token as expected.
+showing that we have causal effects only on the last token as expected. Your own model can also be added to the library by configuring intervention points as in [this tutorial](https://github.com/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Add_New_Model_Type.ipynb).
 
 
 ## From Interventions to Gain Interpretability Insights
-If the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. This is an alignment. Here is a more concrete example,
+Basic interventions are fun we cannot make any causal claim systematically. To gain actual interpretability insights, we want to measure counterfactual behaviors of a model in a data-driven fashion. In other words, if the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. We also call this alignment search process with model internals.
+
+### Understanding Causal Mechanism with Static Interventions
+Here is a more concrete example,
 ```py
 def add_three_numbers(a, b, c):
     var_x = a + b
     return var_x + c
 ```
-The function solves a 3-digit sum problem. Let's say, we trained a neural network to solve this problem perfectly. **One concrete alignment problem is** "Can we find the representation of (a + b) in the neural network?". We can use this library to answer this question. Specifically, we can do the following,
+The function solves a 3-digit sum problem. Let's say, we trained a neural network to solve this problem perfectly. "Can we find the representation of (a + b) in the neural network?". We can use this library to answer this question. Specifically, we can do the following,
 
-- **Step 1:** Form Alignment Hypothesis: We hypothesize that a set of neurons N aligns with (a + b).
+- **Step 1:** Form Interpretability (Alignment) Hypothesis: We hypothesize that a set of neurons N aligns with (a + b).
 - **Step 2:** Counterfactual Testings: If our hypothesis is correct, then swapping neurons N between examples would give us expected counterfactual behaviors. For instance, the values of N for (1+2)+3, when swapping with N for (2+3)+4, the output should be (2+3)+3 or (1+2)+4 depending on the direction of the swap.
 - **Step 3:** Reject Sampling of Hypothesis: Running tests multiple times and aggregating statistics in terms of counterfactual behavior matching. Proposing a new hypothesis based on the results. 
 
@@ -89,12 +91,12 @@ intervenable.evaluate(
     inputs_collator=inputs_collator
 )
 ```
-where you provide testing data (basically interventional data and the counterfactual behavior you are looking for) along with your metrics functions. The library will try to evaluate the alignment with the intervention you specified in the config. You can follow [this tutorial](https://github.com/frankaging/pyvene/blob/main/tutorials/Generic%20alignment%20training.ipynb) for alignment finding and evaluation with a provided fine-tuned gpt2 model.
+where you provide testing data (basically interventional data and the counterfactual behavior you are looking for) along with your metrics functions. The library will try to evaluate the alignment with the intervention you specified in the config.
 
 --- 
 
-### Alignments with Trainable Interventions
-The alignment searching process outlined above can be tedious when your neural network is large. For a single hypothesized alignment, you basically need to set up different intervention configs targeting different layers and positions to verify your hypothesis. Instead of doing this brute-force search process, you can turn it into an optimization problem which also has other benefits such as distributed alignments. For details, you can read more here[^ii].
+### Understanding Causal Mechanism with Trainable Interventions
+The alignment searching process outlined above can be tedious when your neural network is large. For a single hypothesized alignment, you basically need to set up different intervention configs targeting different layers and positions to verify your hypothesis. Instead of doing this brute-force search process, you can turn it into an optimization problem which also has other benefits such as distributed alignments.
 
 In its crux, we basically want to train an intervention to have our desired counterfactual behaviors in mind. And if we can indeed train such interventions, we claim that causally informative information should live in the intervening representations! Below, we show one type of trainable intervention `models.interventions.RotatedSpaceIntervention` as,
 ```py
