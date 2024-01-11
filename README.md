@@ -6,7 +6,7 @@
 
 <a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/v/pyvene?color=red"></img></a>
 
-# **pyvene: Use _Interventions_ to Learn Model's _Causal Mechanisms_**
+# **Use _Activation Intervention_ to Interpret _Causal Mechanism_ of Model**
 **pyvene** supports customizable interventions on different neural architectures (e.g., RNN or Transformers). It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) at scale to gain interpretability insights.
 
 **Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**_pyvene_ 101**]  
