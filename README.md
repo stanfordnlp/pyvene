@@ -67,6 +67,42 @@ intervenable_gpt2.save(
 ```
 We see interventions are knobs that can mount on models. And people can share their knobs with others to share knowledge about how to steer models. You can try this at [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Load_Save_and_Share_Interventions.ipynb) [**Intervention Sharing**]  
 
+You can also use the `intervenable_gpt2` just like a regular torch model component inside another model, or another pipeline as,
+```py
+import torch
+import torch.nn as nn
+from typing import List, Optional, Tuple, Union, Dict
+
+class ModelWithIntervenables(nn.Module):
+    def __init__(self):
+        super(ModelWithIntervenables, self).__init__()
+        self.intervenable_gpt2 = intervenable_gpt2
+        self.relu = nn.ReLU()
+        self.fc = nn.Linear(768, 1)
+        # Your other downstream components go here
+
+    def forward(
+        self, 
+        base,
+        sources: Optional[List] = None,
+        unit_locations: Optional[Dict] = None,
+        activations_sources: Optional[Dict] = None,
+        subspaces: Optional[List] = None,
+    ):
+        _, counterfactual_x = self.intervenable_gpt2(
+            base,
+            sources,
+            unit_locations,
+            activations_sources,
+            subspaces
+        )
+        counterfactual_x = counterfactual_x.last_hidden_state
+        
+        counterfactual_x = self.relu(counterfactual_x)
+        counterfactual_x = self.fc(counterfactual_x)
+        return counterfactual_x
+```
+
 
 ## Selected Tutorials
 
