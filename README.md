@@ -12,24 +12,8 @@
 **Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**_pyvene_ 101**]  
 
 ## Installation
-Install with pip on stable releases,
 ```bash
 pip install pyvene
-```
-
-or with our dev repo directly,
-```bash
-pip install git+https://github.com/frankaging/pyvene.git
-```
-
-or you can clone our repo,
-```bash
-git clone https://github.com/frankaging/pyvene.git
-```
-and import to your project as,
-```python
-from pyvene import pyvene
-_, tokenizer, gpt2 = pyvene.create_gpt2()
 ```
 
 ## _Wrap_ , _Intervene_ and _Share_
@@ -93,7 +77,6 @@ We see interventions are knobs that can mount on models. And people can share th
 | Intermediate | [**Intervene Your Local Models**](tutorials/basic_tutorials/Add_New_Model_Type.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Add_New_Model_Type.ipynb) | Illustrates how to run this library with your own models |
 | Advanced | [**Trainable Interventions for Causal Abstraction**](tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) | Illustrates how to train an intervention to discover causal mechanisms of a neural model |
 
-
 ## Causal Abstraction: From Interventions to Gain Interpretability Insights
 Basic interventions are fun but we cannot make any causal claim systematically. To gain actual interpretability insights, we want to measure the counterfactual behaviors of a model in a data-driven fashion. In other words, if the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. We also call this alignment search process with model internals.
 
@@ -152,12 +135,27 @@ intervenable.train(
 ```
 where you need to pass in a trainable dataset, and your customized loss and metrics function. The trainable interventions can later be saved on to your disk. You can also use `intervenable.evaluate()` your interventions in terms of customized objectives.
 
-
 ## Contributing to This Library
 Please see [our guidelines](CONTRIBUTING.md) about how to contribute to this repository.         
 
 *Pull requests, bug reports, and all other forms of contribution are welcomed and highly encouraged!* :octocat:  
 
+### Other Ways of Installation
+
+**Method 2: Install from the Repo**
+```bash
+pip install git+https://github.com/frankaging/pyvene.git
+```
+
+**Method 3: Clone and Import**
+```bash
+git clone https://github.com/frankaging/pyvene.git
+```
+and in parallel folder, import to your project as,
+```python
+from pyvene import pyvene
+_, tokenizer, gpt2 = pyvene.create_gpt2()
+```
 
 ## Related Works in Discovering Causal Mechanism of LLMs
 If you would like to read more works on this area, here is a list of papers that try to align or discover the causal mechanisms of LLMs. 
