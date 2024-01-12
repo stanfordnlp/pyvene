@@ -204,7 +204,7 @@ If you would like to read more works on this area, here is a list of papers that
 
 
 ## Citation
-If you use this repository, please consider to cite relevant papers:
+Library paper is forthcoming. For now, if you use this repository, please consider to cite relevant papers:
 ```stex
   @article{geiger-etal-2023-DAS,
         title={Finding Alignments Between Interpretable Causal Variables and Distributed Neural Representations}, 
