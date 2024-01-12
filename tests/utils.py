@@ -8,6 +8,29 @@ import pandas as pd
 import numpy as np
 from transformers import GPT2Config
 
+
+import subprocess
+
+def is_package_installed(package_name):
+    try:
+        # Execute 'pip list' command and capture the output
+        result = subprocess.run(['pip', 'list'], stdout=subprocess.PIPE, text=True)
+
+        # Check if package_name is in the result
+        return package_name in result.stdout
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return False
+
+# Replace 'pyvene' with the name of the package you want to check
+package_name = 'pyvene'
+if is_package_installed(package_name):
+    raise RuntimeError(
+        f"Remove your pip installed {package_name} before running tests.")
+else:
+    print(f"'{package_name}' is not installed.")
+    print("PASS: pyvene is not installed. Testing local dev code.")
+
 from pyvene.models.basic_utils import embed_to_distrib, top_vals, format_token
 from pyvene.models.configuration_intervenable_model import (
     IntervenableRepresentationConfig,

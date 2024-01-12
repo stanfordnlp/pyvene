@@ -1,9 +1,9 @@
 import torch
 from abc import ABC, abstractmethod
 
-from pyvene.models.layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotateLayer
-from pyvene.models.basic_utils import sigmoid_boundary
-from pyvene.models.intervention_utils import _do_intervention_by_swap
+from .layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotateLayer
+from .basic_utils import sigmoid_boundary
+from .intervention_utils import _do_intervention_by_swap
 
 
 class Intervention(torch.nn.Module):
@@ -20,7 +20,7 @@ class Intervention(torch.nn.Module):
         pass
 
     @abstractmethod
-    def forward(self, base, source):
+    def forward(self, base, source, subspaces=None):
         pass
 
 
@@ -54,6 +54,36 @@ class SharedWeightsTrainableIntervention(TrainableIntervention):
         self.shared_weights = True
 
 
+class CollectIntervention(Intervention):
+
+    """Collect activations."""
+
+    def __init__(self, embed_dim, **kwargs):
+        super().__init__()
+        self.embed_dim = embed_dim
+        self.interchange_dim = embed_dim
+        self.subspace_partition = (
+            kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
+        )
+
+    def set_interchange_dim(self, interchange_dim):
+        self.interchange_dim = interchange_dim
+
+    def forward(self, base, source=None, subspaces=None):
+        return _do_intervention_by_swap(
+            base,
+            source,
+            "collect",
+            self.interchange_dim,
+            subspaces,
+            subspace_partition=self.subspace_partition,
+            use_fast=self.use_fast,
+        )
+
+    def __str__(self):
+        return f"CollectIntervention(embed_dim={self.embed_dim})"
+        
+        
 class SkipIntervention(BasisAgnosticIntervention):
 
     """Skip the current intervening layer's computation in the hook function."""
@@ -248,7 +278,7 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention):
         """interchange dim is learned and can not be set"""
         assert False
 
-    def forward(self, base, source, subspace=None):
+    def forward(self, base, source, subspaces=None):
         batch_size = base.shape[0]
         rotated_base = self.rotate_layer(base)
         rotated_source = self.rotate_layer(source)
@@ -310,7 +340,7 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention):
         """interchange dim is learned and can not be set"""
         assert False
 
-    def forward(self, base, source, subspace=None):
+    def forward(self, base, source, subspaces=None):
         batch_size = base.shape[0]
         rotated_base = self.rotate_layer(base)
         rotated_source = self.rotate_layer(source)

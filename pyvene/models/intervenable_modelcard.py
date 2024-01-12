@@ -1,11 +1,11 @@
-from pyvene.models.constants import *
-from pyvene.models.llama.modelings_intervenable_llama import *
-from pyvene.models.gpt2.modelings_intervenable_gpt2 import *
-from pyvene.models.gpt_neo.modelings_intervenable_gpt_neo import *
-from pyvene.models.gpt_neox.modelings_intervenable_gpt_neox import *
-from pyvene.models.mlp.modelings_intervenable_mlp import *
-from pyvene.models.gru.modelings_intervenable_gru import *
-from pyvene.models.blip.modelings_intervenable_blip import *
+from .constants import *
+from .llama.modelings_intervenable_llama import *
+from .gpt2.modelings_intervenable_gpt2 import *
+from .gpt_neo.modelings_intervenable_gpt_neo import *
+from .gpt_neox.modelings_intervenable_gpt_neox import *
+from .mlp.modelings_intervenable_mlp import *
+from .gru.modelings_intervenable_gru import *
+from .blip.modelings_intervenable_blip import *
 
 
 #########################################################################
@@ -18,9 +18,9 @@ things that need to be changed.
 """
 
 import transformers.models as hf_models
-from pyvene.models.blip.modelings_blip import BlipWrapper
-from pyvene.models.mlp.modelings_mlp import MLPModel, MLPForClassification
-from pyvene.models.gru.modelings_gru import GRUModel, GRULMHeadModel, GRUForClassification
+from .blip.modelings_blip import BlipWrapper
+from .mlp.modelings_mlp import MLPModel, MLPForClassification
+from .gru.modelings_gru import GRUModel, GRULMHeadModel, GRUForClassification
 
 global type_to_module_mapping
 global type_to_dimension_mapping

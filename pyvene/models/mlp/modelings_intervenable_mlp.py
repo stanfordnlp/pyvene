@@ -9,7 +9,7 @@ defined in the huggingface library.
 """
 
 
-from pyvene.models.constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK
+from ..constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK
 
 
 """mlp base model"""

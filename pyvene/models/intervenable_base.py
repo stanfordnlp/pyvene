@@ -3,14 +3,20 @@ import numpy as np
 from collections import OrderedDict
 from typing import List, Optional, Tuple, Union, Dict
 
-from pyvene.models.basic_utils import *
-from pyvene.models.modeling_utils import *
-from pyvene.models.intervention_utils import *
-import pyvene.models.interventions
-from pyvene.models.constants import CONST_QKV_INDICES
-from pyvene.models.configuration_intervenable_model import (
+from .basic_utils import *
+from .modeling_utils import *
+from .intervention_utils import *
+from .interventions import *
+from .constants import CONST_QKV_INDICES
+from .configuration_intervenable_model import (
     IntervenableConfig,
     IntervenableRepresentationConfig,
+)
+from .interventions import (
+    TrainableIntervention,
+    SkipIntervention,
+    CollectIntervention,
+    BoundlessRotatedSpaceIntervention
 )
 
 from torch import optim
@@ -31,6 +37,7 @@ class IntervenableModel(nn.Module):
         self.is_model_stateless = is_stateless(model)
         self.intervenable_config.intervenable_model_type = type(model) # backfill
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
+        self.model_has_grad = False
         if self.use_fast:
             logging.warn(
                 "Detected use_fast=True means the intervention location "
@@ -58,6 +65,7 @@ class IntervenableModel(nn.Module):
         self.intervenable_representations = {}
         self.interventions = {}
         self._key_collision_counter = {}
+        self.return_collect_activations = False
         # Flags and counters below are for interventions in the model.generate
         # call. We can intervene on the prompt tokens only, on each generated
         # token, or on a combination of both.
@@ -133,7 +141,12 @@ class IntervenableModel(nn.Module):
                         self._intervention_reverse_link[
                             _key
                         ] = f"link#{representation.intervention_link_key}"
-
+            if isinstance(
+                intervention,
+                CollectIntervention
+            ):
+                self.return_collect_activations = True
+            
             intervenable_module_hook = get_intervenable_module_hook(
                 model, representation
             )
@@ -291,7 +304,7 @@ class IntervenableModel(nn.Module):
         """
         ret_params = []
         for k, v in self.interventions.items():
-            if isinstance(v[0], pyvene.models.interventions.TrainableIntervention):
+            if isinstance(v[0], TrainableIntervention):
                 ret_params += [p for p in v[0].parameters()]
         return ret_params
 
@@ -312,9 +325,19 @@ class IntervenableModel(nn.Module):
         Set temperature if needed
         """
         for k, v in self.interventions.items():
-            if isinstance(v[0], pyvene.models.interventions.BoundlessRotatedSpaceIntervention):
+            if isinstance(v[0], BoundlessRotatedSpaceIntervention):
                 v[0].set_temperature(temp)
 
+    def enable_model_gradients(self):
+        """
+        Enable gradient in the model
+        """
+        # Unfreeze all model weights
+        self.model.train()
+        for param in self.model.parameters():
+            param.requires_grad = True 
+        self.model_has_grad = True
+                
     def disable_model_gradients(self):
         """
         Disable gradient in the model
@@ -323,7 +346,8 @@ class IntervenableModel(nn.Module):
         self.model.eval()
         for param in self.model.parameters():
             param.requires_grad = False
-
+        self.model_has_grad = False
+            
     def disable_intervention_gradients(self):
         """
         Disable gradient in the trainable intervention
@@ -336,7 +360,7 @@ class IntervenableModel(nn.Module):
         Set device of interventions and the model
         """
         for k, v in self.interventions.items():
-            if isinstance(v[0], pyvene.models.interventions.TrainableIntervention):
+            if isinstance(v[0], TrainableIntervention):
                 v[0].to(device)
         self.model.to(device)
 
@@ -353,13 +377,15 @@ class IntervenableModel(nn.Module):
         _linked_key_set = set([])
         total_parameters = 0
         for k, v in self.interventions.items():
-            if isinstance(v[0], pyvene.models.interventions.TrainableIntervention):
+            if isinstance(v[0], TrainableIntervention):
                 if k in self._intervention_reverse_link:
                     if not self._intervention_reverse_link[k] in _linked_key_set:
                         _linked_key_set.add(self._intervention_reverse_link[k])
                         total_parameters += count_parameters(v[0])
                 else:
                     total_parameters += count_parameters(v[0])
+        total_parameters += sum(
+            p.numel() for p in self.model.parameters() if p.requires_grad)
         return total_parameters
 
     def set_zero_grad(self):
@@ -367,7 +393,7 @@ class IntervenableModel(nn.Module):
         Set device of interventions and the model
         """
         for k, v in self.interventions.items():
-            if isinstance(v[0], pyvene.models.interventions.TrainableIntervention):
+            if isinstance(v[0], TrainableIntervention):
                 v[0].zero_grad()
 
     def save(
@@ -395,7 +421,7 @@ class IntervenableModel(nn.Module):
             saving_config.intervenable_interventions_type += [str(type(intervention))]
             binary_filename = f"intkey_{k}.bin"
             # save intervention binary file
-            if isinstance(intervention, pyvene.models.interventions.TrainableIntervention):
+            if isinstance(intervention, TrainableIntervention):
                 logging.warn(f"Saving trainable intervention to {binary_filename}.")
                 torch.save(
                     intervention.state_dict(),
@@ -485,7 +511,7 @@ class IntervenableModel(nn.Module):
         for i, (k, v) in enumerate(intervenable.interventions.items()):
             intervention = v[0]
             binary_filename = f"intkey_{k}.bin"
-            if isinstance(intervention, pyvene.models.interventions.TrainableIntervention):
+            if isinstance(intervention, TrainableIntervention):
                 if not os.path.exists(load_directory) or from_huggingface_hub:
                     hf_hub_download(
                         repo_id=load_directory,
@@ -573,19 +599,21 @@ class IntervenableModel(nn.Module):
         """
         Scatter in the intervened activations in the output
         """
-        original_output = output
         # data structure casting
         if isinstance(output, tuple):
             original_output = output[0]
-
+        else:
+            original_output = output
+        
         intervenable_representation_type = self.intervenable_representations[
             intervenable_representations_key
         ].intervenable_representation_type
         intervenable_unit = self.intervenable_representations[
             intervenable_representations_key
         ].intervenable_unit
-
-        replaced_output = scatter_neurons(
+        
+        # scatter in-place
+        _ = scatter_neurons(
             original_output,
             intervened_representation,
             intervenable_representation_type,
@@ -595,7 +623,8 @@ class IntervenableModel(nn.Module):
             self.model_config,
             self.use_fast,
         )
-        return replaced_output
+        
+        return original_output
 
     def _intervention_getter(
         self,
@@ -624,7 +653,7 @@ class IntervenableModel(nn.Module):
                     else:
                         output = args
 
-                if isinstance(intervention, pyvene.models.interventions.SkipIntervention):
+                if isinstance(intervention, SkipIntervention):
                     selected_output = self._gather_intervention_output(
                         args[0],  # this is actually the input to the module
                         key,
@@ -744,7 +773,7 @@ class IntervenableModel(nn.Module):
         Create a list of setter handlers that will set activations
         """
         self._tidy_stateful_activations()
-
+        
         handlers = []
         for key_i, key in enumerate(intervenable_keys):
             intervention, intervenable_module_hook = self.interventions[key]
@@ -773,28 +802,62 @@ class IntervenableModel(nn.Module):
                 # TODO: need to figure out why clone is needed
                 if not self.is_model_stateless:
                     selected_output = selected_output.clone()
-
-                intervened_representation = do_intervention(
-                    selected_output,
-                    self._reconcile_stateful_cached_activations(
-                        key,
+                
+                if isinstance(
+                    intervention, 
+                    CollectIntervention
+                ):
+                    intervened_representation = do_intervention(
                         selected_output,
-                        unit_locations_base[key_i],
-                    ),
-                    intervention,
-                    subspaces[key_i] if subspaces is not None else None,
-                )
-                # setter can produce hot activations for shared subspace interventions if linked
-                if key in self._intervention_reverse_link:
-                    self.hot_activations[
-                        self._intervention_reverse_link[key]
-                    ] = intervened_representation.clone()
-                # patched in the intervned activations
-                output = self._scatter_intervention_output(
-                    output, intervened_representation, key, unit_locations_base[key_i]
-                )
-                # set version for stateful models
-                self._intervention_state[key].inc_setter_version()
+                        None,
+                        intervention,
+                        subspaces[key_i] if subspaces is not None else None,
+                    )
+                    # fail if this is not a fresh collect
+                    assert key not in self.activations
+                    
+                    self.activations[key] = intervened_representation
+                    # no-op to the output
+                    
+                else:
+                    intervened_representation = do_intervention(
+                        selected_output,
+                        self._reconcile_stateful_cached_activations(
+                            key,
+                            selected_output,
+                            unit_locations_base[key_i],
+                        ),
+                        intervention,
+                        subspaces[key_i] if subspaces is not None else None,
+                    )
+                
+                    # setter can produce hot activations for shared subspace interventions if linked
+                    if key in self._intervention_reverse_link:
+                        self.hot_activations[
+                            self._intervention_reverse_link[key]
+                        ] = intervened_representation.clone()
+                    
+                    # very buggy due to tensor version
+                    if self.model_has_grad:
+                        # TODO: figure out how to allow this!
+                        if isinstance(output, tuple):
+                            raise ValueError(
+                                "Model grad is not allowed when "
+                                "intervening output is tuple type."
+                            )
+                        output_c = output.clone()
+                        # patched in the intervned activations in-place
+                        _ = self._scatter_intervention_output(
+                            output_c, intervened_representation, key, unit_locations_base[key_i]
+                        )
+                        output = output_c.clone()
+                    else:
+                        # patched in the intervned activations in-place
+                        _ = self._scatter_intervention_output(
+                            output, intervened_representation, key, unit_locations_base[key_i]
+                        )
+
+                    self._intervention_state[key].inc_setter_version()
 
             handlers.append(intervenable_module_hook(hook_callback, with_kwargs=True))
 
@@ -912,13 +975,17 @@ class IntervenableModel(nn.Module):
             self.activations = activations_sources
             for _, passed_in_intervenable_key in enumerate(self.activations):
                 assert passed_in_intervenable_key in self.sorted_intervenable_keys
-
+        
         # in parallel mode, we swap cached activations all into
         # base at once
         for group_id, intervenable_keys in self._intervention_group.items():
             for intervenable_key in intervenable_keys:
                 # skip in case smart jump
-                if intervenable_key in self.activations:
+                if intervenable_key in self.activations or \
+                    isinstance(
+                        self.interventions[intervenable_key][0],
+                        CollectIntervention
+                    ):
                     set_handlers = self._intervention_setter(
                         [intervenable_key],
                         [
@@ -986,7 +1053,11 @@ class IntervenableModel(nn.Module):
 
             for intervenable_key in intervenable_keys:
                 # skip in case smart jump
-                if intervenable_key in self.activations:
+                if intervenable_key in self.activations or \
+                    isinstance(
+                        self.interventions[intervenable_key][0],
+                        CollectIntervention
+                    ):
                     # set with intervened activation to source_i+1
                     set_handlers = self._intervention_setter(
                         [intervenable_key],
@@ -1121,13 +1192,28 @@ class IntervenableModel(nn.Module):
             set_handlers_to_remove.remove()
 
             self._output_validation()
+            
+            collected_activations = []
+            if self.return_collect_activations:
+                for key in self.sorted_intervenable_keys:
+                    if isinstance(
+                        self.interventions[key][0],
+                        CollectIntervention
+                    ):
+                        collected_activations += self.activations[key]
+
         except Exception as e:
             raise e
         finally:
             self._cleanup_states(
-                skip_activation_gc=sources is None and activations_sources is not None
+                skip_activation_gc = \
+                    (sources is None and activations_sources is not None) or \
+                    self.return_collect_activations
             )
-
+        
+        if self.return_collect_activations:
+            return (base_outputs, collected_activations), counterfactual_outputs
+        
         return base_outputs, counterfactual_outputs
 
     def generate(
@@ -1206,11 +1292,21 @@ class IntervenableModel(nn.Module):
                         subspaces,
                     )
                 )
-
+            
             # run intervened generate
             counterfactual_outputs = self.model.generate(
                 inputs=base["input_ids"], **kwargs
             )
+            
+            collected_activations = []
+            if self.return_collect_activations:
+                for key in self.sorted_intervenable_keys:
+                    if isinstance(
+                        self.interventions[key][0],
+                        CollectIntervention
+                    ):
+                        collected_activations += self.activations[key]
+            
         except Exception as e:
             raise e
         finally:
@@ -1218,9 +1314,14 @@ class IntervenableModel(nn.Module):
                 set_handlers_to_remove.remove()
             self._is_generation = False
             self._cleanup_states(
-                skip_activation_gc=sources is None and activations_sources is not None
+                skip_activation_gc = \
+                    (sources is None and activations_sources is not None) or \
+                    self.return_collect_activations
             )
-
+        
+        if self.return_collect_activations:
+            return (base_outputs, collected_activations), counterfactual_outputs
+        
         return base_outputs, counterfactual_outputs
 
     def _batch_process_unit_location(self, inputs):

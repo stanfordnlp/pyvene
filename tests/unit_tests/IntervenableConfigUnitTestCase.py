@@ -1,5 +1,5 @@
 import unittest
-from tests.utils import *
+from ..utils import *
 
 
 class IntervenableConfigUnitTestCase(unittest.TestCase):

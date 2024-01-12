@@ -48,6 +48,8 @@ def _do_intervention_by_swap(
     use_fast=False,
 ):
     """The basic do function that guards interventions"""
+    if mode == "collect":
+        assert source is None
     # interchange
     if use_fast:
         if subspaces is not None:
@@ -71,9 +73,19 @@ def _do_intervention_by_swap(
                 base[..., sel_subspace_indices] += source[..., sel_subspace_indices]
             elif mode == "subtract":
                 base[..., sel_subspace_indices] -= source[..., sel_subspace_indices]
+            elif mode == "collect":
+                return base[..., sel_subspace_indices] # return without side-effect
         else:
-            base[..., :interchange_dim] = source[..., :interchange_dim]
+            if mode == "interchange":
+                base[..., :interchange_dim] = source[..., :interchange_dim]
+            elif mode == "add":
+                base[..., :interchange_dim] += source[..., :interchange_dim]
+            elif mode == "subtract":
+                base[..., :interchange_dim] -= source[..., :interchange_dim]
+            elif mode == "collect":
+                return base[..., :interchange_dim] # return without side-effect
     elif subspaces is not None:
+        collect_base = []
         for example_i in range(len(subspaces)):
             # render subspace as column indices
             sel_subspace_indices = []
@@ -99,6 +111,10 @@ def _do_intervention_by_swap(
                 base[example_i, ..., sel_subspace_indices] -= source[
                     example_i, ..., sel_subspace_indices
                 ]
+            elif mode == "collect":
+                collect_base += [base[example_i, ..., sel_subspace_indices]]
+        if mode == "collect":
+            return torch.stack(collect_base, dim=0) # return without side-effect
     else:
         if mode == "interchange":
             base[..., :interchange_dim] = source[..., :interchange_dim]
@@ -106,5 +122,6 @@ def _do_intervention_by_swap(
             base[..., :interchange_dim] += source[..., :interchange_dim]
         elif mode == "subtract":
             base[..., :interchange_dim] -= source[..., :interchange_dim]
-
+        elif mode == "collect":
+            return base[..., :interchange_dim] # return without side-effect
     return base

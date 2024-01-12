@@ -1,7 +1,7 @@
 import torch, random
 from torch import nn
 import numpy as np
-from pyvene.models.intervenable_modelcard import *
+from .intervenable_modelcard import *
 
 
 def get_internal_model_type(model):
@@ -203,6 +203,8 @@ def bsd_to_b_sd(tensor):
     """
     Convert a tensor of shape (b, s, d) to (b, s*d).
     """
+    if tensor is None:
+        return tensor
     b, s, d = tensor.shape
     return tensor.reshape(b, s * d)
 
@@ -211,6 +213,8 @@ def b_sd_to_bsd(tensor, d):
     """
     Convert a tensor of shape (b, s*d) back to (b, s, d).
     """
+    if tensor is None:
+        return tensor
     b, sd = tensor.shape
     s = sd // d
     return tensor.reshape(b, s, d)
@@ -220,6 +224,8 @@ def bhsd_to_bs_hd(tensor):
     """
     Convert a tensor of shape (b, h, s, d) to (b, s, h*d).
     """
+    if tensor is None:
+        return tensor
     b, h, s, d = tensor.shape
     return tensor.permute(0, 2, 1, 3).reshape(b, s, h * d)
 
@@ -228,6 +234,8 @@ def bs_hd_to_bhsd(tensor, d):
     """
     Convert a tensor of shape (b, s, h*d) back to (b, h, s, d).
     """
+    if tensor is None:
+        return tensor
     b, s, hd = tensor.shape
     h = hd // d
     return tensor.reshape(b, s, h, d).permute(0, 2, 1, 3)
@@ -254,7 +262,7 @@ def gather_neurons(tensor_input, intervenable_unit, unit_locations_as_list):
                 *unit_locations.shape, *(1,) * (len(tensor_input.shape) - 2)
             ).expand(-1, -1, *tensor_input.shape[2:]),
         )
-
+        
         return tensor_output
     elif intervenable_unit in {"h.pos"}:
         # we assume unit_locations is a tuple
@@ -500,6 +508,7 @@ def do_intervention(
     base_representation, source_representation, intervention, subspaces
 ):
     """Do the actual intervention"""
+    
     d = base_representation.shape[-1]
 
     # flatten
@@ -519,16 +528,9 @@ def do_intervention(
     else:
         assert False  # what's going on?
 
-    if subspaces is None:
-        intervened_representation = intervention(
-            base_representation_f,
-            source_representation_f,
-        )
-    else:
-        # subspace is needed for the intervention
-        intervened_representation = intervention(
-            base_representation_f, source_representation_f, subspaces
-        )
+    intervened_representation = intervention(
+        base_representation_f, source_representation_f, subspaces
+    )
 
     # unflatten
     if len(original_base_shape) == 2:

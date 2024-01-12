@@ -16,9 +16,20 @@ Install with pip on stable releases,
 ```bash
 pip install pyvene
 ```
+
 or with our dev repo directly,
 ```bash
 pip install git+https://github.com/frankaging/pyvene.git
+```
+
+or you can clone our repo,
+```bash
+git clone https://github.com/frankaging/pyvene.git
+```
+and import to your project as,
+```python
+from pyvene import pyvene
+_, tokenizer, gpt2 = pyvene.create_gpt2()
 ```
 
 ## _Wrap_ , _Intervene_ and _Share_
@@ -142,13 +153,10 @@ intervenable.train(
 where you need to pass in a trainable dataset, and your customized loss and metrics function. The trainable interventions can later be saved on to your disk. You can also use `intervenable.evaluate()` your interventions in terms of customized objectives.
 
 
-## Unit-tests
-When adding new methods or APIs, unit tests are now enforced. To run existing tests, you can kick off the python unittest command in the discovery mode as,
-```bash
-cd pyvene
-python -m unittest discover -p '*TestCase.py'
-```
-When checking in new code, please also consider to add new tests in the same PR. Please include test results in the PR to make sure all the existing test cases are passing. Please see the `qa_runbook.ipynb` notebook about a set of conventions about how to add test cases. The code coverage for this repository is currently `low`, and we are adding more automated tests.
+## Contributing to This Library
+Please see [our guidelines](CONTRIBUTING.md) about how to contribute to this repository.         
+
+*Pull requests, bug reports, and all other forms of contribution are welcomed and highly encouraged!* :octocat:  
 
 
 ## Related Works in Discovering Causal Mechanism of LLMs

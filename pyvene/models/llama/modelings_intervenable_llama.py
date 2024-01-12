@@ -10,7 +10,7 @@ defined in the huggingface library.
 
 
 import torch
-from pyvene.models.constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK, CONST_QKV_INDICES
+from ..constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK, CONST_QKV_INDICES
 
 
 llama_type_to_module_mapping = {
