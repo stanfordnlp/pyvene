@@ -1,5 +1,5 @@
 import json
-
+import torch
 
 class InterventionState(object):
     def __init__(self, key, **kwargs):
