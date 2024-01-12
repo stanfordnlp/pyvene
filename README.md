@@ -37,7 +37,7 @@ intervenable_gpt2 = IntervenableModel(
             ),
         ],
     ), 
-    gpt2
+    model = gpt2
 )
 
 # intervene base with sources on the fourth token.
