@@ -64,7 +64,7 @@ gpt_neo_lm_type_to_dimension_mapping = gpt_neo_type_to_dimension_mapping
 
 
 def create_gpt_neo(
-    name="roneneldan/TinyStories-33M", cache_dir="../../.huggingface_cache"
+    name="roneneldan/TinyStories-33M", cache_dir=None
 ):
     """Creates a GPT2 model, config, and tokenizer from the given name and revision"""
     from transformers import GPTNeoForCausalLM, GPT2Tokenizer, GPTNeoConfig
