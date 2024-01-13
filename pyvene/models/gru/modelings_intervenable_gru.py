@@ -69,7 +69,7 @@ for k, v in gru_type_to_module_mapping.items():
 gru_lm_type_to_dimension_mapping = gru_type_to_dimension_mapping
 
 
-def create_gru(config, tokenizer_name=None, cache_dir="../../.huggingface_cache"):
+def create_gru(config, tokenizer_name=None, cache_dir=None):
     """Creates a GRU model, config, and tokenizer from the given name and revision"""
     from transformers import AutoTokenizer
     from models.gru.modelings_gru import GRUModel
