@@ -248,19 +248,17 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention):
 
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
+        self.embed_dim = embed_dim
+        self.interchange_dim = embed_dim  # assuming full subspace
         rotate_layer = RotateLayer(embed_dim)
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
         self.subspace_partition = (
             kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
         )
-        # TODO: in case there are subspace partitions, we
-        #       need to initialize followings differently.
         self.intervention_boundaries = torch.nn.Parameter(
             torch.tensor([0.5]), requires_grad=True
         )
         self.temperature = torch.nn.Parameter(torch.tensor(50.0))
-        self.embed_dim = embed_dim
-        self.interchange_dim = embed_dim  # assuming full subspace
         self.intervention_population = torch.nn.Parameter(
             torch.arange(0, self.embed_dim), requires_grad=False
         )
@@ -278,6 +276,11 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention):
         """interchange dim is learned and can not be set"""
         assert False
 
+    def set_intervention_boundaries(self, intervention_boundaries):
+        self.intervention_boundaries = torch.nn.Parameter(
+            torch.tensor([intervention_boundaries]), requires_grad=True
+        )
+        
     def forward(self, base, source, subspaces=None):
         batch_size = base.shape[0]
         rotated_base = self.rotate_layer(base)
@@ -317,9 +320,6 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention):
         self.subspace_partition = (
             kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
         )
-        # TODO: in case there are subspace partitions, we
-        #       need to initialize followings differently.
-
         # boundary masks are initialized to close to 1
         self.masks = torch.nn.Parameter(
             torch.tensor([100] * embed_dim), requires_grad=True
