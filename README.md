@@ -9,7 +9,7 @@
 # **Use _Activation Intervention_ to Interpret _Causal Mechanism_ of Model**
 **pyvene** supports customizable interventions on different neural architectures (e.g., RNN or Transformers). It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) at scale to gain interpretability insights.
 
-**Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**_pyvene_ 101**]  
+**Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**_pyvene_ 101**]  
 
 ## Installation
 ```bash
@@ -65,7 +65,7 @@ intervenable_gpt2.save(
     hf_repo_name="your_gpt2_mounting_point",
 )
 ```
-We see interventions are knobs that can mount on models. And people can share their knobs with others to share knowledge about how to steer models. You can try this at [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Load_Save_and_Share_Interventions.ipynb) [**Intervention Sharing**]  
+We see interventions are knobs that can mount on models. And people can share their knobs with others to share knowledge about how to steer models. You can try this at [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/basic_tutorials/Load_Save_and_Share_Interventions.ipynb) [**Intervention Sharing**]  
 
 You can also use the `intervenable_gpt2` just like a regular torch model component inside another model, or another pipeline as,
 ```py
@@ -108,10 +108,10 @@ class ModelWithIntervenables(nn.Module):
 
 | **Level** |  **Tutorial** |  **Run in Colab** |  **Description** |
 | --- | -------------  |  -------------  |  -------------  | 
-| Beginner |  [**Getting Started**](tutorials/basic_tutorials/Basic_Intervention.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb)  |  Introduces basic static intervention on factual recall examples |
-| Beginner | [**Intervened Model Generation**](tutorials/advanced_tutorials/Intervened_Model_Generation.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/advanced_tutorials/Intervened_Model_Generation.ipynb) | Shows how to intervene a model during generation |
-| Intermediate | [**Intervene Your Local Models**](tutorials/basic_tutorials/Add_New_Model_Type.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/basic_tutorials/Add_New_Model_Type.ipynb) | Illustrates how to run this library with your own models |
-| Advanced | [**Trainable Interventions for Causal Abstraction**](tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) | Illustrates how to train an intervention to discover causal mechanisms of a neural model |
+| Beginner |  [**Getting Started**](tutorials/basic_tutorials/Basic_Intervention.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb)  |  Introduces basic static intervention on factual recall examples |
+| Beginner | [**Intervened Model Generation**](tutorials/advanced_tutorials/Intervened_Model_Generation.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/advanced_tutorials/Intervened_Model_Generation.ipynb) | Shows how to intervene a model during generation |
+| Intermediate | [**Intervene Your Local Models**](tutorials/basic_tutorials/Add_New_Model_Type.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/basic_tutorials/Add_New_Model_Type.ipynb) | Illustrates how to run this library with your own models |
+| Advanced | [**Trainable Interventions for Causal Abstraction**](tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) | Illustrates how to train an intervention to discover causal mechanisms of a neural model |
 
 ## Causal Abstraction: From Interventions to Gain Interpretability Insights
 Basic interventions are fun but we cannot make any causal claim systematically. To gain actual interpretability insights, we want to measure the counterfactual behaviors of a model in a data-driven fashion. In other words, if the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. We also call this alignment search process with model internals.
@@ -180,12 +180,12 @@ Please see [our guidelines](CONTRIBUTING.md) about how to contribute to this rep
 
 **Method 2: Install from the Repo**
 ```bash
-pip install git+https://github.com/frankaging/pyvene.git
+pip install git+https://github.com/stanfordnlp/pyvene.git
 ```
 
 **Method 3: Clone and Import**
 ```bash
-git clone https://github.com/frankaging/pyvene.git
+git clone https://github.com/stanfordnlp/pyvene.git
 ```
 and in parallel folder, import to your project as,
 ```python
