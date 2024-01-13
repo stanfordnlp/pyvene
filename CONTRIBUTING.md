@@ -2,6 +2,15 @@
 
 *Pull requests, bug reports, and all other forms of contribution are welcomed and highly encouraged!* :octocat:
 
+### The PR or Issue Title Format
+Whenever you open a issue or a PR, please use this title format
+```
+[Priority Tag] Short Title
+```
+For Priority Tag, you can use `[P0]`-`[P2]`, `[P0]` is the highest priority, which means everyone should stop working and focus on this PR. For Minor issues, use `[Minor]`. For bugs, please use `[Bug Fix]` and see below.
+
+---
+
 ### :book: Pull Requests
 
 #### Uninstall pyvene from python library
@@ -30,12 +39,6 @@ When checking in new code, please also consider to add new tests in the same PR.
 [Provide logs, screen-shots, and files that contain tests you have done]
 
 ```
-
-Go to issues, and open with a title formatted as
-```
-[Priority Tag] Short Title
-```
-For Priority Tag, you can use `[P0]`-`[P2]`, `[P0]` is the highest priority, which means everyone should stop working and focus on this PR. For Minor issues, use `[Minor]`. For bugs, please use `[Bug Fix]` and see below.
 
 ### :beetle: Bug Reports and Other Issues
 Go to issues, and open with a title formatted as,
