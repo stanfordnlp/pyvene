@@ -27,15 +27,15 @@ When checking in new code, please also consider to add new tests in the same PR.
 
 **Testing Done**:
 
-[Provide logs, screen-shots, files that contain tests you have done]
+[Provide logs, screen-shots, and files that contain tests you have done]
 
 ```
 
-Go to issues, and open with a title formatted as,
+Go to issues, and open with a title formatted as
 ```
 [Priority Tag] Short Title
 ```
-For Priority Tag, you can use P0-P2, P0 is the highest priority, which means everyone should stop working and focus on this PR.
+For Priority Tag, you can use `[P0]`-`[P2]`, `[P0]` is the highest priority, which means everyone should stop working and focus on this PR. For Minor issues, use `[Minor]`. For bugs, please use `[Bug Fix]` and see below.
 
 ### :beetle: Bug Reports and Other Issues
 Go to issues, and open with a title formatted as,
