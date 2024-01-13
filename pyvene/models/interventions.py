@@ -259,7 +259,7 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention):
             torch.tensor([0.5]), requires_grad=True
         )
         self.temperature = torch.nn.Parameter(torch.tensor(50.0))
-        self.embed_dim = None
+        self.embed_dim = embed_dim
         self.interchange_dim = embed_dim  # assuming full subspace
         self.intervention_population = torch.nn.Parameter(
             torch.arange(0, self.embed_dim), requires_grad=False
