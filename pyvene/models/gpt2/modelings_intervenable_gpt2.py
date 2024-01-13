@@ -63,7 +63,7 @@ for k, v in gpt2_type_to_module_mapping.items():
 gpt2_lm_type_to_dimension_mapping = gpt2_type_to_dimension_mapping
 
 
-def create_gpt2(name="gpt2", cache_dir="../../.huggingface_cache"):
+def create_gpt2(name="gpt2", cache_dir=None):
     """Creates a GPT2 model, config, and tokenizer from the given name and revision"""
     from transformers import GPT2Model, GPT2Tokenizer, GPT2Config
 
@@ -74,7 +74,7 @@ def create_gpt2(name="gpt2", cache_dir="../../.huggingface_cache"):
     return config, tokenizer, gpt
 
 
-def create_gpt2_lm(name="gpt2", config=None, cache_dir="../../.huggingface_cache"):
+def create_gpt2_lm(name="gpt2", config=None, cache_dir=None):
     """Creates a GPT2 LM, config, and tokenizer from the given name and revision"""
     from transformers import GPT2LMHeadModel, GPT2Tokenizer, GPT2Config
 

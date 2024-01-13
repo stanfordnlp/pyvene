@@ -70,7 +70,7 @@ def split_heads(tensor, num_heads, attn_head_size):
 
 
 def create_llama(
-    name="sharpbai/alpaca-7b-merged", cache_dir="../../.huggingface_cache"
+    name="sharpbai/alpaca-7b-merged", cache_dir=None
 ):
     """Creates a LLaMA Causal LM model, config, and tokenizer from the given name and revision"""
     from transformers import LlamaForCausalLM, LlamaTokenizer, LlamaConfig

@@ -82,7 +82,7 @@ def create_gru(config, tokenizer_name=None, cache_dir="../../.huggingface_cache"
     return config, tokenizer, mlp
 
 
-def create_gru_lm(config, tokenizer_name=None, cache_dir="../../.huggingface_cache"):
+def create_gru_lm(config, tokenizer_name=None, cache_dir=None):
     """Creates a GRU model, config, and tokenizer from the given name and revision"""
     from transformers import AutoTokenizer
     from models.gru.modelings_gru import GRULMHeadModel
@@ -96,7 +96,7 @@ def create_gru_lm(config, tokenizer_name=None, cache_dir="../../.huggingface_cac
 
 
 def create_gru_classifier(
-    config, tokenizer_name=None, cache_dir="../../.huggingface_cache"
+    config, tokenizer_name=None, cache_dir=None
 ):
     """Creates a GRU model, config, and tokenizer from the given name and revision"""
     from transformers import AutoTokenizer

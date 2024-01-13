@@ -99,7 +99,7 @@ for k, v in blip_type_to_module_mapping.items():
 blip_wrapper_type_to_dimension_mapping = blip_type_to_dimension_mapping
 
 
-def create_blip(name="Salesforce/blip-vqa-base", cache_dir="../../.huggingface_cache"):
+def create_blip(name="Salesforce/blip-vqa-base", cache_dir=None):
     """Creates a GPT2 model, config, and tokenizer from the given name and revision"""
     from transformers import BlipConfig, BlipProcessor, BlipForQuestionAnswering
 

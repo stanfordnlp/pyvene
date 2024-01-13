@@ -36,7 +36,7 @@ mlp_classifier_type_to_dimension_mapping = mlp_type_to_dimension_mapping
 
 
 def create_mlp_classifier(
-    config, tokenizer_name=None, cache_dir="../../.huggingface_cache"
+    config, tokenizer_name=None, cache_dir=None
 ):
     """Creates a MLP model, config, and tokenizer from the given name and revision"""
     from transformers import AutoTokenizer

@@ -63,7 +63,7 @@ for k, v in gpt_neox_type_to_module_mapping.items():
 gpt_neox_lm_type_to_dimension_mapping = gpt_neox_type_to_dimension_mapping
 
 
-def create_gpt_neox(name="EleutherAI/pythia-70m", cache_dir="../../.huggingface_cache"):
+def create_gpt_neox(name="EleutherAI/pythia-70m", cache_dir=None):
     """Creates a GPT2 model, config, and tokenizer from the given name and revision"""
     from transformers import GPTNeoXForCausalLM, AutoTokenizer, GPTNeoXConfig
 
