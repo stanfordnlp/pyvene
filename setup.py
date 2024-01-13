@@ -10,11 +10,11 @@ with open('requirements.txt', 'r', encoding='utf-8') as f:
 
 setup(
     name="pyvene",
-    version="0.0.4",
+    version="0.0.5",
     description="Use Activation Intervention to Interpret Causal Mechanism of Model",
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url="https://github.com/frankaging/pyvene",
+    url="https://github.com/stanfordnlp/pyvene",
     author="Zhengxuan Wu",
     author_email="wuzhengx@stanford.edu",
     license="Apache License 2.0",
