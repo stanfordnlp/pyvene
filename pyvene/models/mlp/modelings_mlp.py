@@ -19,7 +19,7 @@ class MLPConfig(PretrainedConfig):
         max_position_embeddings=512,
         n_layer=2,
         h_dim=512,
-        num_labels=2,
+        num_classes=2,
         activation_function="gelu",
         pdrop=0.3,
         problem_type="single_label_classification",
@@ -34,7 +34,7 @@ class MLPConfig(PretrainedConfig):
         self.h_dim = h_dim
         self.activation_function = activation_function
         self.pdrop = pdrop
-        self.num_labels = num_labels
+        self.num_classes = num_classes
         self.problem_type = problem_type
         self.include_bias = include_bias
         self.squeeze_output = squeeze_output
@@ -108,10 +108,10 @@ class MLPModel(PreTrainedModel):
 class MLPForClassification(PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
-        self.num_labels = config.num_labels
+        self.num_classes = config.num_classes
         self.squeeze_output = config.squeeze_output
         self.mlp = MLPModel(config)
-        self.score = nn.Linear(config.h_dim, self.num_labels, bias=config.include_bias)
+        self.score = nn.Linear(config.h_dim, self.num_classes, bias=config.include_bias)
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -140,9 +140,9 @@ class MLPForClassification(PreTrainedModel):
         loss = None
         if labels is not None:
             if self.config.problem_type is None:
-                if self.num_labels == 1:
+                if self.num_classes == 1:
                     self.config.problem_type = "regression"
-                elif self.num_labels > 1 and (
+                elif self.num_classes > 1 and (
                     labels.dtype == torch.long or labels.dtype == torch.int
                 ):
                     self.config.problem_type = "single_label_classification"
@@ -151,14 +151,14 @@ class MLPForClassification(PreTrainedModel):
 
             if self.config.problem_type == "regression":
                 loss_fct = MSELoss()
-                if self.num_labels == 1:
+                if self.num_classes == 1:
                     loss = loss_fct(pooled_logits.squeeze(), labels.squeeze())
                 else:
                     loss = loss_fct(pooled_logits, labels)
             elif self.config.problem_type == "single_label_classification":
                 loss_fct = CrossEntropyLoss()
                 loss = loss_fct(
-                    pooled_logits.view(-1, self.num_labels), labels.view(-1)
+                    pooled_logits.view(-1, self.num_classes), labels.view(-1)
                 )
             elif self.config.problem_type == "multi_label_classification":
                 loss_fct = BCEWithLogitsLoss()
