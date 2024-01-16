@@ -8,7 +8,8 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
         print("=== Test Suite: SubspaceInterventionWithMLPTestCase ===")
         self.config, self.tokenizer, self.mlp = create_mlp_classifier(
             MLPConfig(
-                h_dim=3, n_layer=1, pdrop=0.0, include_bias=False, squeeze_output=False
+                h_dim=3, n_layer=1, pdrop=0.0, num_classes=5,
+                include_bias=False, squeeze_output=False
             )
         )
 
@@ -139,6 +140,7 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
             {"sources->base": ([[[0]] * b_s, None], [[[0]] * b_s, None])},
             subspaces=[[[0]] * b_s, None],
         )
+        assert our_out[0].shape[-1] == 5
         self.assertTrue(torch.allclose(golden_out, our_out[0]))
 
     def test_with_subspace_negative(self):
