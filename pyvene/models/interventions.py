@@ -5,6 +5,7 @@ from .layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotateLayer
 from .basic_utils import sigmoid_boundary
 from .intervention_utils import _do_intervention_by_swap
 
+
 class Intervention(torch.nn.Module):
 
     """Intervention the original representations."""
@@ -53,7 +54,6 @@ class SharedWeightsTrainableIntervention(TrainableIntervention):
         self.shared_weights = True
 
 
-
 class CollectIntervention(Intervention):
 
     """Collect activations."""
@@ -82,8 +82,8 @@ class CollectIntervention(Intervention):
 
     def __str__(self):
         return f"CollectIntervention(embed_dim={self.embed_dim})"
-
-
+        
+        
 class SkipIntervention(BasisAgnosticIntervention):
 
     """Skip the current intervening layer's computation in the hook function."""
