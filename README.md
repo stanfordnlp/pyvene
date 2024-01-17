@@ -44,7 +44,7 @@ intervenable_gpt2 = IntervenableModel(
 original_outputs, intervened_outputs = intervenable_gpt2(
     tokenizer("The capital of Spain is", return_tensors="pt"),
     [tokenizer("The capital of Italy is", return_tensors="pt")],
-    {"sources->base": 4)}
+    {"sources->base": 4}
 )
 original_outputs.last_hidden_state - intervened_outputs.last_hidden_state
 ```
