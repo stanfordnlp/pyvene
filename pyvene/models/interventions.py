@@ -14,7 +14,8 @@ class Intervention(torch.nn.Module):
         super().__init__()
         self.trainble = False
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
-
+        self.is_source_constant = False
+        
     @abstractmethod
     def set_interchange_dim(self, interchange_dim):
         pass
@@ -31,10 +32,20 @@ class TrainableIntervention(Intervention):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.trainble = True
-
+        self.is_source_constant = False
+        
     def tie_weight(self, linked_intervention):
         pass
 
+
+class ConstantSourceIntervention(Intervention):
+
+    """Intervention the original representations."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.is_source_constant = True
+    
 
 class BasisAgnosticIntervention(Intervention):
 
@@ -43,6 +54,7 @@ class BasisAgnosticIntervention(Intervention):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.basis_agnostic = True
+        self.is_source_constant = False
 
 
 class SharedWeightsTrainableIntervention(TrainableIntervention):
@@ -54,7 +66,37 @@ class SharedWeightsTrainableIntervention(TrainableIntervention):
         self.shared_weights = True
 
 
-class CollectIntervention(Intervention):
+class ZeroIntervention(ConstantSourceIntervention):
+
+    """Zero-out activations."""
+
+    def __init__(self, embed_dim, **kwargs):
+        super().__init__()
+        self.embed_dim = embed_dim
+        self.interchange_dim = embed_dim
+        self.subspace_partition = (
+            kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
+        )
+
+    def set_interchange_dim(self, interchange_dim):
+        self.interchange_dim = interchange_dim
+
+    def forward(self, base, source=None, subspaces=None):
+        return _do_intervention_by_swap(
+            base,
+            torch.zeros_like(base),
+            "interchange",
+            self.interchange_dim,
+            subspaces,
+            subspace_partition=self.subspace_partition,
+            use_fast=self.use_fast,
+        )
+
+    def __str__(self):
+        return f"ZeroIntervention(embed_dim={self.embed_dim})"
+        
+        
+class CollectIntervention(ConstantSourceIntervention):
 
     """Collect activations."""
 
@@ -125,14 +167,19 @@ class VanillaIntervention(Intervention):
         self.subspace_partition = (
             kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
         )
-
+        self.source_representation = (
+            kwargs["source_representation"] if "source_representation" in kwargs else None
+        )
+        if self.source_representation is not None:
+            self.is_source_constant = True
+        
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
 
     def forward(self, base, source, subspaces=None):
         return _do_intervention_by_swap(
             base,
-            source,
+            source if self.source_representation is None else self.source_representation,
             "interchange",
             self.interchange_dim,
             subspaces,
@@ -155,14 +202,19 @@ class AdditionIntervention(BasisAgnosticIntervention):
         self.subspace_partition = (
             kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
         )
-
+        self.source_representation = (
+            kwargs["source_representation"] if "source_representation" in kwargs else None
+        )
+        if self.source_representation is not None:
+            self.is_source_constant = True
+            
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
 
     def forward(self, base, source, subspaces=None):
         return _do_intervention_by_swap(
             base,
-            source,
+            source if self.source_representation is None else self.source_representation,
             "add",
             self.interchange_dim,
             subspaces,
@@ -185,14 +237,19 @@ class SubtractionIntervention(BasisAgnosticIntervention):
         self.subspace_partition = (
             kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
         )
-
+        self.source_representation = (
+            kwargs["source_representation"] if "source_representation" in kwargs else None
+        )
+        if self.source_representation is not None:
+            self.is_source_constant = True
+            
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
 
     def forward(self, base, source, subspaces=None):
         return _do_intervention_by_swap(
             base,
-            source,
+            source if self.source_representation is None else self.source_representation,
             "subtract",
             self.interchange_dim,
             subspaces,

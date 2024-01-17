@@ -113,8 +113,10 @@ class IntervenableModel(nn.Module):
                         get_internal_model_type(model), model.config, representation
                     ),
                     proj_dim=representation.intervenable_low_rank_dimension,
-                    # we can partition the subspace, and intervene on subspace
+                    # additional args
                     subspace_partition=representation.subspace_partition,
+                    use_fast=self.use_fast,
+                    source_representation=representation.source_representation,
                 )
                 if representation.intervention_link_key in self._intervention_pointers:
                     self._intervention_reverse_link[
@@ -129,9 +131,10 @@ class IntervenableModel(nn.Module):
                             get_internal_model_type(model), model.config, representation
                         ),
                         proj_dim=representation.intervenable_low_rank_dimension,
-                        # we can partition the subspace, and intervene on subspace
+                        # additional args
                         subspace_partition=representation.subspace_partition,
                         use_fast=self.use_fast,
+                        source_representation=representation.source_representation,
                     )
                     # we cache the intervention for sharing if the key is not None
                     if representation.intervention_link_key is not None:
@@ -803,8 +806,9 @@ class IntervenableModel(nn.Module):
                 if not self.is_model_stateless:
                     selected_output = selected_output.clone()
                 
+
                 if isinstance(
-                    intervention, 
+                    intervention,
                     CollectIntervention
                 ):
                     intervened_representation = do_intervention(
@@ -820,16 +824,24 @@ class IntervenableModel(nn.Module):
                     # no-op to the output
                     
                 else:
-                    intervened_representation = do_intervention(
-                        selected_output,
-                        self._reconcile_stateful_cached_activations(
-                            key,
+                    if intervention.is_source_constant:
+                        intervened_representation = do_intervention(
                             selected_output,
-                            unit_locations_base[key_i],
-                        ),
-                        intervention,
-                        subspaces[key_i] if subspaces is not None else None,
-                    )
+                            None,
+                            intervention,
+                            subspaces[key_i] if subspaces is not None else None,
+                        )
+                    else:
+                        intervened_representation = do_intervention(
+                            selected_output,
+                            self._reconcile_stateful_cached_activations(
+                                key,
+                                selected_output,
+                                unit_locations_base[key_i],
+                            ),
+                            intervention,
+                            subspaces[key_i] if subspaces is not None else None,
+                        )
                 
                     # setter can produce hot activations for shared subspace interventions if linked
                     if key in self._intervention_reverse_link:
@@ -873,10 +885,10 @@ class IntervenableModel(nn.Module):
     ):
         """Fail fast input validation"""
         if self.mode == "parallel":
-            assert "sources->base" in unit_locations
+            assert "sources->base" in unit_locations or "base" in unit_locations
         elif activations_sources is None and self.mode == "serial":
             assert "sources->base" not in unit_locations
-
+        
         # sources may contain None, but length should match
         if sources is not None:
             if len(sources) != len(self._intervention_group):
@@ -982,10 +994,7 @@ class IntervenableModel(nn.Module):
             for intervenable_key in intervenable_keys:
                 # skip in case smart jump
                 if intervenable_key in self.activations or \
-                    isinstance(
-                        self.interventions[intervenable_key][0],
-                        CollectIntervention
-                    ):
+                    self.interventions[intervenable_key][0].is_source_constant:
                     set_handlers = self._intervention_setter(
                         [intervenable_key],
                         [
@@ -1054,10 +1063,7 @@ class IntervenableModel(nn.Module):
             for intervenable_key in intervenable_keys:
                 # skip in case smart jump
                 if intervenable_key in self.activations or \
-                    isinstance(
-                        self.interventions[intervenable_key][0],
-                        CollectIntervention
-                    ):
+                    self.interventions[intervenable_key][0].is_source_constant:
                     # set with intervened activation to source_i+1
                     set_handlers = self._intervention_setter(
                         [intervenable_key],
@@ -1080,21 +1086,30 @@ class IntervenableModel(nn.Module):
         batch_size,
         unit_locations
     ):
-        _unit_locations = copy.deepcopy(unit_locations)
+        _unit_locations = {}
         for k, v in unit_locations.items():
+            # special broadcast for base-only interventions
+            is_base_only = False
+            if k == "base":
+                is_base_only = True
+                k = "sources->base"
             if isinstance(v, int):
                 _unit_locations[k] = ([[[v]]*batch_size], [[[v]]*batch_size])
                 self.use_fast = True
-            elif isinstance(v[0], int) and isinstance(v[1], int):
+            elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
                 _unit_locations[k] = ([[[v[0]]]*batch_size], [[[v[1]]]*batch_size])
                 self.use_fast = True
-            elif isinstance(v[0], list) and isinstance(v[1], list):
-                pass # we don't support boardcase here yet.
+            elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
+                _unit_locations[k] = (None, [[[v[1]]]*batch_size])
+                self.use_fast = True
+            elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
+                _unit_locations[k] = ([[[v[0]]]*batch_size], None)
+                self.use_fast = True
             else:
-                raise ValueError(
-                    f"unit_locations {unit_locations} contains invalid format."
-                )
-                
+                if is_base_only:
+                    _unit_locations[k] = (None, v)
+                else:
+                    _unit_locations[k] = v
         return _unit_locations
     
     def forward(
@@ -1173,12 +1188,15 @@ class IntervenableModel(nn.Module):
         self._cleanup_states()
 
         # if no source inputs, we are calling a simple forward
-        if sources is None and activations_sources is None:
+        if sources is None and activations_sources is None \
+            and unit_locations is None:
             return self.model(**base), None
         
         unit_locations = self._broadcast_unit_locations(
             get_batch_size(base), unit_locations)
         
+        sources = [None] if sources is None else sources
+
         self._input_validation(
             base,
             sources,
@@ -1286,6 +1304,8 @@ class IntervenableModel(nn.Module):
         
         unit_locations = self._broadcast_unit_locations(
             get_batch_size(base), unit_locations)
+        
+        sources = [None] if sources is None else None
         
         self._input_validation(
             base,
