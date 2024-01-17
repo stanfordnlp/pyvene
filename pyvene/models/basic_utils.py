@@ -127,7 +127,7 @@ def top_vals(tokenizer, res, n=10):
 def get_list_depth(lst):
     """Return the max depth of the input list"""
     if isinstance(lst, list):
-        return 1 + max((list_depth(item) for item in lst), default=0)
+        return 1 + max((get_list_depth(item) for item in lst), default=0)
     return 0
 
 def get_batch_size(model_input):
