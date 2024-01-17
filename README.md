@@ -21,6 +21,7 @@ You can intervene with supported models as,
 ```python
 import pyvene
 from pyvene import IntervenableRepresentationConfig, IntervenableConfig, IntervenableModel
+from pyvene import VanillaIntervention
 
 # provided wrapper for huggingface gpt2 model
 _, tokenizer, gpt2 = pyvene.create_gpt2()
@@ -36,15 +37,16 @@ intervenable_gpt2 = IntervenableModel(
                 1             # maximally intervening one token
             ),
         ],
+        intervenable_interventions_type=VanillaIntervention
     ), 
     model = gpt2
 )
 
-# intervene base with sources on the fourth token.
+# intervene base with sources on the 4th token.
 original_outputs, intervened_outputs = intervenable_gpt2(
     tokenizer("The capital of Spain is", return_tensors="pt"),
     [tokenizer("The capital of Italy is", return_tensors="pt")],
-    {"sources->base": ([[[4]]], [[[4]]])}
+    {"sources->base": 4)}
 )
 original_outputs.last_hidden_state - intervened_outputs.last_hidden_state
 ```
