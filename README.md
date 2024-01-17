@@ -33,8 +33,6 @@ intervenable_gpt2 = IntervenableModel(
             IntervenableRepresentationConfig(
                 0,            # intervening layer 0
                 "mlp_output", # intervening mlp output
-                "pos",        # intervening based on positional indices of tokens
-                1             # maximally intervening one token
             ),
         ],
         intervenable_interventions_type=VanillaIntervention
