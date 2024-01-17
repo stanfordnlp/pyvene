@@ -1084,8 +1084,10 @@ class IntervenableModel(nn.Module):
         for k, v in unit_locations.items():
             if isinstance(v, int):
                 _unit_locations[k] = ([[[v]]*batch_size], [[[v]]*batch_size])
+                self.use_fast = True
             elif isinstance(v[0], int) and isinstance(v[1], int):
                 _unit_locations[k] = ([[[v[0]]]*batch_size], [[[v[1]]]*batch_size])
+                self.use_fast = True
             elif isinstance(v[0], list) and isinstance(v[1], list):
                 pass # we don't support boardcase here yet.
             else:
