@@ -418,10 +418,14 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
         _key = f"{intervention_layer}.{intervention_stream}"
 
         for position in positions:
-            base_activations[_key][:, position] = intervention(
-                base_activations[_key][:, position],
-                None,
-            )
+            if intervention_type == ZeroIntervention:
+                base_activations[_key][:, position] = torch.zeros_like(
+                    base_activations[_key][:, position])
+            else:
+                base_activations[_key][:, position] = intervention(
+                    base_activations[_key][:, position],
+                    None,
+                )
 
         golden_out = GPT2_RUN(
             self.gpt2, base["input_ids"], {}, {_key: base_activations[_key]}
@@ -535,7 +539,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                 use_base_only=True
             )
             
-    def test_with_position_intervention_constant_source_subtraction_intervention_positive(self):
+    def test_with_position_intervention_constant_source_zero_intervention_positive(self):
         """
         Enable constant source with subtraction intervention.
         """
@@ -603,6 +607,21 @@ def suite():
     suite.addTest(
         InterventionWithGPT2TestCase(
             "test_with_position_intervention_constant_source_vanilla_intervention_positive"
+        )
+    ) 
+    suite.addTest(
+        InterventionWithGPT2TestCase(
+            "test_with_position_intervention_constant_source_addition_intervention_positive"
+        )
+    ) 
+    suite.addTest(
+        InterventionWithGPT2TestCase(
+            "test_with_position_intervention_constant_source_subtraction_intervention_positive"
+        )
+    )
+    suite.addTest(
+        InterventionWithGPT2TestCase(
+            "test_with_position_intervention_constant_source_zero_intervention_positive"
         )
     ) 
     return suite

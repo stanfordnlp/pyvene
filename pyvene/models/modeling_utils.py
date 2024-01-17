@@ -2,6 +2,7 @@ import torch, random
 from torch import nn
 import numpy as np
 from .intervenable_modelcard import *
+from .interventions import *
 
 
 def get_internal_model_type(model):
@@ -517,7 +518,8 @@ def do_intervention(
 
     # flatten
     original_base_shape = base_representation.shape
-    if len(original_base_shape) == 2:
+    if len(original_base_shape) == 2 or \
+        isinstance(intervention, LocalistRepresentationIntervention):
         # no pos dimension, e.g., gru
         base_representation_f = base_representation
         source_representation_f = source_representation
@@ -537,7 +539,8 @@ def do_intervention(
     )
 
     # unflatten
-    if len(original_base_shape) == 2:
+    if len(original_base_shape) == 2 or \
+        isinstance(intervention, LocalistRepresentationIntervention):
         # no pos dimension, e.g., gru
         pass
     elif len(original_base_shape) == 3:

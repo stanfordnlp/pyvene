@@ -40,13 +40,31 @@ class TrainableIntervention(Intervention):
 
 class ConstantSourceIntervention(Intervention):
 
-    """Intervention the original representations."""
+    """Constant source."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.is_source_constant = True
-    
 
+
+class LocalistRepresentationIntervention(torch.nn.Module):
+
+    """Localist representation."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.is_repr_distributed = False
+        
+        
+class DistributedRepresentationIntervention(torch.nn.Module):
+
+    """Distributed representation."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.is_repr_distributed = True
+        
+    
 class BasisAgnosticIntervention(Intervention):
 
     """Intervention that will modify its basis in a uncontrolled manner."""
@@ -66,7 +84,7 @@ class SharedWeightsTrainableIntervention(TrainableIntervention):
         self.shared_weights = True
 
 
-class ZeroIntervention(ConstantSourceIntervention):
+class ZeroIntervention(ConstantSourceIntervention, LocalistRepresentationIntervention):
 
     """Zero-out activations."""
 
@@ -126,7 +144,7 @@ class CollectIntervention(ConstantSourceIntervention):
         return f"CollectIntervention(embed_dim={self.embed_dim})"
         
         
-class SkipIntervention(BasisAgnosticIntervention):
+class SkipIntervention(BasisAgnosticIntervention, LocalistRepresentationIntervention):
 
     """Skip the current intervening layer's computation in the hook function."""
 
@@ -156,7 +174,7 @@ class SkipIntervention(BasisAgnosticIntervention):
         return f"SkipIntervention(embed_dim={self.embed_dim})"
 
 
-class VanillaIntervention(Intervention):
+class VanillaIntervention(Intervention, LocalistRepresentationIntervention):
 
     """Intervention the original representations."""
 
@@ -191,7 +209,7 @@ class VanillaIntervention(Intervention):
         return f"VanillaIntervention(embed_dim={self.embed_dim})"
 
 
-class AdditionIntervention(BasisAgnosticIntervention):
+class AdditionIntervention(BasisAgnosticIntervention, LocalistRepresentationIntervention):
 
     """Intervention the original representations with activation addition."""
 
@@ -226,7 +244,7 @@ class AdditionIntervention(BasisAgnosticIntervention):
         return f"AdditionIntervention(embed_dim={self.embed_dim})"
 
 
-class SubtractionIntervention(BasisAgnosticIntervention):
+class SubtractionIntervention(BasisAgnosticIntervention, LocalistRepresentationIntervention):
 
     """Intervention the original representations with activation subtraction."""
 
@@ -261,7 +279,7 @@ class SubtractionIntervention(BasisAgnosticIntervention):
         return f"SubtractionIntervention(embed_dim={self.embed_dim})"
 
 
-class RotatedSpaceIntervention(TrainableIntervention):
+class RotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 
     """Intervention in the rotated space."""
 
@@ -299,7 +317,7 @@ class RotatedSpaceIntervention(TrainableIntervention):
         return f"RotatedSpaceIntervention(embed_dim={self.embed_dim})"
 
 
-class BoundlessRotatedSpaceIntervention(TrainableIntervention):
+class BoundlessRotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 
     """Intervention in the rotated space with boundary mask."""
 
@@ -366,7 +384,7 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention):
         return f"BoundlessRotatedSpaceIntervention(embed_dim={self.embed_dim})"
 
 
-class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention):
+class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 
     """Intervention in the rotated space with boundary mask."""
 
@@ -420,7 +438,7 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention):
         return f"SigmoidMaskRotatedSpaceIntervention(embed_dim={self.embed_dim})"
 
 
-class LowRankRotatedSpaceIntervention(TrainableIntervention):
+class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 
     """Intervention in the rotated space."""
 
@@ -503,7 +521,7 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention):
         return f"LowRankRotatedSpaceIntervention(embed_dim={self.embed_dim})"
 
 
-class PCARotatedSpaceIntervention(BasisAgnosticIntervention):
+class PCARotatedSpaceIntervention(BasisAgnosticIntervention, DistributedRepresentationIntervention):
     """Intervention in the pca space."""
 
     def __init__(self, embed_dim, **kwargs):
