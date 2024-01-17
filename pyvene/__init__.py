@@ -19,7 +19,6 @@ from .models.interventions import BoundlessRotatedSpaceIntervention
 from .models.interventions import SigmoidMaskRotatedSpaceIntervention
 from .models.interventions import LowRankRotatedSpaceIntervention
 from .models.interventions import PCARotatedSpaceIntervention
-from .models.interventions import CollectIntervention
 
 
 # Utils
@@ -34,4 +33,5 @@ from .models.gru.modelings_intervenable_gru import create_gru
 from .models.gru.modelings_intervenable_gru import create_gru_lm
 from .models.gru.modelings_intervenable_gru import create_gru_classifier
 from .models.llama.modelings_intervenable_llama import create_llama
+from .models.mistral.modelings_intervenable_mistral import create_mistral
 from .models.mlp.modelings_intervenable_mlp import create_mlp_classifier
