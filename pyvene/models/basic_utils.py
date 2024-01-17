@@ -122,3 +122,22 @@ def top_vals(tokenizer, res, n=10):
     for i, _ in enumerate(top_values):
         tok = format_token(tokenizer, top_indices[i].item())
         print(f"{tok:<20} {top_values[i].item()}")
+
+        
+def get_list_depth(lst):
+    """Return the max depth of the input list"""
+    if isinstance(lst, list):
+        return 1 + max((list_depth(item) for item in lst), default=0)
+    return 0
+
+def get_batch_size(model_input):
+    """
+    Get batch size based on the input
+    """
+    if isinstance(model_input, torch.Tensor):
+        batch_size = model_input.shape[0]
+    else:
+        for _, v in model_input.items():
+            batch_size = v.shape[0]
+            break
+    return batch_size
