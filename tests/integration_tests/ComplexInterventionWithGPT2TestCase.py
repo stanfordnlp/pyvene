@@ -2,7 +2,7 @@ import unittest
 from ..utils import *
 
 
-class SubspaceInterventionWithTransformerTestCase(unittest.TestCase):
+class ComplexInterventionWithGPT2TestCase(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         print("=== Test Suite: VanillaInterventionWithTransformerTestCase ===")
@@ -167,20 +167,20 @@ class SubspaceInterventionWithTransformerTestCase(unittest.TestCase):
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(
-        SubspaceInterventionWithTransformerTestCase("test_clean_run_positive")
+        ComplexInterventionWithGPT2TestCase("test_clean_run_positive")
     )
     suite.addTest(
-        SubspaceInterventionWithTransformerTestCase(
+        ComplexInterventionWithGPT2TestCase(
             "test_vanilla_subspace_partition_in_forward_positive"
         )
     )
     suite.addTest(
-        SubspaceInterventionWithTransformerTestCase(
+        ComplexInterventionWithGPT2TestCase(
             "test_rotate_subspace_partition_in_forward_positive"
         )
     )
     suite.addTest(
-        SubspaceInterventionWithTransformerTestCase(
+        ComplexInterventionWithGPT2TestCase(
             "test_lowrank_rotate_subspace_partition_in_forward_positive"
         )
     )

@@ -2,10 +2,10 @@ import unittest
 from ..utils import *
 
 
-class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
+class InterventionWithGPT2TestCase(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        print("=== Test Suite: VanillaInterventionWithTransformerTestCase ===")
+        print("=== Test Suite: InterventionWithGPT2TestCase ===")
         self.config, self.tokenizer, self.gpt2 = create_gpt2_lm(
             config=GPT2Config(
                 n_embd=24,
@@ -375,44 +375,44 @@ class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(VanillaInterventionWithTransformerTestCase("test_clean_run_positive"))
+    suite.addTest(InterventionWithGPT2TestCase("test_clean_run_positive"))
     suite.addTest(
-        VanillaInterventionWithTransformerTestCase(
+        InterventionWithGPT2TestCase(
             "test_invalid_intervenable_unit_negative"
         )
     )
     suite.addTest(
-        VanillaInterventionWithTransformerTestCase(
+        InterventionWithGPT2TestCase(
             "test_with_single_position_vanilla_intervention_positive"
         )
     )
     suite.addTest(
-        VanillaInterventionWithTransformerTestCase(
+        InterventionWithGPT2TestCase(
             "test_with_multiple_position_vanilla_intervention_positive"
         )
     )
     suite.addTest(
-        VanillaInterventionWithTransformerTestCase(
+        InterventionWithGPT2TestCase(
             "test_with_complex_position_vanilla_intervention_positive"
         )
     )
     suite.addTest(
-        VanillaInterventionWithTransformerTestCase(
+        InterventionWithGPT2TestCase(
             "test_with_single_head_position_vanilla_intervention_positive"
         )
     )
     suite.addTest(
-        VanillaInterventionWithTransformerTestCase(
+        InterventionWithGPT2TestCase(
             "test_with_multiple_heads_positions_vanilla_intervention_positive"
         )
     )
     suite.addTest(
-        VanillaInterventionWithTransformerTestCase(
+        InterventionWithGPT2TestCase(
             "test_with_use_fast_vanilla_intervention_positive"
         )
     )
     suite.addTest(
-        VanillaInterventionWithTransformerTestCase(
+        InterventionWithGPT2TestCase(
             "test_with_location_broadcast_vanilla_intervention_positive"
         )
     )    

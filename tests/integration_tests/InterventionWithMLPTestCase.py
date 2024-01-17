@@ -2,10 +2,10 @@ import unittest
 from ..utils import *
 
 
-class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
+class InterventionWithMLPTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        print("=== Test Suite: SubspaceInterventionWithMLPTestCase ===")
+        print("=== Test Suite: InterventionWithMLPTestCase ===")
         self.config, self.tokenizer, self.mlp = create_mlp_classifier(
             MLPConfig(
                 h_dim=3, n_layer=1, pdrop=0.0, num_classes=5,
@@ -302,17 +302,17 @@ class SubspaceInterventionWithMLPTestCase(unittest.TestCase):
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(SubspaceInterventionWithMLPTestCase("test_clean_run_positive"))
-    suite.addTest(SubspaceInterventionWithMLPTestCase("test_with_subspace_positive"))
-    suite.addTest(SubspaceInterventionWithMLPTestCase("test_with_subspace_negative"))
+    suite.addTest(InterventionWithMLPTestCase("test_clean_run_positive"))
+    suite.addTest(InterventionWithMLPTestCase("test_with_subspace_positive"))
+    suite.addTest(InterventionWithMLPTestCase("test_with_subspace_negative"))
     suite.addTest(
-        SubspaceInterventionWithMLPTestCase("test_intervention_link_positive")
+        InterventionWithMLPTestCase("test_intervention_link_positive")
     )
     suite.addTest(
-        SubspaceInterventionWithMLPTestCase("test_no_intervention_link_positive")
+        InterventionWithMLPTestCase("test_no_intervention_link_positive")
     )
     suite.addTest(
-        SubspaceInterventionWithMLPTestCase("test_no_intervention_link_negative")
+        InterventionWithMLPTestCase("test_no_intervention_link_negative")
     )
     return suite
 
