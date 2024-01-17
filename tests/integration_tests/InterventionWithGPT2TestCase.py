@@ -16,7 +16,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                 n_layer=4,
                 bos_token_id=0,
                 eos_token_id=0,
-                n_positions=128,
+                n_positions=1024,
                 vocab_size=10,
             )
         )
@@ -96,7 +96,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
             pass
         else:
             raise ValueError("ValueError for invalid intervenable unit is not thrown")
-
+    
     def _test_with_position_intervention(
         self,
         intervention_layer,
@@ -373,6 +373,269 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                 use_boardcast=True,
             )
 
+    def _test_with_position_intervention_constant_source(
+        self,
+        intervention_layer,
+        intervention_stream,
+        intervention_type,
+        positions=[0],
+        use_base_only=False,
+        use_fast=False,
+        use_boardcast=False,
+    ):
+        max_position = np.max(np.array(positions))
+        if isinstance(positions[0], list):
+            b_s = len(positions)
+        else:
+            b_s = 10
+        base = {
+            "input_ids": torch.randint(0, 10, (b_s, max_position + 1)).to(self.device)
+        }
+
+        intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
+                    intervention_layer,
+                    intervention_stream,
+                    "pos",
+                    len(positions),
+                    source_representation=torch.rand(
+                        self.config.n_embd).to(self.gpt2.device) \
+                            if "mlp_activation" != intervention_stream else \
+                            torch.rand(self.config.n_embd*4).to(self.gpt2.device)
+                )
+            ],
+            intervenable_interventions_type=intervention_type,
+        )
+        intervenable = IntervenableModel(
+            intervenable_config, self.gpt2, use_fast=use_fast
+        )
+        intervention = list(intervenable.interventions.values())[0][0]
+
+        base_activations = {}
+        _ = GPT2_RUN(self.gpt2, base["input_ids"], base_activations, {})
+        _key = f"{intervention_layer}.{intervention_stream}"
+
+        for position in positions:
+            if intervention_type == ZeroIntervention:
+                base_activations[_key][:, position] = torch.zeros_like(
+                    base_activations[_key][:, position])
+            else:
+                base_activations[_key][:, position] = intervention(
+                    base_activations[_key][:, position],
+                    None,
+                )
+
+        golden_out = GPT2_RUN(
+            self.gpt2, base["input_ids"], {}, {_key: base_activations[_key]}
+        )
+        
+        if use_base_only:
+            if use_boardcast:
+                _, out_output = intervenable(
+                    base,
+                    unit_locations={"base": positions[0]},
+                )
+            else:
+                _, out_output = intervenable(
+                    base,
+                    unit_locations={"base": ([[positions] * b_s])},
+                )
+        else:
+            if use_boardcast:
+                _, out_output = intervenable(
+                    base,
+                    unit_locations={"sources->base": (None, positions[0])},
+                )
+            else:
+                _, out_output = intervenable(
+                    base,
+                    unit_locations={"sources->base": (None, [[positions] * b_s])},
+                )
+        
+        self.assertTrue(torch.allclose(out_output[0], golden_out))
+            
+    def test_with_position_intervention_constant_source_vanilla_intervention_positive(self):
+        """
+        Enable constant source with vanilla intervention.
+        """
+        for stream in self.nonhead_streams:
+            print(
+                f"testing constant source with stream: {stream} "
+                "with a single position with VanillaIntervention")
+            self._test_with_position_intervention_constant_source(
+                intervention_layer=random.randint(0, 3),
+                intervention_stream=stream,
+                intervention_type=VanillaIntervention,
+                positions=[0],
+            )
+            self._test_with_position_intervention_constant_source(
+                intervention_layer=random.randint(0, 3),
+                intervention_stream=stream,
+                intervention_type=VanillaIntervention,
+                positions=[0],
+                use_base_only=True
+            )
+            self._test_with_position_intervention_constant_source(
+                intervention_layer=random.randint(0, 3),
+                intervention_stream=stream,
+                intervention_type=VanillaIntervention,
+                positions=[0],
+                use_base_only=True,
+                use_boardcast=True
+            )
+            self._test_with_position_intervention_constant_source(
+                intervention_layer=random.randint(0, 3),
+                intervention_stream=stream,
+                intervention_type=VanillaIntervention,
+                positions=[0],
+                use_base_only=True,
+                use_boardcast=True,
+                use_fast=True
+            )
+            
+    def test_with_position_intervention_constant_source_addition_intervention_positive(self):
+        """
+        Enable constant source with addition intervention.
+        """
+        for stream in self.nonhead_streams:
+            print(
+                f"testing constant source with stream: {stream} "
+                "with a single position with AdditionIntervention")
+            self._test_with_position_intervention_constant_source(
+                intervention_layer=random.randint(0, 3),
+                intervention_stream=stream,
+                intervention_type=AdditionIntervention,
+                positions=[0],
+            )
+            self._test_with_position_intervention_constant_source(
+                intervention_layer=random.randint(0, 3),
+                intervention_stream=stream,
+                intervention_type=AdditionIntervention,
+                positions=[0],
+                use_base_only=True
+            )
+            
+    def test_with_position_intervention_constant_source_subtraction_intervention_positive(self):
+        """
+        Enable constant source with subtraction intervention.
+        """
+        for stream in self.nonhead_streams:
+            print(
+                f"testing constant source with stream: {stream} "
+                "with a single position with SubtractionIntervention")
+            self._test_with_position_intervention_constant_source(
+                intervention_layer=random.randint(0, 3),
+                intervention_stream=stream,
+                intervention_type=SubtractionIntervention,
+                positions=[0],
+            )
+            self._test_with_position_intervention_constant_source(
+                intervention_layer=random.randint(0, 3),
+                intervention_stream=stream,
+                intervention_type=SubtractionIntervention,
+                positions=[0],
+                use_base_only=True
+            )
+            
+    def test_with_position_intervention_constant_source_zero_intervention_positive(self):
+        """
+        Enable constant source with subtraction intervention.
+        """
+        for stream in self.nonhead_streams:
+            print(
+                f"testing constant source with stream: {stream} "
+                "with a single position with ZeroIntervention")
+            self._test_with_position_intervention_constant_source(
+                intervention_layer=random.randint(0, 3),
+                intervention_stream=stream,
+                intervention_type=ZeroIntervention,
+                positions=[0],
+            )
+            self._test_with_position_intervention_constant_source(
+                intervention_layer=random.randint(0, 3),
+                intervention_stream=stream,
+                intervention_type=ZeroIntervention,
+                positions=[0],
+                use_base_only=True
+            )
+            
+    def _test_with_long_sequence_position_intervention_constant_source_positive(
+        self, intervention_stream, intervention_type):
+        b_s = 10
+        max_position = 512
+        positions = [_ for _ in range(max_position)]
+        base = {
+            "input_ids": torch.randint(0, 10, (b_s, max_position)).to(self.device)
+        }
+        intervention_layer = random.randint(0, 2)
+        
+        intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
+                    intervention_layer,
+                    intervention_stream,
+                    "pos",
+                    len(positions),
+                    source_representation=torch.rand(
+                        self.config.n_embd).to(self.gpt2.device) \
+                            if "mlp_activation" != intervention_stream else \
+                            torch.rand(self.config.n_embd*4).to(self.gpt2.device)
+                )
+            ],
+            intervenable_interventions_type=intervention_type,
+        )
+        intervenable = IntervenableModel(
+            intervenable_config, self.gpt2, use_fast=True
+        )
+        intervention = list(intervenable.interventions.values())[0][0]
+
+        base_activations = {}
+        _ = GPT2_RUN(self.gpt2, base["input_ids"], base_activations, {})
+        _key = f"{intervention_layer}.{intervention_stream}"
+        
+        for position in positions:
+            if intervention_type == ZeroIntervention:
+                base_activations[_key] = torch.zeros_like(
+                    base_activations[_key])
+            else:
+                base_activations[_key] = intervention(
+                    base_activations[_key],
+                    None,
+                )
+
+        golden_out = GPT2_RUN(
+            self.gpt2, base["input_ids"], {}, {_key: base_activations[_key]}
+        )
+        
+        _, out_output = intervenable(
+            base,
+            unit_locations={"base": ([[positions] * b_s])},
+        )
+
+        self.assertTrue(torch.allclose(out_output[0], golden_out))
+            
+    def test_with_long_sequence_position_intervention_constant_source_positive(self):
+        for stream in self.nonhead_streams:
+            print(
+                f"testing constant source with stream: {stream} "
+                "with long sequence multiple position with VanillaIntervention")
+            self._test_with_long_sequence_position_intervention_constant_source_positive(
+                intervention_stream=stream,
+                intervention_type=VanillaIntervention,
+            )
+        for stream in self.nonhead_streams:
+            print(
+                f"testing constant source with stream: {stream} "
+                "with long sequence multiple position with ZeroIntervention")
+            self._test_with_long_sequence_position_intervention_constant_source_positive(
+                intervention_stream=stream,
+                intervention_type=ZeroIntervention,
+            )
+            
+            
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(InterventionWithGPT2TestCase("test_clean_run_positive"))
@@ -415,7 +678,32 @@ def suite():
         InterventionWithGPT2TestCase(
             "test_with_location_broadcast_vanilla_intervention_positive"
         )
-    )    
+    ) 
+    suite.addTest(
+        InterventionWithGPT2TestCase(
+            "test_with_position_intervention_constant_source_vanilla_intervention_positive"
+        )
+    ) 
+    suite.addTest(
+        InterventionWithGPT2TestCase(
+            "test_with_position_intervention_constant_source_addition_intervention_positive"
+        )
+    ) 
+    suite.addTest(
+        InterventionWithGPT2TestCase(
+            "test_with_position_intervention_constant_source_subtraction_intervention_positive"
+        )
+    )
+    suite.addTest(
+        InterventionWithGPT2TestCase(
+            "test_with_position_intervention_constant_source_zero_intervention_positive"
+        )
+    ) 
+    suite.addTest(
+        InterventionWithGPT2TestCase(
+            "_test_with_long_sequence_position_intervention_constant_source_positive"
+        )
+    ) 
     return suite
 
 

@@ -2,6 +2,7 @@ import torch, random
 from torch import nn
 import numpy as np
 from .intervenable_modelcard import *
+from .interventions import *
 
 
 def get_internal_model_type(model):
@@ -149,10 +150,14 @@ def get_intervenable_module_hook(model, representation) -> nn.Module:
     ]
     parameter_name = type_info[0]
     hook_type = type_info[1]
-    if "%s" in parameter_name:
+    if "%s" in parameter_name and representation.intervenable_moe is None:
         # we assume it is for the layer.
         parameter_name = parameter_name % (representation.intervenable_layer)
-
+    else:
+        parameter_name = parameter_name % (
+            int(representation.intervenable_layer), 
+            int(representation.intervenable_moe)
+        )
     module = getattr_for_torch_module(model, parameter_name)
     module_hook = getattr(module, hook_type)
 
@@ -513,7 +518,8 @@ def do_intervention(
 
     # flatten
     original_base_shape = base_representation.shape
-    if len(original_base_shape) == 2:
+    if len(original_base_shape) == 2 or \
+        isinstance(intervention, LocalistRepresentationIntervention):
         # no pos dimension, e.g., gru
         base_representation_f = base_representation
         source_representation_f = source_representation
@@ -533,7 +539,8 @@ def do_intervention(
     )
 
     # unflatten
-    if len(original_base_shape) == 2:
+    if len(original_base_shape) == 2 or \
+        isinstance(intervention, LocalistRepresentationIntervention):
         # no pos dimension, e.g., gru
         pass
     elif len(original_base_shape) == 3:

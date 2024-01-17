@@ -14,7 +14,8 @@ class Intervention(torch.nn.Module):
         super().__init__()
         self.trainble = False
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
-
+        self.is_source_constant = False
+        
     @abstractmethod
     def set_interchange_dim(self, interchange_dim):
         pass
@@ -31,11 +32,39 @@ class TrainableIntervention(Intervention):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.trainble = True
-
+        self.is_source_constant = False
+        
     def tie_weight(self, linked_intervention):
         pass
 
 
+class ConstantSourceIntervention(Intervention):
+
+    """Constant source."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.is_source_constant = True
+
+
+class LocalistRepresentationIntervention(torch.nn.Module):
+
+    """Localist representation."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.is_repr_distributed = False
+        
+        
+class DistributedRepresentationIntervention(torch.nn.Module):
+
+    """Distributed representation."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.is_repr_distributed = True
+        
+    
 class BasisAgnosticIntervention(Intervention):
 
     """Intervention that will modify its basis in a uncontrolled manner."""
@@ -43,6 +72,7 @@ class BasisAgnosticIntervention(Intervention):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.basis_agnostic = True
+        self.is_source_constant = False
 
 
 class SharedWeightsTrainableIntervention(TrainableIntervention):
@@ -54,7 +84,37 @@ class SharedWeightsTrainableIntervention(TrainableIntervention):
         self.shared_weights = True
 
 
-class CollectIntervention(Intervention):
+class ZeroIntervention(ConstantSourceIntervention, LocalistRepresentationIntervention):
+
+    """Zero-out activations."""
+
+    def __init__(self, embed_dim, **kwargs):
+        super().__init__()
+        self.embed_dim = embed_dim
+        self.interchange_dim = embed_dim
+        self.subspace_partition = (
+            kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
+        )
+
+    def set_interchange_dim(self, interchange_dim):
+        self.interchange_dim = interchange_dim
+
+    def forward(self, base, source=None, subspaces=None):
+        return _do_intervention_by_swap(
+            base,
+            torch.zeros_like(base),
+            "interchange",
+            self.interchange_dim,
+            subspaces,
+            subspace_partition=self.subspace_partition,
+            use_fast=self.use_fast,
+        )
+
+    def __str__(self):
+        return f"ZeroIntervention(embed_dim={self.embed_dim})"
+        
+        
+class CollectIntervention(ConstantSourceIntervention):
 
     """Collect activations."""
 
@@ -84,7 +144,7 @@ class CollectIntervention(Intervention):
         return f"CollectIntervention(embed_dim={self.embed_dim})"
         
         
-class SkipIntervention(BasisAgnosticIntervention):
+class SkipIntervention(BasisAgnosticIntervention, LocalistRepresentationIntervention):
 
     """Skip the current intervening layer's computation in the hook function."""
 
@@ -114,7 +174,7 @@ class SkipIntervention(BasisAgnosticIntervention):
         return f"SkipIntervention(embed_dim={self.embed_dim})"
 
 
-class VanillaIntervention(Intervention):
+class VanillaIntervention(Intervention, LocalistRepresentationIntervention):
 
     """Intervention the original representations."""
 
@@ -125,14 +185,19 @@ class VanillaIntervention(Intervention):
         self.subspace_partition = (
             kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
         )
-
+        self.source_representation = (
+            kwargs["source_representation"] if "source_representation" in kwargs else None
+        )
+        if self.source_representation is not None:
+            self.is_source_constant = True
+        
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
 
     def forward(self, base, source, subspaces=None):
         return _do_intervention_by_swap(
             base,
-            source,
+            source if self.source_representation is None else self.source_representation,
             "interchange",
             self.interchange_dim,
             subspaces,
@@ -144,7 +209,7 @@ class VanillaIntervention(Intervention):
         return f"VanillaIntervention(embed_dim={self.embed_dim})"
 
 
-class AdditionIntervention(BasisAgnosticIntervention):
+class AdditionIntervention(BasisAgnosticIntervention, LocalistRepresentationIntervention):
 
     """Intervention the original representations with activation addition."""
 
@@ -155,14 +220,19 @@ class AdditionIntervention(BasisAgnosticIntervention):
         self.subspace_partition = (
             kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
         )
-
+        self.source_representation = (
+            kwargs["source_representation"] if "source_representation" in kwargs else None
+        )
+        if self.source_representation is not None:
+            self.is_source_constant = True
+            
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
 
     def forward(self, base, source, subspaces=None):
         return _do_intervention_by_swap(
             base,
-            source,
+            source if self.source_representation is None else self.source_representation,
             "add",
             self.interchange_dim,
             subspaces,
@@ -174,7 +244,7 @@ class AdditionIntervention(BasisAgnosticIntervention):
         return f"AdditionIntervention(embed_dim={self.embed_dim})"
 
 
-class SubtractionIntervention(BasisAgnosticIntervention):
+class SubtractionIntervention(BasisAgnosticIntervention, LocalistRepresentationIntervention):
 
     """Intervention the original representations with activation subtraction."""
 
@@ -185,14 +255,19 @@ class SubtractionIntervention(BasisAgnosticIntervention):
         self.subspace_partition = (
             kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
         )
-
+        self.source_representation = (
+            kwargs["source_representation"] if "source_representation" in kwargs else None
+        )
+        if self.source_representation is not None:
+            self.is_source_constant = True
+            
     def set_interchange_dim(self, interchange_dim):
         self.interchange_dim = interchange_dim
 
     def forward(self, base, source, subspaces=None):
         return _do_intervention_by_swap(
             base,
-            source,
+            source if self.source_representation is None else self.source_representation,
             "subtract",
             self.interchange_dim,
             subspaces,
@@ -204,7 +279,7 @@ class SubtractionIntervention(BasisAgnosticIntervention):
         return f"SubtractionIntervention(embed_dim={self.embed_dim})"
 
 
-class RotatedSpaceIntervention(TrainableIntervention):
+class RotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 
     """Intervention in the rotated space."""
 
@@ -242,7 +317,7 @@ class RotatedSpaceIntervention(TrainableIntervention):
         return f"RotatedSpaceIntervention(embed_dim={self.embed_dim})"
 
 
-class BoundlessRotatedSpaceIntervention(TrainableIntervention):
+class BoundlessRotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 
     """Intervention in the rotated space with boundary mask."""
 
@@ -309,7 +384,7 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention):
         return f"BoundlessRotatedSpaceIntervention(embed_dim={self.embed_dim})"
 
 
-class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention):
+class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 
     """Intervention in the rotated space with boundary mask."""
 
@@ -363,7 +438,7 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention):
         return f"SigmoidMaskRotatedSpaceIntervention(embed_dim={self.embed_dim})"
 
 
-class LowRankRotatedSpaceIntervention(TrainableIntervention):
+class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 
     """Intervention in the rotated space."""
 
@@ -446,7 +521,7 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention):
         return f"LowRankRotatedSpaceIntervention(embed_dim={self.embed_dim})"
 
 
-class PCARotatedSpaceIntervention(BasisAgnosticIntervention):
+class PCARotatedSpaceIntervention(BasisAgnosticIntervention, DistributedRepresentationIntervention):
     """Intervention in the pca space."""
 
     def __init__(self, embed_dim, **kwargs):

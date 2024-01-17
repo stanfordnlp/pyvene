@@ -13,8 +13,9 @@ IntervenableRepresentationConfig = namedtuple(
     "intervenable_layer intervenable_representation_type "
     "intervenable_unit max_number_of_units "
     "intervenable_low_rank_dimension "
-    "subspace_partition group_key intervention_link_key",
-    defaults=(0, "block_output", "pos", 1, None, None, None, None),
+    "subspace_partition group_key intervention_link_key intervenable_moe "
+    "source_representation",
+    defaults=(0, "block_output", "pos", 1, None, None, None, None, None, None),
 )
 
 
