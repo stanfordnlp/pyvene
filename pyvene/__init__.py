@@ -19,6 +19,7 @@ from .models.interventions import BoundlessRotatedSpaceIntervention
 from .models.interventions import SigmoidMaskRotatedSpaceIntervention
 from .models.interventions import LowRankRotatedSpaceIntervention
 from .models.interventions import PCARotatedSpaceIntervention
+from .models.interventions import CollectIntervention
 
 
 # Utils
