@@ -104,6 +104,7 @@ class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
         intervention_type,
         positions=[0],
         use_fast=False,
+        use_boardcast=False,
     ):
         max_position = np.max(np.array(positions))
         if isinstance(positions[0], list):
@@ -155,19 +156,31 @@ class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
         golden_out = GPT2_RUN(
             self.gpt2, base["input_ids"], {}, {_key: base_activations[_key]}
         )
-
-        if isinstance(positions[0], list):
-            _, out_output = intervenable(
-                base, [source], {"sources->base": ([positions], [positions])}
+        
+        if use_boardcast:
+            assert isinstance(positions[0], int)
+            _, out_output_1 = intervenable(
+                base, [source], {"sources->base": positions[0]}
             )
+            self.assertTrue(torch.allclose(out_output_1[0], golden_out))
+            
+            _, out_output_2 = intervenable(
+                base, [source], {"sources->base": (positions[0], positions[0])}
+            )
+            self.assertTrue(torch.allclose(out_output_2[0], golden_out))
         else:
-            _, out_output = intervenable(
-                base,
-                [source],
-                {"sources->base": ([[positions] * b_s], [[positions] * b_s])},
-            )
+            if isinstance(positions[0], list):
+                _, out_output = intervenable(
+                    base, [source], {"sources->base": ([positions], [positions])}
+                )
+            else:
+                _, out_output = intervenable(
+                    base,
+                    [source],
+                    {"sources->base": ([[positions] * b_s], [[positions] * b_s])},
+                )
 
-        self.assertTrue(torch.allclose(out_output[0], golden_out))
+            self.assertTrue(torch.allclose(out_output[0], golden_out))
 
     def test_with_single_position_vanilla_intervention_positive(self):
         """
@@ -337,6 +350,28 @@ class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
                 use_fast=True,
             )
 
+    def test_with_location_broadcast_vanilla_intervention_positive(self):
+        """
+        Enable use_fast with vanilla intervention.
+        """
+        for stream in self.nonhead_streams:
+            print(f"testing broadcast with stream: {stream} with a single position")
+            self._test_with_position_intervention(
+                intervention_layer=random.randint(0, 3),
+                intervention_stream=stream,
+                intervention_type=VanillaIntervention,
+                positions=[random.randint(0, 3)],
+                use_boardcast=True,
+            )
+            print(f"testing broadcast with stream: {stream} with a single position (with fast)")
+            self._test_with_position_intervention(
+                intervention_layer=random.randint(0, 3),
+                intervention_stream=stream,
+                intervention_type=VanillaIntervention,
+                positions=[random.randint(0, 3)],
+                use_fast=True,
+                use_boardcast=True,
+            )
 
 def suite():
     suite = unittest.TestSuite()
@@ -376,6 +411,11 @@ def suite():
             "test_with_use_fast_vanilla_intervention_positive"
         )
     )
+    suite.addTest(
+        VanillaInterventionWithTransformerTestCase(
+            "test_with_location_broadcast_vanilla_intervention_positive"
+        )
+    )    
     return suite
 
 

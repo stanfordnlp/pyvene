@@ -1074,7 +1074,29 @@ class IntervenableModel(nn.Module):
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)
         return all_set_handlers
-
+    
+    def _broadcast_unit_locations(
+        self,
+        batch_size,
+        unit_locations
+    ):
+        _unit_locations = copy.deepcopy(unit_locations)
+        for k, v in unit_locations.items():
+            if isinstance(v, int):
+                _unit_locations[k] = ([[[v]]*batch_size], [[[v]]*batch_size])
+                self.use_fast = True
+            elif isinstance(v[0], int) and isinstance(v[1], int):
+                _unit_locations[k] = ([[[v[0]]]*batch_size], [[[v[1]]]*batch_size])
+                self.use_fast = True
+            elif isinstance(v[0], list) and isinstance(v[1], list):
+                pass # we don't support boardcase here yet.
+            else:
+                raise ValueError(
+                    f"unit_locations {unit_locations} contains invalid format."
+                )
+                
+        return _unit_locations
+    
     def forward(
         self,
         base,
@@ -1153,7 +1175,10 @@ class IntervenableModel(nn.Module):
         # if no source inputs, we are calling a simple forward
         if sources is None and activations_sources is None:
             return self.model(**base), None
-
+        
+        unit_locations = self._broadcast_unit_locations(
+            get_batch_size(base), unit_locations)
+        
         self._input_validation(
             base,
             sources,
@@ -1258,7 +1283,10 @@ class IntervenableModel(nn.Module):
 
         if sources is None and activations_sources is None:
             return self.model.generate(inputs=base["input_ids"], **kwargs), None
-
+        
+        unit_locations = self._broadcast_unit_locations(
+            get_batch_size(base), unit_locations)
+        
         self._input_validation(
             base,
             sources,
