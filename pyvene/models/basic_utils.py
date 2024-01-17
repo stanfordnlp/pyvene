@@ -51,6 +51,8 @@ def embed_to_distrib(model, embed, log=False, logits=False):
             return lsm(vocab) if log else sm(vocab)
     elif "llama" in model.config.architectures[0].lower():
         assert False, "Support for LLaMA is not here yet"
+    elif "mistral" in model.config.architectures[0].lower():
+        assert False, "Support for Mistral is not here yet"
 
 
 def set_seed(seed: int):
