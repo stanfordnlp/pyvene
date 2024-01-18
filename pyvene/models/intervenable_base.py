@@ -890,13 +890,13 @@ class IntervenableModel(nn.Module):
             assert "sources->base" not in unit_locations
         
         # sources may contain None, but length should match
-        if sources is not None:
+        if sources is not None and not (len(sources) == 1 and sources[0] == None):
             if len(sources) != len(self._intervention_group):
                 raise ValueError(
                     f"Source length {len(sources)} is not "
                     f"equal to intervention length {len(self._intervention_group)}."
                 )
-        else:
+        elif activations_sources is not None:
             if len(activations_sources) != len(self._intervention_group):
                 raise ValueError(
                     f"Source activations length {len(activations_sources)} is not "
@@ -1084,6 +1084,7 @@ class IntervenableModel(nn.Module):
     def _broadcast_unit_locations(
         self,
         batch_size,
+        intervention_group_size,
         unit_locations
     ):
         _unit_locations = {}
@@ -1094,16 +1095,25 @@ class IntervenableModel(nn.Module):
                 is_base_only = True
                 k = "sources->base"
             if isinstance(v, int):
-                _unit_locations[k] = ([[[v]]*batch_size], [[[v]]*batch_size])
+                if is_base_only:
+                    _unit_locations[k] = (None, [[[v]]*batch_size]*intervention_group_size)
+                else:
+                    _unit_locations[k] = (
+                        [[[v]]*batch_size]*intervention_group_size, 
+                        [[[v]]*batch_size]*intervention_group_size
+                    )
                 self.use_fast = True
             elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
-                _unit_locations[k] = ([[[v[0]]]*batch_size], [[[v[1]]]*batch_size])
+                _unit_locations[k] = (
+                    [[[v[0]]]*batch_size]*intervention_group_size, 
+                    [[[v[1]]]*batch_size]*intervention_group_size
+                )
                 self.use_fast = True
             elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
-                _unit_locations[k] = (None, [[[v[1]]]*batch_size])
+                _unit_locations[k] = (None, [[[v[1]]]*batch_size]*intervention_group_size)
                 self.use_fast = True
             elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
-                _unit_locations[k] = ([[[v[0]]]*batch_size], None)
+                _unit_locations[k] = ([[[v[0]]]*batch_size]*intervention_group_size, None)
                 self.use_fast = True
             else:
                 if is_base_only:
@@ -1193,9 +1203,9 @@ class IntervenableModel(nn.Module):
             return self.model(**base), None
         
         unit_locations = self._broadcast_unit_locations(
-            get_batch_size(base), unit_locations)
+            get_batch_size(base), len(self._intervention_group), unit_locations)
         
-        sources = [None] if sources is None else sources
+        sources = [None]*len(self._intervention_group) if sources is None else sources
 
         self._input_validation(
             base,
@@ -1265,7 +1275,7 @@ class IntervenableModel(nn.Module):
         sources: Optional[List] = None,
         unit_locations: Optional[Dict] = None,
         activations_sources: Optional[Dict] = None,
-        intervene_on_prompt: bool = True,
+        intervene_on_prompt: bool = False,
         subspaces: Optional[List] = None,
         **kwargs,
     ):
@@ -1298,14 +1308,15 @@ class IntervenableModel(nn.Module):
 
         self._intervene_on_prompt = intervene_on_prompt
         self._is_generation = True
-
-        if sources is None and activations_sources is None:
-            return self.model.generate(inputs=base["input_ids"], **kwargs), None
+        
+        if not intervene_on_prompt and unit_locations is None:
+            # that means, we intervene on every generated tokens!
+            unit_locations = {"base": 0}
         
         unit_locations = self._broadcast_unit_locations(
-            get_batch_size(base), unit_locations)
+            get_batch_size(base), len(self._intervention_group), unit_locations)
         
-        sources = [None] if sources is None else None
+        sources = [None]*len(self._intervention_group) if sources is None else sources
         
         self._input_validation(
             base,
