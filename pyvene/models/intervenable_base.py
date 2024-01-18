@@ -1308,10 +1308,10 @@ class IntervenableModel(nn.Module):
 
         self._intervene_on_prompt = intervene_on_prompt
         self._is_generation = True
-
-        if sources is None and activations_sources is None \
-            and unit_locations is None:
-            return self.model.generate(inputs=base["input_ids"], **kwargs), None
+        
+        if not intervene_on_prompt and unit_locations is None:
+            # that means, we intervene on every generated tokens!
+            unit_locations = {"base": 0}
         
         unit_locations = self._broadcast_unit_locations(
             get_batch_size(base), len(self._intervention_group), unit_locations)
