@@ -1084,6 +1084,7 @@ class IntervenableModel(nn.Module):
     def _broadcast_unit_locations(
         self,
         batch_size,
+        intervention_group_size,
         unit_locations
     ):
         _unit_locations = {}
@@ -1094,16 +1095,25 @@ class IntervenableModel(nn.Module):
                 is_base_only = True
                 k = "sources->base"
             if isinstance(v, int):
-                _unit_locations[k] = ([[[v]]*batch_size], [[[v]]*batch_size])
+                if is_base_only:
+                    _unit_locations[k] = (None, [[[v]]*batch_size]*intervention_group_size)
+                else:
+                    _unit_locations[k] = (
+                        [[[v]]*batch_size]*intervention_group_size, 
+                        [[[v]]*batch_size]*intervention_group_size
+                    )
                 self.use_fast = True
             elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
-                _unit_locations[k] = ([[[v[0]]]*batch_size], [[[v[1]]]*batch_size])
+                _unit_locations[k] = (
+                    [[[v[0]]]*batch_size]*intervention_group_size, 
+                    [[[v[1]]]*batch_size]*intervention_group_size
+                )
                 self.use_fast = True
             elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
-                _unit_locations[k] = (None, [[[v[1]]]*batch_size])
+                _unit_locations[k] = (None, [[[v[1]]]*batch_size]*intervention_group_size)
                 self.use_fast = True
             elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
-                _unit_locations[k] = ([[[v[0]]]*batch_size], None)
+                _unit_locations[k] = ([[[v[0]]]*batch_size]*intervention_group_size, None)
                 self.use_fast = True
             else:
                 if is_base_only:
@@ -1193,7 +1203,7 @@ class IntervenableModel(nn.Module):
             return self.model(**base), None
         
         unit_locations = self._broadcast_unit_locations(
-            get_batch_size(base), unit_locations)
+            get_batch_size(base), len(self._intervention_group), unit_locations)
         
         sources = [None]*len(self._intervention_group) if sources is None else sources
 
@@ -1304,7 +1314,7 @@ class IntervenableModel(nn.Module):
             return self.model.generate(inputs=base["input_ids"], **kwargs), None
         
         unit_locations = self._broadcast_unit_locations(
-            get_batch_size(base), unit_locations)
+            get_batch_size(base), len(self._intervention_group), unit_locations)
         
         sources = [None]*len(self._intervention_group) if sources is None else sources
         
