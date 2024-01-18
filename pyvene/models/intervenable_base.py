@@ -1275,7 +1275,7 @@ class IntervenableModel(nn.Module):
         sources: Optional[List] = None,
         unit_locations: Optional[Dict] = None,
         activations_sources: Optional[Dict] = None,
-        intervene_on_prompt: bool = True,
+        intervene_on_prompt: bool = False,
         subspaces: Optional[List] = None,
         **kwargs,
     ):
