@@ -2,13 +2,14 @@
 <div align="center">
   <h1 align="center"><img src="https://i.ibb.co/BNkhQH3/pyvene-logo.png"></h1>
   <a href="https://nlp.stanford.edu/~wuzhengx/"><strong>Library Paper and Doc Are Forthcoming »</strong></a>
-</div>
+</div>     
 
-*This is a beta release (invited public testing).*
-
+<br />
 <a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pepy/dt/pyvene?color=green"></img></a>
 <a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/v/pyvene?color=red"></img></a> 
 <a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/l/pyvene?color=blue"></img></a>
+
+*This is a beta release (public testing).*
 
 # **Use _Activation Intervention_ to Interpret _Causal Mechanism_ of Model**
 **pyvene** supports customizable interventions on different neural architectures (e.g., RNN or Transformers). It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) at scale to gain interpretability insights.
