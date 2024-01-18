@@ -70,18 +70,23 @@ def split_heads(tensor, num_heads, attn_head_size):
 
 
 def create_mistral(
-    name="mistralai/Mistral-7B-v0.1", cache_dir="../../.huggingface_cache"
+    name="mistralai/Mistral-7B-v0.1", 
+    cache_dir="../../.huggingface_cache",
+    config = None,
 ):
     """Creates a Mistral Causal LM model, config, and tokenizer from the given name and revision"""
     from transformers import MistralForCausalLM, AutoTokenizer, MistralConfig
-
-    config = MistralConfig.from_pretrained(name, cache_dir=cache_dir)
+    if config is None:
+        config = MistralConfig.from_pretrained(name, cache_dir=cache_dir)
+        mistral = MistralForCausalLM.from_pretrained(
+            name,
+            config=config,
+            cache_dir=cache_dir,
+            torch_dtype=torch.bfloat16,  # save memory
+        )
+    else:
+        mistral = MistralForCausalLM(config=config)
     tokenizer = AutoTokenizer.from_pretrained(name, cache_dir=cache_dir)
-    mistral = MistralForCausalLM.from_pretrained(
-        name,
-        config=config,
-        cache_dir=cache_dir,
-        torch_dtype=torch.bfloat16,  # save memory
-    )
+
     print("loaded model")
     return config, tokenizer, mistral
