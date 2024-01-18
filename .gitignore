@@ -10,6 +10,7 @@ logs
 notebooks/figures/
 *.tsv
 *.csv
+*.pdf
 *.out
 *results/
 *.sh
