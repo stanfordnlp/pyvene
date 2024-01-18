@@ -37,7 +37,19 @@ class InterventionState(object):
     def __str__(self):
         return json.dumps(self.state_dict, indent=4)
 
+def broadcast_tensor(x, target_shape):
+    # Ensure the last dimension of target_shape matches x's size
+    if target_shape[-1] != x.shape[-1]:
+        raise ValueError("The last dimension of target_shape must match the size of x")
 
+    # Create a shape for reshaping x that is compatible with target_shape
+    reshape_shape = [1] * (len(target_shape) - 1) + [x.shape[-1]]
+
+    # Reshape x and then broadcast it
+    x_reshaped = x.view(*reshape_shape)
+    broadcasted_x = x_reshaped.expand(*target_shape)
+    return broadcasted_x
+    
 def _do_intervention_by_swap(
     base,
     source,
@@ -50,6 +62,15 @@ def _do_intervention_by_swap(
     """The basic do function that guards interventions"""
     if mode == "collect":
         assert source is None
+    # auto broadcast
+    if base.shape != source.shape:
+        try:
+            source = broadcast_tensor(source, base.shape)
+        except:
+            raise ValueError(
+                f"source with shape {source.shape} cannot be broadcasted "
+                f"into base with shape {base.shape}."
+            )
     # interchange
     if use_fast:
         if subspaces is not None:
