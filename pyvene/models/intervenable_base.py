@@ -890,13 +890,13 @@ class IntervenableModel(nn.Module):
             assert "sources->base" not in unit_locations
         
         # sources may contain None, but length should match
-        if sources is not None:
+        if sources is not None and not (len(sources) == 1 and sources[0] == None):
             if len(sources) != len(self._intervention_group):
                 raise ValueError(
                     f"Source length {len(sources)} is not "
                     f"equal to intervention length {len(self._intervention_group)}."
                 )
-        else:
+        elif activations_sources is not None:
             if len(activations_sources) != len(self._intervention_group):
                 raise ValueError(
                     f"Source activations length {len(activations_sources)} is not "
@@ -1195,7 +1195,7 @@ class IntervenableModel(nn.Module):
         unit_locations = self._broadcast_unit_locations(
             get_batch_size(base), unit_locations)
         
-        sources = [None] if sources is None else sources
+        sources = [None]*len(self._intervention_group) if sources is None else sources
 
         self._input_validation(
             base,
@@ -1299,13 +1299,14 @@ class IntervenableModel(nn.Module):
         self._intervene_on_prompt = intervene_on_prompt
         self._is_generation = True
 
-        if sources is None and activations_sources is None:
+        if sources is None and activations_sources is None \
+            and unit_locations is None:
             return self.model.generate(inputs=base["input_ids"], **kwargs), None
         
         unit_locations = self._broadcast_unit_locations(
             get_batch_size(base), unit_locations)
         
-        sources = [None] if sources is None else None
+        sources = [None]*len(self._intervention_group) if sources is None else sources
         
         self._input_validation(
             base,
