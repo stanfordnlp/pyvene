@@ -1,4 +1,5 @@
 import unittest
+from ..utils import *
 from ..mistral_utils import *
 
 
@@ -19,7 +20,6 @@ class IntervenableModelHookTestCase(unittest.TestCase):
                 bos_token_id=0,
                 eos_token_id=0,
             ),
-            cache_dir="/nlp/scr/peterwz/.huggingface_cache/tests"
         )
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -163,6 +163,7 @@ class IntervenableModelHookTestCase(unittest.TestCase):
             raise AssertionError(
                 "test_lowrank_rotate_subspace_partition_in_forward_positive with retries"
             )
+
     def test_invalid_intervenable_unit_negative(self):
         """
         Invalid intervenable unit.
