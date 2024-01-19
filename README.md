@@ -4,7 +4,7 @@
   <a href="https://nlp.stanford.edu/~wuzhengx/"><strong>Library Paper and Doc Are Forthcoming »</strong></a>
 </div>
 
-<a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/v/pyvene?color=red"></img></a>
+<a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/v/pyvene?color=red"></img></a> *This is a beta-release.*
 
 # **Use _Activation Intervention_ to Interpret _Causal Mechanism_ of Model**
 **pyvene** supports customizable interventions on different neural architectures (e.g., RNN or Transformers). It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) at scale to gain interpretability insights.
@@ -21,6 +21,7 @@ You can intervene with supported models as,
 ```python
 import pyvene
 from pyvene import IntervenableRepresentationConfig, IntervenableConfig, IntervenableModel
+from pyvene import VanillaIntervention
 
 # provided wrapper for huggingface gpt2 model
 _, tokenizer, gpt2 = pyvene.create_gpt2()
@@ -32,19 +33,18 @@ intervenable_gpt2 = IntervenableModel(
             IntervenableRepresentationConfig(
                 0,            # intervening layer 0
                 "mlp_output", # intervening mlp output
-                "pos",        # intervening based on positional indices of tokens
-                1             # maximally intervening one token
             ),
         ],
+        intervenable_interventions_type=VanillaIntervention
     ), 
     model = gpt2
 )
 
-# intervene base with sources on the fourth token.
+# intervene base with sources on the 4th token.
 original_outputs, intervened_outputs = intervenable_gpt2(
     tokenizer("The capital of Spain is", return_tensors="pt"),
     [tokenizer("The capital of Italy is", return_tensors="pt")],
-    {"sources->base": ([[[4]]], [[[4]]])}
+    {"sources->base": 4}
 )
 original_outputs.last_hidden_state - intervened_outputs.last_hidden_state
 ```

@@ -20,6 +20,10 @@ from .models.interventions import SigmoidMaskRotatedSpaceIntervention
 from .models.interventions import LowRankRotatedSpaceIntervention
 from .models.interventions import PCARotatedSpaceIntervention
 from .models.interventions import CollectIntervention
+from .models.interventions import ConstantSourceIntervention
+from .models.interventions import ZeroIntervention
+from .models.interventions import LocalistRepresentationIntervention
+from .models.interventions import DistributedRepresentationIntervention
 
 
 # Utils
