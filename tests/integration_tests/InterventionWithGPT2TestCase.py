@@ -1,6 +1,6 @@
 import unittest
 from ..utils import *
-
+from ..gpt2_utils import *
 
 class InterventionWithGPT2TestCase(unittest.TestCase):
     @classmethod
