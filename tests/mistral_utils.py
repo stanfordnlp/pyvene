@@ -1,56 +1,9 @@
-##################
-#
-# common imports
-#
-##################
-import os, shutil, torch, random, uuid, math
-import pandas as pd
-import numpy as np
-from transformers import MistralConfig
-from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask
-
+import torch
 import torch.nn.functional as F
 
-
-import subprocess
-
-def is_package_installed(package_name):
-    try:
-        # Execute 'pip list' command and capture the output
-        result = subprocess.run(['pip', 'list'], stdout=subprocess.PIPE, text=True)
-
-        # Check if package_name is in the result
-        return package_name in result.stdout
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return False
-
-# Replace 'pyvene' with the name of the package you want to check
-package_name = 'pyvene'
-if is_package_installed(package_name):
-    raise RuntimeError(
-        f"Remove your pip installed {package_name} before running tests.")
-else:
-    print(f"'{package_name}' is not installed.")
-    print("PASS: pyvene is not installed. Testing local dev code.")
-
-from pyvene.models.basic_utils import embed_to_distrib, top_vals, format_token
-from pyvene.models.configuration_intervenable_model import (
-    IntervenableRepresentationConfig,
-    IntervenableConfig,
-)
-from pyvene.models.intervenable_base import IntervenableModel
-from pyvene.models.interventions import (
-    VanillaIntervention,
-    RotatedSpaceIntervention,
-    LowRankRotatedSpaceIntervention,
-)
-from pyvene.models.mistral.modelings_intervenable_mistral import create_mistral
-
-
 ##################
 #
-# helper functions to get golden labels
+# helper functions of Mistral model to get golden labels
 # by manually creating counterfactual labels.
 #
 ##################
@@ -257,7 +210,6 @@ def MISTRAL_RUN(mistral, input_ids, CACHE_ACTIVATIONS, INTERVENTION_ACTIVATIONS)
         hidden_states = MISTRAL_BLOCK_RUN(
             block, hidden_states, attention_mask, position_ids, i, CACHE_ACTIVATIONS, INTERVENTION_ACTIVATIONS
         )
-
         hidden_states = DO_MISTRAL_INTERVENTION(
             f"{i}.block_output", hidden_states, INTERVENTION_ACTIVATIONS
         )

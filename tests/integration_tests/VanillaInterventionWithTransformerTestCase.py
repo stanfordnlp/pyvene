@@ -1,29 +1,40 @@
 import unittest
 from ..utils import *
-from ..mistral_utils import *
+from ..gpt2_utils import *
 
 
-class IntervenableModelHookTestCase(unittest.TestCase):
+class VanillaInterventionWithTransformerTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        print("=== Test Suite: IntervenableModelHookTestCase ===")
-        self.config, self.tokenizer, self.mistral = create_mistral(
-            config=MistralConfig(
-                vocab_size=10,
-                hidden_size=32,
-                intermediate_size=32,
-                num_hidden_layers=4,
-                num_attention_heads=8,
-                num_key_value_heads=8,
-                max_position_embeddings=128,
-                pad_token_id=0,
+        print("=== Test Suite: VanillaInterventionWithTransformerTestCase ===")
+        self.config, self.tokenizer, self.gpt2 = create_gpt2_lm(
+            config=GPT2Config(
+                n_embd=24,
+                attn_pdrop=0.0,
+                embd_pdrop=0.0,
+                resid_pdrop=0.0,
+                summary_first_dropout=0.0,
+                n_layer=4,
                 bos_token_id=0,
                 eos_token_id=0,
-            ),
+                n_positions=128,
+                vocab_size=10,
+            )
         )
-
+        self.vanilla_block_output_intervenable_config = IntervenableConfig(
+            intervenable_model_type=type(self.gpt2),
+            intervenable_representations=[
+                IntervenableRepresentationConfig(
+                    0,
+                    "block_output",
+                    "pos",
+                    1,
+                ),
+            ],
+            intervenable_interventions_type=VanillaIntervention,
+        )
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.mistral = self.mistral.to(self.device)
+        self.gpt2 = self.gpt2.to(self.device)
 
         self.nonhead_streams = [
             "block_output",
@@ -51,125 +62,25 @@ class IntervenableModelHookTestCase(unittest.TestCase):
         Positive test case to check whether vanilla forward pass work
         with our object.
         """
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.mistral),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
-                    0, "block_output", "pos", 1, subspace_partition=[[0, 6], [6, 24]]
-                ),
-            ],
-            intervenable_interventions_type=VanillaIntervention,
+        intervenable = IntervenableModel(
+            self.vanilla_block_output_intervenable_config, self.gpt2
         )
-        intervenable = IntervenableModel(intervenable_config, self.mistral)
         intervenable.set_device(self.device)
         base = {"input_ids": torch.randint(0, 10, (10, 5)).to(self.device)}
-        golden_out = self.mistral(**base).logits
+        golden_out = self.gpt2(**base).logits
         our_output = intervenable(base)[0][0]
         self.assertTrue(torch.allclose(golden_out, our_output))
         # make sure the toolkit also works
-        toolkit_out = MISTRAL_RUN(self.mistral, base["input_ids"], {}, {})
-        self.assertTrue(torch.allclose(toolkit_out, golden_out))
-
-    def _test_subspace_partition_in_forward(self, intervention_type):
-        """
-        Provide subpace intervention indices in the forward only.
-        """
-        batch_size = 10
-        with_partition_intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.mistral),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
-                    0,
-                    "block_output",
-                    "pos",
-                    1,
-                    intervenable_low_rank_dimension=24,
-                    subspace_partition=[[0, 6], [6, 24]],
-                ),
-            ],
-            intervenable_interventions_type=intervention_type,
-        )
-        intervenable = IntervenableModel(
-            with_partition_intervenable_config, self.mistral, use_fast=False
-        )
-        intervenable.set_device(self.device)
-        base = {"input_ids": torch.randint(0, 10, (batch_size, 5)).to(self.device)}
-        source = {"input_ids": torch.randint(0, 10, (batch_size, 5)).to(self.device)}
-        _, with_partition_our_output = intervenable(
-            base,
-            [source],
-            {"sources->base": ([[[0]] * batch_size], [[[0]] * batch_size])},
-            subspaces=[[[0]] * batch_size],
-        )
-
-        without_partition_intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.mistral),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
-                    0, "block_output", "pos", 1, intervenable_low_rank_dimension=24
-                ),
-            ],
-            intervenable_interventions_type=intervention_type,
-        )
-        intervenable_fast = IntervenableModel(
-            without_partition_intervenable_config, self.mistral, use_fast=True
-        )
-        intervenable_fast.set_device(self.device)
-        if intervention_type in {
-            RotatedSpaceIntervention,
-            LowRankRotatedSpaceIntervention,
-        }:
-            list(intervenable_fast.interventions.values())[0][
-                0
-            ].rotate_layer.weight = list(intervenable.interventions.values())[0][
-                0
-            ].rotate_layer.weight
-
-        _, without_partition_our_output = intervenable_fast(
-            base,
-            [source],
-            {"sources->base": ([[[0]] * batch_size], [[[0]] * batch_size])},
-            subspaces=[[[i for i in range(6)]] * batch_size],
-        )
-
-        # make sure the toolkit also works
         self.assertTrue(
-            torch.allclose(
-                with_partition_our_output[0], without_partition_our_output[0]
-            )
+            torch.allclose(GPT2_RUN(self.gpt2, base["input_ids"], {}, {}), golden_out)
         )
-
-    def test_vanilla_subspace_partition_in_forward_positive(self):
-        self._test_subspace_partition_in_forward(VanillaIntervention)
-
-    def test_rotate_subspace_partition_in_forward_positive(self):
-        self._test_subspace_partition_in_forward(RotatedSpaceIntervention)
-
-    def test_lowrank_rotate_subspace_partition_in_forward_positive(self):
-        _retry = 10
-        while _retry > 0:
-            try:
-                self._test_subspace_partition_in_forward(
-                    LowRankRotatedSpaceIntervention
-                )
-            except:
-                pass  # retry
-            finally:
-                break
-            _retry -= 1
-        if _retry > 0:
-            pass  # succeed
-        else:
-            raise AssertionError(
-                "test_lowrank_rotate_subspace_partition_in_forward_positive with retries"
-            )
 
     def test_invalid_intervenable_unit_negative(self):
         """
         Invalid intervenable unit.
         """
         intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.mistral),
+            intervenable_model_type=type(self.gpt2),
             intervenable_representations=[
                 IntervenableRepresentationConfig(
                     0,
@@ -181,7 +92,7 @@ class IntervenableModelHookTestCase(unittest.TestCase):
             intervenable_interventions_type=VanillaIntervention,
         )
         try:
-            intervenable = IntervenableModel(intervenable_config, self.mistral)
+            intervenable = IntervenableModel(intervenable_config, self.gpt2)
         except ValueError:
             pass
         else:
@@ -208,7 +119,7 @@ class IntervenableModelHookTestCase(unittest.TestCase):
         }
 
         intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.mistral),
+            intervenable_model_type=type(self.gpt2),
             intervenable_representations=[
                 IntervenableRepresentationConfig(
                     intervention_layer,
@@ -220,14 +131,14 @@ class IntervenableModelHookTestCase(unittest.TestCase):
             intervenable_interventions_type=intervention_type,
         )
         intervenable = IntervenableModel(
-            intervenable_config, self.mistral, use_fast=use_fast
+            intervenable_config, self.gpt2, use_fast=use_fast
         )
         intervention = list(intervenable.interventions.values())[0][0]
 
         base_activations = {}
         source_activations = {}
-        _ = MISTRAL_RUN(self.mistral, base["input_ids"], base_activations, {})
-        _ = MISTRAL_RUN(self.mistral, source["input_ids"], source_activations, {})
+        _ = GPT2_RUN(self.gpt2, base["input_ids"], base_activations, {})
+        _ = GPT2_RUN(self.gpt2, source["input_ids"], source_activations, {})
         _key = f"{intervention_layer}.{intervention_stream}"
         if isinstance(positions[0], list):
             for i, position in enumerate(positions):
@@ -242,8 +153,8 @@ class IntervenableModelHookTestCase(unittest.TestCase):
                     base_activations[_key][:, position],
                     source_activations[_key][:, position],
                 )
-        golden_out = MISTRAL_RUN(
-            self.mistral, base["input_ids"], {}, {_key: base_activations[_key]}
+        golden_out = GPT2_RUN(
+            self.gpt2, base["input_ids"], {}, {_key: base_activations[_key]}
         )
 
         if isinstance(positions[0], list):
@@ -319,7 +230,7 @@ class IntervenableModelHookTestCase(unittest.TestCase):
         }
 
         intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.mistral),
+            intervenable_model_type=type(self.gpt2),
             intervenable_representations=[
                 IntervenableRepresentationConfig(
                     intervention_layer,
@@ -330,13 +241,13 @@ class IntervenableModelHookTestCase(unittest.TestCase):
             ],
             intervenable_interventions_type=intervention_type,
         )
-        intervenable = IntervenableModel(intervenable_config, self.mistral)
+        intervenable = IntervenableModel(intervenable_config, self.gpt2)
         intervention = list(intervenable.interventions.values())[0][0]
 
         base_activations = {}
         source_activations = {}
-        _ = MISTRAL_RUN(self.mistral, base["input_ids"], base_activations, {})
-        _ = MISTRAL_RUN(self.mistral, source["input_ids"], source_activations, {})
+        _ = GPT2_RUN(self.gpt2, base["input_ids"], base_activations, {})
+        _ = GPT2_RUN(self.gpt2, source["input_ids"], source_activations, {})
         _key = f"{intervention_layer}.{intervention_stream}"
         if isinstance(heads[0], list):
             for i, head in enumerate(heads):
@@ -353,8 +264,8 @@ class IntervenableModelHookTestCase(unittest.TestCase):
                         base_activations[_key][:, head, position],
                         source_activations[_key][:, head, position],
                     )
-        golden_out = MISTRAL_RUN(
-            self.mistral, base["input_ids"], {}, {_key: base_activations[_key]}
+        golden_out = GPT2_RUN(
+            self.gpt2, base["input_ids"], {}, {_key: base_activations[_key]}
         )
 
         if isinstance(positions[0], list):
@@ -387,7 +298,7 @@ class IntervenableModelHookTestCase(unittest.TestCase):
                 intervention_layer=random.randint(0, 3),
                 intervention_stream=stream,
                 intervention_type=VanillaIntervention,
-                heads=[random.randint(0, 7)], # We only have 8 heads!
+                heads=[random.randint(0, 8)],
                 positions=[random.randint(0, 8)],
             )
 
@@ -427,59 +338,43 @@ class IntervenableModelHookTestCase(unittest.TestCase):
                 use_fast=True,
             )
 
+
 def suite():
     suite = unittest.TestSuite()
+    suite.addTest(VanillaInterventionWithTransformerTestCase("test_clean_run_positive"))
     suite.addTest(
-        IntervenableModelHookTestCase("test_clean_run_positive")
-    )
-    suite.addTest(
-        IntervenableModelHookTestCase(
-            "test_vanilla_subspace_partition_in_forward_positive"
+        VanillaInterventionWithTransformerTestCase(
+            "test_invalid_intervenable_unit_negative"
         )
     )
     suite.addTest(
-        IntervenableModelHookTestCase(
-            "test_rotate_subspace_partition_in_forward_positive"
-        )
-    )
-    suite.addTest(
-        IntervenableModelHookTestCase(
-            "test_lowrank_rotate_subspace_partition_in_forward_positive"
-        )
-    )
-    suite.addTest(
-        IntervenableModelHookTestCase(
-            "test_with_multiple_heads_positions_vanilla_intervention_positive"
-        )
-    )
-    suite.addTest(
-        IntervenableModelHookTestCase(
-            "test_with_use_fast_vanilla_intervention_positive"
-        )
-    )
-    suite.addTest(
-        IntervenableModelHookTestCase(
+        VanillaInterventionWithTransformerTestCase(
             "test_with_single_position_vanilla_intervention_positive"
         )
     )
     suite.addTest(
-        IntervenableModelHookTestCase(
+        VanillaInterventionWithTransformerTestCase(
             "test_with_multiple_position_vanilla_intervention_positive"
         )
     )
     suite.addTest(
-        IntervenableModelHookTestCase(
+        VanillaInterventionWithTransformerTestCase(
             "test_with_complex_position_vanilla_intervention_positive"
         )
     )
     suite.addTest(
-        IntervenableModelHookTestCase(
+        VanillaInterventionWithTransformerTestCase(
             "test_with_single_head_position_vanilla_intervention_positive"
         )
     )
     suite.addTest(
-        IntervenableModelHookTestCase(
-            "test_invalid_intervenable_unit_negative"
+        VanillaInterventionWithTransformerTestCase(
+            "test_with_multiple_heads_positions_vanilla_intervention_positive"
+        )
+    )
+    suite.addTest(
+        VanillaInterventionWithTransformerTestCase(
+            "test_with_use_fast_vanilla_intervention_positive"
         )
     )
     return suite
