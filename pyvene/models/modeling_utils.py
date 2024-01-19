@@ -177,12 +177,13 @@ def check_sorted_intervenables_by_topological_order(
 
     scores = {}
     for k, _ in intervenable_representations.items():
-        l = int(k.split(".")[1]) + 1
-        r = TOPOLOGICAL_ORDER.index(k.split(".")[3])
+        l = 100*(int(k.split(".")[1]) + 1)
+        r = 10*TOPOLOGICAL_ORDER.index(k.split(".")[3])
         # incoming order in case they are ordered
-        o = int(k.split("#")[1]) + 1
-        scores[k] = l * r * o
+        o = 1*(int(k.split("#")[1]) + 1)
+        scores[k] = l + r + o
     sorted_keys_by_topological_order = sorted(scores.keys(), key=lambda x: scores[x])
+    
     return sorted_intervenable_keys == sorted_keys_by_topological_order
 
 
