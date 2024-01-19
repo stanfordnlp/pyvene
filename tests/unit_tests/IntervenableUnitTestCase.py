@@ -1,5 +1,6 @@
 import unittest
 from ..utils import *
+from ..gpt2_utils import *
 
 
 class IntervenableUnitTestCase(unittest.TestCase):

@@ -1,5 +1,6 @@
 from .constants import *
 from .llama.modelings_intervenable_llama import *
+from .mistral.modelings_intervenable_mistral import *
 from .gpt2.modelings_intervenable_gpt2 import *
 from .gpt_neo.modelings_intervenable_gpt_neo import *
 from .gpt_neox.modelings_intervenable_gpt_neox import *
@@ -75,6 +76,7 @@ type_to_module_mapping = {
     hf_models.xlm.modeling_xlm.XLMWithLMHeadModel: xlm_generic_type_to_module_mapping,
     hf_models.xlm.modeling_xlm.XLMForSequenceClassification: xlm_generic_type_to_module_mapping,
     # mistral
+    hf_models.mistral.modeling_mistral.MistralModel: mistral_type_to_module_mapping,
     hf_models.mistral.modeling_mistral.MistralForCausalLM: mistral_lm_type_to_module_mapping,
     # t5
     hf_models.t5.modeling_t5.T5ForConditionalGeneration: t5_lm_type_to_module_mapping,
@@ -124,6 +126,7 @@ type_to_dimension_mapping = {
     hf_models.xlm.modeling_xlm.XLMWithLMHeadModel: xlm_generic_type_to_dimension_mapping,
     hf_models.xlm.modeling_xlm.XLMForSequenceClassification: xlm_generic_type_to_dimension_mapping,
     # mistral
+    hf_models.mistral.modeling_mistral.MistralModel: mistral_type_to_dimension_mapping,
     hf_models.mistral.modeling_mistral.MistralForCausalLM: mistral_lm_type_to_dimension_mapping,
     # t5
     hf_models.t5.modeling_t5.T5ForConditionalGeneration: t5_lm_type_to_dimension_mapping,

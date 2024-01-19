@@ -38,4 +38,5 @@ from .models.gru.modelings_intervenable_gru import create_gru
 from .models.gru.modelings_intervenable_gru import create_gru_lm
 from .models.gru.modelings_intervenable_gru import create_gru_classifier
 from .models.llama.modelings_intervenable_llama import create_llama
+from .models.mistral.modelings_intervenable_mistral import create_mistral
 from .models.mlp.modelings_intervenable_mlp import create_mlp_classifier

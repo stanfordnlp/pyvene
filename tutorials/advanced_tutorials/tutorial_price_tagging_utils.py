@@ -94,7 +94,6 @@ def pricing_tag_game_example_sampler(
     output_ids = (torch.ones(input_ids.shape[0]) * -100).long().tolist()
     output_ids[-1] = label
     input_ids = input_ids.tolist()
-    assert len(input_ids) == 82
 
     return input_ids, output_ids
 
@@ -126,7 +125,6 @@ def pricing_tag_game_example_sampler_with_info(
     output_ids = (torch.ones(input_ids.shape[0]) * -100).long().tolist()
     output_ids[-1] = label
     input_ids = input_ids.tolist()
-    assert len(input_ids) == 82
 
     return (
         input_ids,
@@ -286,9 +284,6 @@ def bound_alignment_sampler(
 
         all_ctf_output_ids += [ctf_output_ids]
         all_intervention_ids += [intervention_id]
-
-        assert len(base_input_ids) == 82
-        assert len(source_input_ids) == 82
 
     return (
         all_base_input_ids,
