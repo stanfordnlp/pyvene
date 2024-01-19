@@ -108,15 +108,12 @@ class IntervenableModel(nn.Module):
                     if type(intervention_type) != list
                     else intervention_type[i]
                 )
+                other_medata = representation._asdict()
+                other_medata["use_fast"] = self.use_fast
                 intervention = intervention_function(
                     get_intervenable_dimension(
                         get_internal_model_type(model), model.config, representation
-                    ),
-                    proj_dim=representation.intervenable_low_rank_dimension,
-                    # additional args
-                    subspace_partition=representation.subspace_partition,
-                    use_fast=self.use_fast,
-                    source_representation=representation.source_representation,
+                    ), **other_medata 
                 )
                 if representation.intervention_link_key in self._intervention_pointers:
                     self._intervention_reverse_link[
@@ -125,25 +122,13 @@ class IntervenableModel(nn.Module):
                     intervention = self._intervention_pointers[
                         representation.intervention_link_key
                     ]
-                else:
-                    intervention = intervention_function(
-                        get_intervenable_dimension(
-                            get_internal_model_type(model), model.config, representation
-                        ),
-                        proj_dim=representation.intervenable_low_rank_dimension,
-                        # additional args
-                        subspace_partition=representation.subspace_partition,
-                        use_fast=self.use_fast,
-                        source_representation=representation.source_representation,
-                    )
-                    # we cache the intervention for sharing if the key is not None
-                    if representation.intervention_link_key is not None:
-                        self._intervention_pointers[
-                            representation.intervention_link_key
-                        ] = intervention
-                        self._intervention_reverse_link[
-                            _key
-                        ] = f"link#{representation.intervention_link_key}"
+                elif representation.intervention_link_key is not None:
+                    self._intervention_pointers[
+                        representation.intervention_link_key
+                    ] = intervention
+                    self._intervention_reverse_link[
+                        _key
+                    ] = f"link#{representation.intervention_link_key}"
             if isinstance(
                 intervention,
                 CollectIntervention
@@ -419,12 +404,34 @@ class IntervenableModel(nn.Module):
         )
         saving_config.intervenable_interventions_type = []
         saving_config.intervention_dimensions = []
+        
+        # handle constant source reprs if passed in.
+        serialized_intervenable_representations = []
+        for reprs in saving_config.intervenable_representations:
+            serialized_reprs = {}
+            for k, v in reprs._asdict().items():
+                if k == "hidden_source_representation":
+                    continue
+                if k == "source_representation":
+                    # hidden flag only set here
+                    if v is not None:
+                        serialized_reprs["hidden_source_representation"] = True
+                    serialized_reprs[k] = None
+                else:
+                    serialized_reprs[k] = v
+            serialized_intervenable_representations += [
+                IntervenableRepresentationConfig(**serialized_reprs)
+            ]
+        saving_config.intervenable_representations = \
+            serialized_intervenable_representations
+
         for k, v in self.interventions.items():
             intervention = v[0]
             saving_config.intervenable_interventions_type += [str(type(intervention))]
             binary_filename = f"intkey_{k}.bin"
             # save intervention binary file
-            if isinstance(intervention, TrainableIntervention):
+            if isinstance(intervention, TrainableIntervention) or \
+                intervention.source_representation is not None:
                 logging.warn(f"Saving trainable intervention to {binary_filename}.")
                 torch.save(
                     intervention.state_dict(),
@@ -514,7 +521,8 @@ class IntervenableModel(nn.Module):
         for i, (k, v) in enumerate(intervenable.interventions.items()):
             intervention = v[0]
             binary_filename = f"intkey_{k}.bin"
-            if isinstance(intervention, TrainableIntervention):
+            if isinstance(intervention, TrainableIntervention) or \
+                intervention.is_source_constant:
                 if not os.path.exists(load_directory) or from_huggingface_hub:
                     hf_hub_download(
                         repo_id=load_directory,
@@ -522,9 +530,12 @@ class IntervenableModel(nn.Module):
                         cache_dir=local_directory,
                     )
                 logging.warn(f"Loading trainable intervention from {binary_filename}.")
-                intervention.load_state_dict(
-                    torch.load(os.path.join(load_directory, binary_filename))
-                )
+                saved_state_dict = torch.load(os.path.join(load_directory, binary_filename))
+                if intervention.is_source_constant:
+                    intervention.register_buffer(
+                        'source_representation', saved_state_dict['source_representation']
+                    )
+                intervention.load_state_dict(saved_state_dict)
             intervention.interchange_dim = saving_config.intervention_dimensions[i]
 
         return intervenable
@@ -805,8 +816,7 @@ class IntervenableModel(nn.Module):
                 # TODO: need to figure out why clone is needed
                 if not self.is_model_stateless:
                     selected_output = selected_output.clone()
-                
-
+                    
                 if isinstance(
                     intervention,
                     CollectIntervention

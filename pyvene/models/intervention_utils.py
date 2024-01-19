@@ -62,15 +62,16 @@ def _do_intervention_by_swap(
     """The basic do function that guards interventions"""
     if mode == "collect":
         assert source is None
-    # auto broadcast
-    if base.shape != source.shape:
-        try:
-            source = broadcast_tensor(source, base.shape)
-        except:
-            raise ValueError(
-                f"source with shape {source.shape} cannot be broadcasted "
-                f"into base with shape {base.shape}."
-            )
+    else:
+        # auto broadcast
+        if base.shape != source.shape:
+            try:
+                source = broadcast_tensor(source, base.shape)
+            except:
+                raise ValueError(
+                    f"source with shape {source.shape} cannot be broadcasted "
+                    f"into base with shape {base.shape}."
+                )
     # interchange
     if use_fast:
         if subspaces is not None:

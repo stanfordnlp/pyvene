@@ -37,5 +37,6 @@ from .models.gpt_neox.modelings_intervenable_gpt_neox import create_gpt_neox
 from .models.gru.modelings_intervenable_gru import create_gru
 from .models.gru.modelings_intervenable_gru import create_gru_lm
 from .models.gru.modelings_intervenable_gru import create_gru_classifier
+from .models.gru.modelings_gru import GRUConfig
 from .models.llama.modelings_intervenable_llama import create_llama
 from .models.mlp.modelings_intervenable_mlp import create_mlp_classifier
