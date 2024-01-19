@@ -14,8 +14,10 @@ IntervenableRepresentationConfig = namedtuple(
     "intervenable_unit max_number_of_units "
     "intervenable_low_rank_dimension "
     "subspace_partition group_key intervention_link_key intervenable_moe "
-    "source_representation",
-    defaults=(0, "block_output", "pos", 1, None, None, None, None, None, None),
+    "source_representation hidden_source_representation",
+    defaults=(
+        0, "block_output", "pos", 1, 
+        None, None, None, None, None, None, None),
 )
 
 
@@ -31,7 +33,10 @@ class IntervenableConfig(PretrainedConfig):
         intervenable_model_type=None,
         **kwargs,
     ):
-        self.intervenable_representations = intervenable_representations
+        if isinstance(intervenable_representations, list):
+            self.intervenable_representations = intervenable_representations
+        else:
+            self.intervenable_representations = [intervenable_representations]
         self.intervenable_interventions_type = intervenable_interventions_type
         self.mode = mode
         self.intervenable_interventions = intervenable_interventions
@@ -42,14 +47,16 @@ class IntervenableConfig(PretrainedConfig):
 
     def __repr__(self):
         intervenable_representations = []
-        for r in self.intervenable_representations:
+        for reprs in self.intervenable_representations:
+            if isinstance(reprs, list):
+                reprs = IntervenableRepresentationConfig(*reprs)
             new_d = {}
-            for k, v in r._asdict().items():
+            for k, v in reprs._asdict().items():
                 if type(v) not in {str, int, list, tuple, dict} and v is not None and v != [None]:
                     new_d[k] = "PLACEHOLDER"
                 else:
                     new_d[k] = v
-                intervenable_representations += [new_d]
+            intervenable_representations += [new_d]
         _repr = {
             "intervenable_model_type": str(self.intervenable_model_type),
             "intervenable_representations": tuple(intervenable_representations),
