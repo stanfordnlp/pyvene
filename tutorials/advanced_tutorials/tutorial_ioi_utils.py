@@ -162,7 +162,6 @@ class Prompt:
         """
         assert len(orig_pattern) == 3
         assert len(new_pattern) == 3
-        assert len(set(orig_pattern)) == len(set(new_pattern)) == 2
         assert self.matches_pattern(names=self.names, pattern=orig_pattern)
         orig_to_name = {orig_pattern[i]: self.names[i] for i in range(3)}
         new_names = [None for _ in range(3)]
@@ -469,11 +468,15 @@ criterion = torch.nn.CrossEntropyLoss()
 
 
 # You can define your custom compute_metrics function.
-def compute_metrics(eval_preds, eval_labels):
+def compute_metrics(eval_preds, eval_labels, eval_alt_labels=None):
     total_count = 0
     correct_count = 0
+    flip_count = 0
+    label_logit = 0
+    label_prob = 0
+    alt_label_logit = 0
     kl_divs = []
-    for eval_pred, eval_label in zip(eval_preds, eval_labels):
+    for i, (eval_pred, eval_label) in enumerate(zip(eval_preds, eval_labels)):
         # acc
         actual_test_labels = eval_label
         pred_test_labels = torch.argmax(eval_pred[:, -1], dim=-1)
@@ -484,9 +487,29 @@ def compute_metrics(eval_preds, eval_labels):
         kl_divs += [
             eval_pred[:, -1][torch.arange(len(actual_test_labels)), actual_test_labels]
         ]
-    accuracy = round(correct_count / total_count, 2)
+        # logit flip
+        if eval_alt_labels is not None:
+            alt_label = eval_alt_labels[i]
+            alt_label_logit += eval_pred[:, -1][torch.arange(len(actual_test_labels)), alt_label].mean().item()
+            for b in range(len(actual_test_labels)):
+                if eval_pred[b, -1, actual_test_labels[b]] >\
+                        eval_pred[b, -1, alt_label[b]]:
+                    flip_count += 1
+        # label logits
+        label_logit += eval_pred[:, -1][torch.arange(len(actual_test_labels)), actual_test_labels].mean().item()
+        label_prob += eval_pred[:, -1].softmax(-1)[torch.arange(len(actual_test_labels)), actual_test_labels].mean().item()
+    accuracy = correct_count / total_count
     kl_div = torch.cat(kl_divs, dim=0).mean()
-    return {"accuracy": accuracy, "kl_div": kl_div}
+    result = {
+        "accuracy": accuracy,
+        "kl_div": kl_div,
+        "label_logit": label_logit / total_count,
+        "label_prob": label_prob / total_count
+    }
+    if eval_alt_labels is not None:
+        result["logit_flip"] = flip_count / total_count
+        result["alt_label_logit"] = alt_label_logit / total_count
+    return result
 
 
 def calculate_loss(logits, labels):
