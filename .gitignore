@@ -9,6 +9,7 @@ results*/
 logs
 _hidden_local_dev*
 tmp_dir_new*/
+tmp/
 notebooks/figures/
 *.tsv
 *.csv

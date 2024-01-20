@@ -77,6 +77,15 @@ class ConstantSourceIntervention(Intervention):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.is_source_constant = True
+
+
+class SourcelessIntervention(Intervention):
+
+    """No source."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.is_source_constant = True
     
     
 class BasisAgnosticIntervention(Intervention):

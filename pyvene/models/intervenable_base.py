@@ -422,6 +422,10 @@ class IntervenableModel(nn.Module):
                     if v is not None:
                         serialized_reprs["hidden_source_representation"] = True
                     serialized_reprs[k] = None
+                elif k == "intervention_type":
+                    if v is not None:
+                        serialized_reprs[k] = str(v)
+                    serialized_reprs[k] = v
                 else:
                     serialized_reprs[k] = v
             serialized_representations += [
@@ -429,7 +433,7 @@ class IntervenableModel(nn.Module):
             ]
         saving_config.representations = \
             serialized_representations
-
+        
         for k, v in self.interventions.items():
             intervention = v[0]
             saving_config.intervention_types += [str(type(intervention))]
@@ -458,6 +462,7 @@ class IntervenableModel(nn.Module):
                         repo_type="model",
                     )
             saving_config.intervention_dimensions += [intervention.interchange_dim.tolist()]
+
         # save metadata config
         saving_config.save_pretrained(save_directory)
         if save_to_hf_hub:
@@ -499,6 +504,7 @@ class IntervenableModel(nn.Module):
         # load config
         saving_config = IntervenableConfig.from_pretrained(load_directory)
         casted_intervention_types = []
+
         for type_str in saving_config.intervention_types:
             casted_intervention_types += [get_type_from_string(type_str)]
         saving_config.intervention_types = (
@@ -519,7 +525,8 @@ class IntervenableModel(nn.Module):
             intervention = v[0]
             binary_filename = f"intkey_{k}.bin"
             if isinstance(intervention, TrainableIntervention) or \
-                intervention.is_source_constant:
+                (intervention.is_source_constant and \
+                     not isinstance(intervention, SourcelessIntervention)):
                 if not os.path.exists(load_directory) or from_huggingface_hub:
                     hf_hub_download(
                         repo_id=load_directory,

@@ -56,6 +56,7 @@ class IntervenableConfig(PretrainedConfig):
         overwrite = False
         overwrite_intervention_types = []
         for reprs in self.representations:
+            
             if overwrite:
                 if reprs.intervention_type is None:
                     raise ValueError(
@@ -101,7 +102,7 @@ class IntervenableConfig(PretrainedConfig):
         representations = []
         for reprs in self.representations:
             if isinstance(reprs, list):
-                reprs = IntervenableRepresentationConfig(*reprs)
+                reprs = RepresentationConfig(*reprs)
             new_d = {}
             for k, v in reprs._asdict().items():
                 if type(v) not in {str, int, list, tuple, dict} and v is not None and v != [None]:
