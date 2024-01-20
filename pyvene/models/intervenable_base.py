@@ -1,4 +1,4 @@
-import json, logging
+import json, logging, torch
 import numpy as np
 from collections import OrderedDict
 from typing import List, Optional, Tuple, Union, Dict
@@ -10,7 +10,7 @@ from .interventions import *
 from .constants import CONST_QKV_INDICES
 from .configuration_intervenable_model import (
     IntervenableConfig,
-    IntervenableRepresentationConfig,
+    RepresentationConfig,
 )
 from .interventions import (
     TrainableIntervention,
@@ -29,13 +29,18 @@ class IntervenableModel(nn.Module):
     Generic intervenable model. Alignments are specified in the config.
     """
 
-    def __init__(self, intervenable_config, model, **kwargs):
+    def __init__(self, config, model, **kwargs):
         super().__init__()
-        self.intervenable_config = intervenable_config
-        self.mode = intervenable_config.mode
-        intervention_type = intervenable_config.intervenable_interventions_type
+        if isinstance(config, dict) or isinstance(config, list):
+            config = IntervenableConfig(
+                representations = config
+            )
+        self.config = config
+        
+        self.mode = config.mode
+        intervention_type = config.intervention_types
         self.is_model_stateless = is_stateless(model)
-        self.intervenable_config.intervenable_model_type = type(model) # backfill
+        self.config.model_type = type(model) # backfill
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
         self.model_has_grad = False
         if self.use_fast:
@@ -48,7 +53,7 @@ class IntervenableModel(nn.Module):
         # each representation can get a different intervention type
         if type(intervention_type) == list:
             assert len(intervention_type) == len(
-                intervenable_config.intervenable_representations
+                config.representations
             )
 
         ###
@@ -62,7 +67,7 @@ class IntervenableModel(nn.Module):
         # To support a new model type, you need to provide a
         # mapping between supported abstract type and module name.
         ###
-        self.intervenable_representations = {}
+        self.representations = {}
         self.interventions = {}
         self._key_collision_counter = {}
         self.return_collect_activations = False
@@ -86,22 +91,22 @@ class IntervenableModel(nn.Module):
         _any_group_key = False
         _original_key_order = []
         for i, representation in enumerate(
-            intervenable_config.intervenable_representations
+            config.representations
         ):
             _key = self._get_representation_key(representation)
 
-            if representation.intervenable_unit not in CONST_VALID_INTERVENABLE_UNIT:
+            if representation.unit not in CONST_VALID_INTERVENABLE_UNIT:
                 raise ValueError(
-                    f"{representation.intervenable_unit} is not supported as intervenable unit. Valid options: ",
+                    f"{representation.unit} is not supported as intervenable unit. Valid options: ",
                     f"{CONST_VALID_INTERVENABLE_UNIT}",
                 )
 
             if (
-                intervenable_config.intervenable_interventions is not None
-                and intervenable_config.intervenable_interventions[0] is not None
+                config.interventions is not None
+                and config.interventions[0] is not None
             ):
                 # we leave this option open but not sure if it is a desired one
-                intervention = intervenable_config.intervenable_interventions[i]
+                intervention = config.interventions[i]
             else:
                 intervention_function = (
                     intervention_type
@@ -111,7 +116,7 @@ class IntervenableModel(nn.Module):
                 other_medata = representation._asdict()
                 other_medata["use_fast"] = self.use_fast
                 intervention = intervention_function(
-                    get_intervenable_dimension(
+                    get_dimension(
                         get_internal_model_type(model), model.config, representation
                     ), **other_medata 
                 )
@@ -135,11 +140,11 @@ class IntervenableModel(nn.Module):
             ):
                 self.return_collect_activations = True
             
-            intervenable_module_hook = get_intervenable_module_hook(
+            module_hook = get_module_hook(
                 model, representation
             )
-            self.intervenable_representations[_key] = representation
-            self.interventions[_key] = (intervention, intervenable_module_hook)
+            self.representations[_key] = representation
+            self.interventions[_key] = (intervention, module_hook)
             self._key_getter_call_counter[
                 _key
             ] = 0  # we memo how many the hook is called,
@@ -150,28 +155,28 @@ class IntervenableModel(nn.Module):
             _original_key_order += [_key]
             if representation.group_key is not None:
                 _any_group_key = True
-        if self.intervenable_config.sorted_keys is not None:
+        if self.config.sorted_keys is not None:
             logging.warn(
                 "The key is provided in the config. "
                 "Assuming this is loaded from a pretrained module."
             )
         if (
-            self.intervenable_config.sorted_keys is not None
+            self.config.sorted_keys is not None
             or "intervenables_sort_fn" not in kwargs
         ):
-            self.sorted_intervenable_keys = _original_key_order
+            self.sorted_keys = _original_key_order
         else:
             # the key order is independent of group, it is used to read out intervention locations.
-            self.sorted_intervenable_keys = kwargs["intervenables_sort_fn"](
-                model, self.intervenable_representations
+            self.sorted_keys = kwargs["intervenables_sort_fn"](
+                model, self.representations
             )
 
         # check it follows topological order
         if not check_sorted_intervenables_by_topological_order(
-            model, self.intervenable_representations, self.sorted_intervenable_keys
+            model, self.representations, self.sorted_keys
         ):
             raise ValueError(
-                "The intervenable_representations in your config must follow the "
+                "The representations in your config must follow the "
                 "topological order of model components. E.g., layer 2 intervention "
                 "cannot appear before layer 1 in transformers."
             )
@@ -185,8 +190,8 @@ class IntervenableModel(nn.Module):
             # In case they are grouped, we would expect the execution order is given
             # by the source inputs.
             _validate_group_keys = []
-            for _key in self.sorted_intervenable_keys:
-                representation = self.intervenable_representations[_key]
+            for _key in self.sorted_keys:
+                representation = self.representations[_key]
                 assert representation.group_key is not None
                 if representation.group_key in self._intervention_group:
                     self._intervention_group[representation.group_key].append(_key)
@@ -205,7 +210,7 @@ class IntervenableModel(nn.Module):
         else:
             # assign each key to an unique group based on topological order
             _group_key_inc = 0
-            for _key in self.sorted_intervenable_keys:
+            for _key in self.sorted_keys:
                 self._intervention_group[_group_key_inc] = [_key]
                 _group_key_inc += 1
         # sort group key with ascending order
@@ -234,8 +239,8 @@ class IntervenableModel(nn.Module):
         """
         attr_dict = {
             "model_type": self.model_type,
-            "intervenable_interventions_type": self.intervenable_interventions_type,
-            "alignabls": self.sorted_intervenable_keys,
+            "intervention_types": self.intervention_types,
+            "alignabls": self.sorted_keys,
             "mode": self.mode,
         }
         return json.dumps(attr_dict, indent=4)
@@ -244,9 +249,9 @@ class IntervenableModel(nn.Module):
         """
         Provide unique key for each intervention
         """
-        l = representation.intervenable_layer
-        r = representation.intervenable_representation_type
-        u = representation.intervenable_unit
+        l = representation.layer
+        r = representation.component
+        u = representation.unit
         n = representation.max_number_of_units
         key_proposal = f"layer.{l}.repr.{r}.unit.{u}.nunit.{n}"
         if key_proposal not in self._key_collision_counter:
@@ -397,17 +402,17 @@ class IntervenableModel(nn.Module):
 
         create_directory(save_directory)
 
-        saving_config = copy.deepcopy(self.intervenable_config)
-        saving_config.sorted_keys = self.sorted_intervenable_keys
-        saving_config.intervenable_model_type = str(
-            saving_config.intervenable_model_type
+        saving_config = copy.deepcopy(self.config)
+        saving_config.sorted_keys = self.sorted_keys
+        saving_config.model_type = str(
+            saving_config.model_type
         )
-        saving_config.intervenable_interventions_type = []
+        saving_config.intervention_types = []
         saving_config.intervention_dimensions = []
         
         # handle constant source reprs if passed in.
-        serialized_intervenable_representations = []
-        for reprs in saving_config.intervenable_representations:
+        serialized_representations = []
+        for reprs in saving_config.representations:
             serialized_reprs = {}
             for k, v in reprs._asdict().items():
                 if k == "hidden_source_representation":
@@ -419,15 +424,15 @@ class IntervenableModel(nn.Module):
                     serialized_reprs[k] = None
                 else:
                     serialized_reprs[k] = v
-            serialized_intervenable_representations += [
-                IntervenableRepresentationConfig(**serialized_reprs)
+            serialized_representations += [
+                RepresentationConfig(**serialized_reprs)
             ]
-        saving_config.intervenable_representations = \
-            serialized_intervenable_representations
+        saving_config.representations = \
+            serialized_representations
 
         for k, v in self.interventions.items():
             intervention = v[0]
-            saving_config.intervenable_interventions_type += [str(type(intervention))]
+            saving_config.intervention_types += [str(type(intervention))]
             binary_filename = f"intkey_{k}.bin"
             # save intervention binary file
             if isinstance(intervention, TrainableIntervention) or \
@@ -452,7 +457,7 @@ class IntervenableModel(nn.Module):
                         repo_id=hf_repo_name,
                         repo_type="model",
                     )
-            saving_config.intervention_dimensions += [intervention.interchange_dim]
+            saving_config.intervention_dimensions += [intervention.interchange_dim.tolist()]
         # save metadata config
         saving_config.save_pretrained(save_directory)
         if save_to_hf_hub:
@@ -493,28 +498,20 @@ class IntervenableModel(nn.Module):
 
         # load config
         saving_config = IntervenableConfig.from_pretrained(load_directory)
-        saving_config.intervenable_model_type = get_type_from_string(
-            saving_config.intervenable_model_type
+        casted_intervention_types = []
+        for type_str in saving_config.intervention_types:
+            casted_intervention_types += [get_type_from_string(type_str)]
+        saving_config.intervention_types = (
+            casted_intervention_types
         )
-        if not isinstance(model, saving_config.intervenable_model_type):
-            raise ValueError(
-                f"model type {str(type(model))} is not "
-                f"matching with {str(saving_config.intervenable_model_type)}"
-            )
-        casted_intervenable_interventions_type = []
-        for type_str in saving_config.intervenable_interventions_type:
-            casted_intervenable_interventions_type += [get_type_from_string(type_str)]
-        saving_config.intervenable_interventions_type = (
-            casted_intervenable_interventions_type
-        )
-        casted_intervenable_representations = []
+        casted_representations = []
         for (
-            intervenable_representation_opts
-        ) in saving_config.intervenable_representations:
-            casted_intervenable_representations += [
-                IntervenableRepresentationConfig(*intervenable_representation_opts)
+            representation_opts
+        ) in saving_config.representations:
+            casted_representations += [
+                RepresentationConfig(*representation_opts)
             ]
-        saving_config.intervenable_representations = casted_intervenable_representations
+        saving_config.representations = casted_representations
         intervenable = IntervenableModel(saving_config, model)
 
         # load binary files
@@ -536,20 +533,20 @@ class IntervenableModel(nn.Module):
                         'source_representation', saved_state_dict['source_representation']
                     )
                 intervention.load_state_dict(saved_state_dict)
-            intervention.interchange_dim = saving_config.intervention_dimensions[i]
+            intervention.set_interchange_dim(saving_config.intervention_dimensions[i])
 
         return intervenable
 
     def _gather_intervention_output(
-        self, output, intervenable_representations_key, unit_locations
+        self, output, representations_key, unit_locations
     ) -> torch.Tensor:
         """
         Gather intervening activations from the output based on indices
         """
 
         if (
-            intervenable_representations_key in self._intervention_reverse_link
-            and self._intervention_reverse_link[intervenable_representations_key]
+            representations_key in self._intervention_reverse_link
+            and self._intervention_reverse_link[representations_key]
             in self.hot_activations
         ):
             # hot gather
@@ -559,7 +556,7 @@ class IntervenableModel(nn.Module):
             # enable the following line when an error is hit
             # torch.autograd.set_detect_anomaly(True)
             selected_output = self.hot_activations[
-                self._intervention_reverse_link[intervenable_representations_key]
+                self._intervention_reverse_link[representations_key]
             ]
         else:
             # cold gather
@@ -569,15 +566,15 @@ class IntervenableModel(nn.Module):
                 original_output = output[0]
             # gather subcomponent
             original_output = self._output_to_subcomponent(
-                original_output, intervenable_representations_key
+                original_output, representations_key
             )
 
             # gather based on intervention locations
             selected_output = gather_neurons(
                 original_output,
-                self.intervenable_representations[
-                    intervenable_representations_key
-                ].intervenable_unit,
+                self.representations[
+                    representations_key
+                ].unit,
                 unit_locations,
             )
 
@@ -586,7 +583,7 @@ class IntervenableModel(nn.Module):
     def _output_to_subcomponent(
         self,
         output,
-        intervenable_representations_key,
+        representations_key,
     ) -> List[torch.Tensor]:
         """
         Helps to get subcomponent of inputs/outputs of a hook
@@ -596,9 +593,9 @@ class IntervenableModel(nn.Module):
         """
         return output_to_subcomponent(
             output,
-            self.intervenable_representations[
-                intervenable_representations_key
-            ].intervenable_representation_type,
+            self.representations[
+                representations_key
+            ].component,
             self.model_type,
             self.model_config,
         )
@@ -607,7 +604,7 @@ class IntervenableModel(nn.Module):
         self,
         output,
         intervened_representation,
-        intervenable_representations_key,
+        representations_key,
         unit_locations,
     ) -> torch.Tensor:
         """
@@ -619,19 +616,19 @@ class IntervenableModel(nn.Module):
         else:
             original_output = output
         
-        intervenable_representation_type = self.intervenable_representations[
-            intervenable_representations_key
-        ].intervenable_representation_type
-        intervenable_unit = self.intervenable_representations[
-            intervenable_representations_key
-        ].intervenable_unit
+        component = self.representations[
+            representations_key
+        ].component
+        unit = self.representations[
+            representations_key
+        ].unit
         
         # scatter in-place
         _ = scatter_neurons(
             original_output,
             intervened_representation,
-            intervenable_representation_type,
-            intervenable_unit,
+            component,
+            unit,
             unit_locations,
             self.model_type,
             self.model_config,
@@ -642,15 +639,15 @@ class IntervenableModel(nn.Module):
 
     def _intervention_getter(
         self,
-        intervenable_keys,
+        keys,
         unit_locations,
     ) -> HandlerList:
         """
         Create a list of getter handlers that will fetch activations
         """
         handlers = []
-        for key_i, key in enumerate(intervenable_keys):
-            intervention, intervenable_module_hook = self.interventions[key]
+        for key_i, key in enumerate(keys):
+            intervention, module_hook = self.interventions[key]
 
             def hook_callback(model, args, kwargs, output=None):
                 if self._is_generation:
@@ -701,7 +698,7 @@ class IntervenableModel(nn.Module):
                 # set version for stateful models
                 self._intervention_state[key].inc_getter_version()
 
-            handlers.append(intervenable_module_hook(hook_callback, with_kwargs=True))
+            handlers.append(module_hook(hook_callback, with_kwargs=True))
 
         return HandlerList(handlers)
 
@@ -779,7 +776,7 @@ class IntervenableModel(nn.Module):
 
     def _intervention_setter(
         self,
-        intervenable_keys,
+        keys,
         unit_locations_base,
         subspaces,
     ) -> HandlerList:
@@ -789,8 +786,8 @@ class IntervenableModel(nn.Module):
         self._tidy_stateful_activations()
         
         handlers = []
-        for key_i, key in enumerate(intervenable_keys):
-            intervention, intervenable_module_hook = self.interventions[key]
+        for key_i, key in enumerate(keys):
+            intervention, module_hook = self.interventions[key]
             self._batched_setter_activation_select[key] = [
                 0 for _ in range(len(unit_locations_base[0]))
             ]  # batch_size
@@ -881,7 +878,7 @@ class IntervenableModel(nn.Module):
 
                     self._intervention_state[key].inc_setter_version()
 
-            handlers.append(intervenable_module_hook(hook_callback, with_kwargs=True))
+            handlers.append(module_hook(hook_callback, with_kwargs=True))
 
         return HandlerList(handlers)
 
@@ -976,16 +973,16 @@ class IntervenableModel(nn.Module):
         # at each aligning representations
         if activations_sources is None:
             assert len(sources) == len(self._intervention_group)
-            for group_id, intervenable_keys in self._intervention_group.items():
+            for group_id, keys in self._intervention_group.items():
                 if sources[group_id] is None:
                     continue  # smart jump for advance usage only
                 group_get_handlers = HandlerList([])
-                for intervenable_key in intervenable_keys:
+                for key in keys:
                     get_handlers = self._intervention_getter(
-                        [intervenable_key],
+                        [key],
                         [
                             unit_locations_sources[
-                                self.sorted_intervenable_keys.index(intervenable_key)
+                                self.sorted_keys.index(key)
                             ]
                         ],
                     )
@@ -995,27 +992,27 @@ class IntervenableModel(nn.Module):
         else:
             # simply patch in the ones passed in
             self.activations = activations_sources
-            for _, passed_in_intervenable_key in enumerate(self.activations):
-                assert passed_in_intervenable_key in self.sorted_intervenable_keys
+            for _, passed_in_key in enumerate(self.activations):
+                assert passed_in_key in self.sorted_keys
         
         # in parallel mode, we swap cached activations all into
         # base at once
-        for group_id, intervenable_keys in self._intervention_group.items():
-            for intervenable_key in intervenable_keys:
+        for group_id, keys in self._intervention_group.items():
+            for key in keys:
                 # skip in case smart jump
-                if intervenable_key in self.activations or \
-                    self.interventions[intervenable_key][0].is_source_constant:
+                if key in self.activations or \
+                    self.interventions[key][0].is_source_constant:
                     set_handlers = self._intervention_setter(
-                        [intervenable_key],
+                        [key],
                         [
                             unit_locations_base[
-                                self.sorted_intervenable_keys.index(intervenable_key)
+                                self.sorted_keys.index(key)
                             ]
                         ],
                         # assume same group targeting the same subspace
                         [
                             subspaces[
-                                self.sorted_intervenable_keys.index(intervenable_key)
+                                self.sorted_keys.index(key)
                             ]
                         ]
                         if subspaces is not None
@@ -1033,32 +1030,32 @@ class IntervenableModel(nn.Module):
         subspaces: Optional[List] = None,
     ):
         all_set_handlers = HandlerList([])
-        for group_id, intervenable_keys in self._intervention_group.items():
+        for group_id, keys in self._intervention_group.items():
             if sources[group_id] is None:
                 continue  # smart jump for advance usage only
-            for intervenable_key_id, intervenable_key in enumerate(intervenable_keys):
+            for key_id, key in enumerate(keys):
                 if group_id != len(self._intervention_group) - 1:
                     unit_locations_key = f"source_{group_id}->source_{group_id+1}"
                 else:
                     unit_locations_key = f"source_{group_id}->base"
                 unit_locations_source = unit_locations[unit_locations_key][0][
-                    intervenable_key_id
+                    key_id
                 ]
                 if unit_locations_source is None:
                     continue  # smart jump for advance usage only
 
                 unit_locations_base = unit_locations[unit_locations_key][1][
-                    intervenable_key_id
+                    key_id
                 ]
                 if activations_sources is None:
                     # get activation from source_i
                     get_handlers = self._intervention_getter(
-                        [intervenable_key],
+                        [key],
                         [unit_locations_source],
                     )
                 else:
-                    self.activations[intervenable_key] = activations_sources[
-                        intervenable_key
+                    self.activations[key] = activations_sources[
+                        key
                     ]
             # call once per group. each intervention is by its own group by default
             if activations_sources is None:
@@ -1070,18 +1067,18 @@ class IntervenableModel(nn.Module):
                     all_set_handlers.remove()
                     all_set_handlers = HandlerList([])
 
-            for intervenable_key in intervenable_keys:
+            for key in keys:
                 # skip in case smart jump
-                if intervenable_key in self.activations or \
-                    self.interventions[intervenable_key][0].is_source_constant:
+                if key in self.activations or \
+                    self.interventions[key][0].is_source_constant:
                     # set with intervened activation to source_i+1
                     set_handlers = self._intervention_setter(
-                        [intervenable_key],
+                        [key],
                         [unit_locations_base],
                         # assume the order
                         [
                             subspaces[
-                                self.sorted_intervenable_keys.index(intervenable_key)
+                                self.sorted_keys.index(key)
                             ]
                         ]
                         if subspaces is not None
@@ -1097,47 +1094,104 @@ class IntervenableModel(nn.Module):
         intervention_group_size,
         unit_locations
     ):
-        _unit_locations = {}
-        for k, v in unit_locations.items():
-            # special broadcast for base-only interventions
-            is_base_only = False
-            if k == "base":
-                is_base_only = True
-                k = "sources->base"
-            if isinstance(v, int):
-                if is_base_only:
-                    _unit_locations[k] = (None, [[[v]]*batch_size]*intervention_group_size)
-                else:
+        if self.mode == "parallel":
+            _unit_locations = {}
+            for k, v in unit_locations.items():
+                # special broadcast for base-only interventions
+                is_base_only = False
+                if k == "base":
+                    is_base_only = True
+                    k = "sources->base"
+                if isinstance(v, int):
+                    if is_base_only:
+                        _unit_locations[k] = (None, [[[v]]*batch_size]*intervention_group_size)
+                    else:
+                        _unit_locations[k] = (
+                            [[[v]]*batch_size]*intervention_group_size, 
+                            [[[v]]*batch_size]*intervention_group_size
+                        )
+                    self.use_fast = True
+                elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
                     _unit_locations[k] = (
-                        [[[v]]*batch_size]*intervention_group_size, 
-                        [[[v]]*batch_size]*intervention_group_size
+                        [[[v[0]]]*batch_size]*intervention_group_size, 
+                        [[[v[1]]]*batch_size]*intervention_group_size
                     )
-                self.use_fast = True
-            elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
-                _unit_locations[k] = (
-                    [[[v[0]]]*batch_size]*intervention_group_size, 
-                    [[[v[1]]]*batch_size]*intervention_group_size
-                )
-                self.use_fast = True
-            elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
-                _unit_locations[k] = (None, [[[v[1]]]*batch_size]*intervention_group_size)
-                self.use_fast = True
-            elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
-                _unit_locations[k] = ([[[v[0]]]*batch_size]*intervention_group_size, None)
-                self.use_fast = True
-            else:
-                if is_base_only:
-                    _unit_locations[k] = (None, v)
+                    self.use_fast = True
+                elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
+                    _unit_locations[k] = (None, [[[v[1]]]*batch_size]*intervention_group_size)
+                    self.use_fast = True
+                elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
+                    _unit_locations[k] = ([[[v[0]]]*batch_size]*intervention_group_size, None)
+                    self.use_fast = True
                 else:
-                    _unit_locations[k] = v
+                    if is_base_only:
+                        _unit_locations[k] = (None, v)
+                    else:
+                        _unit_locations[k] = v
+        elif self.mode == "serial":
+            return unit_locations
+        else:
+            raise ValueError(f"The mode {self.mode} is not supported.")
         return _unit_locations
     
+    def _broadcast_source_representations(
+        self,
+        source_representations
+    ):
+        """Broadcast simple inputs to a dict"""
+        _source_representations = {}
+        if isinstance(source_representations, dict) or source_representations is None:
+            # pass to broadcast for advance usage
+            _source_representations = source_representations
+        elif isinstance(source_representations, list):
+            for i, key in enumerate(self.sorted_keys):
+                _source_representations[key] = source_representations[i]
+        elif isinstance(source_representations, torch.Tensor):
+            for key in self.sorted_keys:
+                _source_representations[key] = source_representations
+        else:
+            raise ValueError(
+                "Accept input type for source_representations is [Dict, List, torch.Tensor]"
+            )
+        return _source_representations
+            
+    def _broadcast_sources(
+        self,
+        sources
+    ):
+        """Broadcast simple inputs to a dict"""
+        _sources = sources
+        if len(sources) == 1 and len(self._intervention_group) > 1:
+            for _ in range(len(self._intervention_group)):
+                _sources += [sources[0]]
+        else:
+            _sources = sources
+        return _sources
+    
+    def _broadcast_subspaces(
+        self,
+        batch_size,
+        intervention_group_size,
+        subspaces
+    ):
+        """Broadcast simple subspaces input"""
+        _subspaces = subspaces
+        if isinstance(subspaces, int):
+            _subspaces = [[[subspaces]]*batch_size]*intervention_group_size
+            
+        elif isinstance(subspaces, list) and isinstance(subspaces[0], int):
+            _subspaces = [[subspaces]*batch_size]*intervention_group_size
+        else:
+            # TODO: subspaces is easier to add more broadcast majic.
+            pass
+        return _subspaces
+
     def forward(
         self,
         base,
         sources: Optional[List] = None,
         unit_locations: Optional[Dict] = None,
-        activations_sources: Optional[Dict] = None,
+        source_representations: Optional[Dict] = None,
         subspaces: Optional[List] = None,
     ):
         """
@@ -1205,6 +1259,11 @@ class IntervenableModel(nn.Module):
         Since we now support group-based intervention, the number of sources
         should be equal to the total number of groups.
         """
+        # TODO: forgive me now, i will change this later.
+        activations_sources = source_representations
+        if sources is not None and not isinstance(sources, list):
+            sources = [sources]
+        
         self._cleanup_states()
 
         # if no source inputs, we are calling a simple forward
@@ -1212,11 +1271,15 @@ class IntervenableModel(nn.Module):
             and unit_locations is None:
             return self.model(**base), None
         
+        # broadcast
         unit_locations = self._broadcast_unit_locations(
             get_batch_size(base), len(self._intervention_group), unit_locations)
-        
         sources = [None]*len(self._intervention_group) if sources is None else sources
-
+        sources = self._broadcast_sources(sources)
+        activations_sources = self._broadcast_source_representations(activations_sources)
+        subspaces = self._broadcast_subspaces(
+            get_batch_size(base), len(self._intervention_group), subspaces)
+        
         self._input_validation(
             base,
             sources,
@@ -1258,7 +1321,7 @@ class IntervenableModel(nn.Module):
             
             collected_activations = []
             if self.return_collect_activations:
-                for key in self.sorted_intervenable_keys:
+                for key in self.sorted_keys:
                     if isinstance(
                         self.interventions[key][0],
                         CollectIntervention
@@ -1284,7 +1347,7 @@ class IntervenableModel(nn.Module):
         base,
         sources: Optional[List] = None,
         unit_locations: Optional[Dict] = None,
-        activations_sources: Optional[Dict] = None,
+        source_representations: Optional[Dict] = None,
         intervene_on_prompt: bool = False,
         subspaces: Optional[List] = None,
         **kwargs,
@@ -1314,6 +1377,11 @@ class IntervenableModel(nn.Module):
         counterfactual_outputs: the intervened output of the
         base input.
         """
+        # TODO: forgive me now, i will change this later.
+        activations_sources = source_representations
+        if sources is not None and not isinstance(sources, list):
+            sources = [sources]
+            
         self._cleanup_states()
 
         self._intervene_on_prompt = intervene_on_prompt
@@ -1323,10 +1391,14 @@ class IntervenableModel(nn.Module):
             # that means, we intervene on every generated tokens!
             unit_locations = {"base": 0}
         
+        # broadcast
         unit_locations = self._broadcast_unit_locations(
             get_batch_size(base), len(self._intervention_group), unit_locations)
-        
         sources = [None]*len(self._intervention_group) if sources is None else sources
+        sources = self._broadcast_sources(sources)
+        activations_sources = self._broadcast_source_representations(activations_sources)
+        subspaces = self._broadcast_subspaces(
+            get_batch_size(base), len(self._intervention_group), subspaces)
         
         self._input_validation(
             base,
@@ -1369,7 +1441,7 @@ class IntervenableModel(nn.Module):
             
             collected_activations = []
             if self.return_collect_activations:
-                for key in self.sorted_intervenable_keys:
+                for key in self.sorted_keys:
                     if isinstance(
                         self.interventions[key][0],
                         CollectIntervention
@@ -1452,17 +1524,17 @@ class IntervenableModel(nn.Module):
             _curr_source_ind = 0
             _parallel_aggr_left = []
             _parallel_aggr_right = []
-            for _, rep in self.intervenable_representations.items():
+            for _, rep in self.representations.items():
                 _curr_source_ind_inc = _curr_source_ind + 1
                 _prefix = f"source_{_curr_source_ind}->base"
                 _prefix_left = f"{_prefix}.0"
                 _prefix_right = f"{_prefix}.1"
                 _sub_loc_aggr_left = []  # 3d
                 _sub_loc_aggr_right = []  # 3d
-                for sub_loc in rep.intervenable_unit.split("."):
+                for sub_loc in rep.unit.split("."):
                     _sub_loc_aggr_left += [inputs[f"{_prefix_left}.{sub_loc}"]]
                     _sub_loc_aggr_right += [inputs[f"{_prefix_right}.{sub_loc}"]]
-                if len(rep.intervenable_unit.split(".")) == 1:
+                if len(rep.unit.split(".")) == 1:
                     _sub_loc_aggr_left = _sub_loc_aggr_left[0]
                     _sub_loc_aggr_right = _sub_loc_aggr_right[0]
                 _parallel_aggr_left += [_sub_loc_aggr_left]  # 3D or 4D
@@ -1477,21 +1549,21 @@ class IntervenableModel(nn.Module):
         else:
             # source into another source and finally to the base engaging different locations
             _curr_source_ind = 0
-            for _, rep in self.intervenable_representations.items():
+            for _, rep in self.representations.items():
                 _curr_source_ind_inc = _curr_source_ind + 1
                 _prefix = (
                     f"source_{_curr_source_ind}->base"
-                    if _curr_source_ind + 1 == len(self.intervenable_representations)
+                    if _curr_source_ind + 1 == len(self.representations)
                     else f"source_{_curr_source_ind}->source{_curr_source_ind_inc}"
                 )
                 _prefix_left = f"{_prefix}.0"
                 _prefix_right = f"{_prefix}.1"
                 _sub_loc_aggr_left = []  # 3d
                 _sub_loc_aggr_right = []  # 3d
-                for sub_loc in rep.intervenable_unit.split("."):
+                for sub_loc in rep.unit.split("."):
                     _sub_loc_aggr_left += [inputs[f"{_prefix_left}.{sub_loc}"]]
                     _sub_loc_aggr_right += [inputs[f"{_prefix_right}.{sub_loc}"]]
-                if len(rep.intervenable_unit.split(".")) == 1:
+                if len(rep.unit.split(".")) == 1:
                     _sub_loc_aggr_left = _sub_loc_aggr_left[0]
                     _sub_loc_aggr_right = _sub_loc_aggr_right[0]
                 _curr_source_ind += 1

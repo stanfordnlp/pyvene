@@ -49,16 +49,16 @@ class ComplexInterventionWithGPT2TestCase(unittest.TestCase):
         Positive test case to check whether vanilla forward pass work
         with our object.
         """
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     0, "block_output", "pos", 1, subspace_partition=[[0, 6], [6, 24]]
                 ),
             ],
-            intervenable_interventions_type=VanillaIntervention,
+            intervention_types=VanillaIntervention,
         )
-        intervenable = IntervenableModel(intervenable_config, self.gpt2)
+        intervenable = IntervenableModel(config, self.gpt2)
         intervenable.set_device(self.device)
         base = {"input_ids": torch.randint(0, 10, (10, 5)).to(self.device)}
         golden_out = self.gpt2(**base).logits
@@ -74,22 +74,22 @@ class ComplexInterventionWithGPT2TestCase(unittest.TestCase):
         Provide subpace intervention indices in the forward only.
         """
         batch_size = 10
-        with_partition_intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        with_partition_config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
-                    intervenable_low_rank_dimension=24,
+                    low_rank_dimension=24,
                     subspace_partition=[[0, 6], [6, 24]],
                 ),
             ],
-            intervenable_interventions_type=intervention_type,
+            intervention_types=intervention_type,
         )
         intervenable = IntervenableModel(
-            with_partition_intervenable_config, self.gpt2, use_fast=False
+            with_partition_config, self.gpt2, use_fast=False
         )
         intervenable.set_device(self.device)
         base = {"input_ids": torch.randint(0, 10, (batch_size, 5)).to(self.device)}
@@ -101,30 +101,30 @@ class ComplexInterventionWithGPT2TestCase(unittest.TestCase):
             subspaces=[[[0]] * batch_size],
         )
 
-        without_partition_intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
-                    0, "block_output", "pos", 1, intervenable_low_rank_dimension=24
+        without_partition_config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
+                    0, "block_output", "pos", 1, low_rank_dimension=24
                 ),
             ],
-            intervenable_interventions_type=intervention_type,
+            intervention_types=intervention_type,
         )
-        intervenable_fast = IntervenableModel(
-            without_partition_intervenable_config, self.gpt2, use_fast=True
+        fast = IntervenableModel(
+            without_partition_config, self.gpt2, use_fast=True
         )
-        intervenable_fast.set_device(self.device)
+        fast.set_device(self.device)
         if intervention_type in {
             RotatedSpaceIntervention,
             LowRankRotatedSpaceIntervention,
         }:
-            list(intervenable_fast.interventions.values())[0][
+            list(fast.interventions.values())[0][
                 0
             ].rotate_layer.weight = list(intervenable.interventions.values())[0][
                 0
             ].rotate_layer.weight
 
-        _, without_partition_our_output = intervenable_fast(
+        _, without_partition_our_output = fast(
             base,
             [source],
             {"sources->base": ([[[0]] * batch_size], [[[0]] * batch_size])},

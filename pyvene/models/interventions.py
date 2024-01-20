@@ -29,8 +29,11 @@ class Intervention(torch.nn.Module):
                 self.source_representation = None
 
     def set_interchange_dim(self, interchange_dim):
-        self.interchange_dim = interchange_dim
-
+        if isinstance(interchange_dim, int):
+            self.interchange_dim = torch.tensor(interchange_dim)
+        else:
+            self.interchange_dim = interchange_dim
+            
     @abstractmethod
     def forward(self, base, source, subspaces=None):
         pass
@@ -100,9 +103,10 @@ class ZeroIntervention(ConstantSourceIntervention, LocalistRepresentationInterve
 
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
-        self.embed_dim = embed_dim
-        self.interchange_dim = embed_dim
-
+        # TODO: put them into a parent class
+        self.register_buffer('embed_dim', torch.tensor(embed_dim))
+        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
+        
     def forward(self, base, source=None, subspaces=None):
         return _do_intervention_by_swap(
             base,
@@ -124,9 +128,10 @@ class CollectIntervention(ConstantSourceIntervention):
 
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
-        self.embed_dim = embed_dim
-        self.interchange_dim = embed_dim
-
+        # TODO: put them into a parent class
+        self.register_buffer('embed_dim', torch.tensor(embed_dim))
+        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
+        
     def forward(self, base, source=None, subspaces=None):
         return _do_intervention_by_swap(
             base,
@@ -147,8 +152,9 @@ class SkipIntervention(BasisAgnosticIntervention, LocalistRepresentationInterven
     """Skip the current intervening layer's computation in the hook function."""
 
     def __init__(self, embed_dim, **kwargs):
-        super().__init__(**kwargs)
-        self.interchange_dim = embed_dim  # assuming full subspace
+        # TODO: put them into a parent class
+        self.register_buffer('embed_dim', torch.tensor(embed_dim))
+        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
         
     def forward(self, base, source, subspaces=None):
         # source here is the base example input to the hook
@@ -172,8 +178,9 @@ class VanillaIntervention(Intervention, LocalistRepresentationIntervention):
 
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
-        self.embed_dim = embed_dim
-        self.interchange_dim = embed_dim  # assuming full subspace
+        # TODO: put them into a parent class
+        self.register_buffer('embed_dim', torch.tensor(embed_dim))
+        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
 
     def forward(self, base, source, subspaces=None):
         return _do_intervention_by_swap(
@@ -196,8 +203,9 @@ class AdditionIntervention(BasisAgnosticIntervention, LocalistRepresentationInte
 
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
-        self.embed_dim = embed_dim
-        self.interchange_dim = embed_dim  # assuming full subspace
+        # TODO: put them into a parent class
+        self.register_buffer('embed_dim', torch.tensor(embed_dim))
+        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
 
     def forward(self, base, source, subspaces=None):
         return _do_intervention_by_swap(
@@ -220,12 +228,9 @@ class SubtractionIntervention(BasisAgnosticIntervention, LocalistRepresentationI
 
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
-        self.embed_dim = embed_dim
-        self.interchange_dim = embed_dim  # assuming full subspace
-        self.is_repr_distributed = False
-        
-    def set_interchange_dim(self, interchange_dim):
-        self.interchange_dim = interchange_dim
+        # TODO: put them into a parent class
+        self.register_buffer('embed_dim', torch.tensor(embed_dim))
+        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
 
     def forward(self, base, source, subspaces=None):
         
@@ -251,8 +256,9 @@ class RotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationI
         super().__init__(**kwargs)
         rotate_layer = RotateLayer(embed_dim)
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
-        self.embed_dim = embed_dim
-        self.interchange_dim = embed_dim  # assuming full subspace
+        # TODO: put them into a parent class
+        self.register_buffer('embed_dim', torch.tensor(embed_dim))
+        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
 
     def forward(self, base, source, subspaces=None):
         rotated_base = self.rotate_layer(base)
@@ -281,8 +287,9 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention, DistributedRepres
 
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
-        self.embed_dim = embed_dim
-        self.interchange_dim = embed_dim  # assuming full subspace
+        # TODO: put them into a parent class
+        self.register_buffer('embed_dim', torch.tensor(embed_dim))
+        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
         rotate_layer = RotateLayer(embed_dim)
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
         self.intervention_boundaries = torch.nn.Parameter(
@@ -301,10 +308,6 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention, DistributedRepres
 
     def set_temperature(self, temp: torch.Tensor):
         self.temperature.data = temp
-
-    def set_interchange_dim(self, interchange_dim):
-        """interchange dim is learned and can not be set"""
-        assert False
 
     def set_intervention_boundaries(self, intervention_boundaries):
         self.intervention_boundaries = torch.nn.Parameter(
@@ -352,7 +355,9 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention, DistributedRepr
             torch.tensor([100] * embed_dim), requires_grad=True
         )
         self.temperature = torch.nn.Parameter(torch.tensor(50.0))
-        self.embed_dim = embed_dim
+        # TODO: put them into a parent class
+        self.register_buffer('embed_dim', torch.tensor(embed_dim))
+        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
 
     def get_boundary_parameters(self):
         return self.intervention_boundaries
@@ -362,10 +367,6 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention, DistributedRepr
 
     def set_temperature(self, temp: torch.Tensor):
         self.temperature.data = temp
-
-    def set_interchange_dim(self, interchange_dim):
-        """interchange dim is learned and can not be set"""
-        assert False
 
     def forward(self, base, source, subspaces=None):
         batch_size = base.shape[0]
@@ -396,10 +397,11 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresen
 
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
-        rotate_layer = LowRankRotateLayer(embed_dim, kwargs["intervenable_low_rank_dimension"])
+        rotate_layer = LowRankRotateLayer(embed_dim, kwargs["low_rank_dimension"])
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
-        self.embed_dim = embed_dim
-        self.interchange_dim = None
+        # TODO: put them into a parent class
+        self.register_buffer('embed_dim', torch.tensor(embed_dim))
+        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
 
     def forward(self, base, source, subspaces=None):
         rotated_base = self.rotate_layer(base)
@@ -484,12 +486,10 @@ class PCARotatedSpaceIntervention(BasisAgnosticIntervention, DistributedRepresen
         self.pca_std = torch.nn.Parameter(
             torch.tensor(pca_std, dtype=torch.float32), requires_grad=False
         )
-        self.interchange_dim = 10  # default to be 10.
-        self.embed_dim = embed_dim
+        # TODO: put them into a parent class
+        self.register_buffer('embed_dim', torch.tensor(embed_dim))
+        self.register_buffer('interchange_dim', torch.tensor(kwargs["low_rank_dimension"]))
         self.trainble = False
-
-    def set_interchange_dim(self, interchange_dim):
-        self.interchange_dim = interchange_dim
 
     def forward(self, base, source, subspaces=None):
         base_norm = (base - self.pca_mean) / self.pca_std

@@ -33,7 +33,7 @@ else:
 
 from pyvene.models.basic_utils import embed_to_distrib, top_vals, format_token
 from pyvene.models.configuration_intervenable_model import (
-    IntervenableRepresentationConfig,
+    RepresentationConfig,
     IntervenableConfig,
 )
 from pyvene.models.intervenable_base import IntervenableModel

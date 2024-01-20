@@ -130,6 +130,7 @@ def get_list_depth(lst):
         return 1 + max((get_list_depth(item) for item in lst), default=0)
     return 0
 
+
 def get_batch_size(model_input):
     """
     Get batch size based on the input
@@ -141,3 +142,28 @@ def get_batch_size(model_input):
             batch_size = v.shape[0]
             break
     return batch_size
+
+
+def GET_LOC(
+    LOC,
+    unit="h.pos",
+    batch_size=1,
+):
+    """
+    From simple locale to nested one.
+    """
+    if unit == "h.pos":
+        return [ 
+                   [ 
+                       [ 
+                           [LOC[0]] 
+                       ] * batch_size, 
+                       [ 
+                           [LOC[1]] 
+                       ] * batch_size 
+                   ] 
+               ]
+    else:
+        raise NotImplementedError(
+            f"{unit} is not supported."
+        )

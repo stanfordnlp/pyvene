@@ -22,40 +22,40 @@ class IntervenableConfigUnitTestCase(unittest.TestCase):
         )
 
     def test_initialization_positive(self):
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
                 ),
             ],
-            intervenable_interventions_type=VanillaIntervention,
+            intervention_types=VanillaIntervention,
         )
 
-        assert intervenable_config.intervenable_model_type == type(self.gpt2)
-        assert len(intervenable_config.intervenable_representations) == 1
+        assert config.model_type == type(self.gpt2)
+        assert len(config.representations) == 1
         assert (
-            intervenable_config.intervenable_interventions_type == VanillaIntervention
+            config.intervention_types == VanillaIntervention
         )
 
         assert (
-            intervenable_config.intervenable_representations[0].intervenable_layer == 0
+            config.representations[0].layer == 0
         )
         assert (
-            intervenable_config.intervenable_representations[
+            config.representations[
                 0
-            ].intervenable_representation_type
+            ].component
             == "block_output"
         )
         assert (
-            intervenable_config.intervenable_representations[0].intervenable_unit
+            config.representations[0].unit
             == "pos"
         )
         assert (
-            intervenable_config.intervenable_representations[0].max_number_of_units == 1
+            config.representations[0].max_number_of_units == 1
         )
 
 

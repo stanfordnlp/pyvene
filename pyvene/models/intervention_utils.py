@@ -110,17 +110,20 @@ def _do_intervention_by_swap(
         collect_base = []
         for example_i in range(len(subspaces)):
             # render subspace as column indices
-            sel_subspace_indices = []
-            for subspace in subspaces[example_i]:
-                sel_subspace_indices.extend(
-                    [
-                        i
-                        for i in range(
-                            subspace_partition[subspace][0],
-                            subspace_partition[subspace][1],
-                        )
-                    ]
-                )
+            if subspace_partition is None:
+                sel_subspace_indices = subspaces[example_i]
+            else:
+                sel_subspace_indices = []
+                for subspace in subspaces[example_i]:
+                    sel_subspace_indices.extend(
+                        [
+                            i
+                            for i in range(
+                                subspace_partition[subspace][0],
+                                subspace_partition[subspace][1],
+                            )
+                        ]
+                    )
             if mode == "interchange":
                 base[example_i, ..., sel_subspace_indices] = source[
                     example_i, ..., sel_subspace_indices
