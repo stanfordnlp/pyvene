@@ -5,6 +5,7 @@ import torch
 import pyvene as pv
 
 class IntervenableBasicTestCase(unittest.TestCase):
+    """These are API level positive cases."""
     @classmethod
     def setUpClass(self):
         _uuid = str(uuid.uuid4())[:6]
@@ -300,7 +301,176 @@ class IntervenableBasicTestCase(unittest.TestCase):
         pv_gpt2_load = pv.IntervenableModel.load(
             self._test_dir,
             model=gpt2)
+        
+    def test_intervention_grouping(self):
 
+        _, tokenizer, gpt2 = pv.create_gpt2(cache_dir=self._test_dir)
+
+        config = pv.IntervenableConfig([
+            {"layer": 0, "component": "block_output", "group_key": 0},
+            {"layer": 2, "component": "block_output", "group_key": 0}],
+            intervention_types=pv.VanillaIntervention,
+        )
+
+        pv_gpt2 = pv.IntervenableModel(config, model=gpt2)
+
+        base = tokenizer("The capital of Spain is", return_tensors="pt")
+        sources = [tokenizer("The capital of Italy is", return_tensors="pt")]
+        intervened_outputs = pv_gpt2(
+            base, sources, 
+            {"sources->base": ([
+                [[3]], [[4]] # these two are for two interventions
+            ], [             # source position 3 into base position 4
+                [[3]], [[4]] 
+            ])}
+        )
+        
+    def test_intervention_skipping(self):
+
+        _, tokenizer, gpt2 = pv.create_gpt2(cache_dir=self._test_dir)
+
+        config = pv.IntervenableConfig([
+            # these are equivalent interventions
+            # we create them on purpose
+            {"layer": 0, "component": "block_output"},
+            {"layer": 0, "component": "block_output"},
+            {"layer": 0, "component": "block_output"}],
+            intervention_types=pv.VanillaIntervention,
+        )
+        pv_gpt2 = pv.IntervenableModel(config, model=gpt2)
+
+        base = tokenizer("The capital of Spain is", return_tensors="pt")
+        source = tokenizer("The capital of Italy is", return_tensors="pt")
+        # skipping 1, 2 and 3
+        _, pv_out1 = pv_gpt2(base, [None, None, source],
+            {"sources->base": ([None, None, [[4]]], [None, None, [[4]]])})
+        _, pv_out2 = pv_gpt2(base, [None, source, None],
+            {"sources->base": ([None, [[4]], None], [None, [[4]], None])})
+        _, pv_out3 = pv_gpt2(base, [source, None, None],
+            {"sources->base": ([[[4]], None, None], [[[4]], None, None])})
+        # should have the same results
+        self.assertTrue(torch.equal(pv_out1.last_hidden_state, pv_out2.last_hidden_state))
+        self.assertTrue(torch.equal(pv_out2.last_hidden_state, pv_out3.last_hidden_state))
+       
+    def test_subspace_intervention(self):
+
+        _, tokenizer, gpt2 = pv.create_gpt2(cache_dir=self._test_dir)
+
+        config = pv.IntervenableConfig([
+            # they are linked to manipulate the same representation
+            # but in different subspaces
+            {"layer": 0, "component": "block_output",
+             # subspaces can be partitioned into continuous chunks
+             # [i, j] are the boundary indices
+             "subspace_partition": [[0, 128], [128, 256]]}],
+            intervention_types=pv.VanillaIntervention,
+        )
+        pv_gpt2 = pv.IntervenableModel(config, model=gpt2)
+
+        base = tokenizer("The capital of Spain is", return_tensors="pt")
+        source = tokenizer("The capital of Italy is", return_tensors="pt")
+
+        # using intervention skipping for subspace
+        intervened_outputs = pv_gpt2(
+            base, [source],
+            {"sources->base": 4},
+            # intervene only only dimensions from 128 to 256
+            subspaces=1,
+        )
+    
+    def test_linked_intervention_and_weights_sharing(self):
+
+        _, tokenizer, gpt2 = pv.create_gpt2(cache_dir=self._test_dir)
+
+        config = pv.IntervenableConfig([
+            # they are linked to manipulate the same representation
+            # but in different subspaces
+            {"layer": 0, "component": "block_output", 
+             "subspace_partition": [[0, 128], [128, 256]], "intervention_link_key": 0},
+            {"layer": 0, "component": "block_output",
+             "subspace_partition": [[0, 128], [128, 256]], "intervention_link_key": 0}],
+            intervention_types=pv.VanillaIntervention,
+        )
+        pv_gpt2 = pv.IntervenableModel(config, model=gpt2)
+
+        base = tokenizer("The capital of Spain is", return_tensors="pt")
+        source = tokenizer("The capital of Italy is", return_tensors="pt")
+
+        # using intervention skipping for subspace
+        _, pv_out1 = pv_gpt2(
+            base, [None, source],
+            # 4 means token position 4
+            {"sources->base": ([None, [[4]]], [None, [[4]]])},
+            # 1 means the second partition in the config
+            subspaces=[None, [[1]]],
+        )
+        _, pv_out2 = pv_gpt2(
+            base,
+            [source, None],
+            {"sources->base": ([[[4]], None], [[[4]], None])},
+            subspaces=[[[1]], None],
+        )
+        self.assertTrue(torch.equal(pv_out1.last_hidden_state, pv_out2.last_hidden_state))
+
+        # subspaces provide a list of index and they can be in any order
+        _, pv_out3 = pv_gpt2(
+            base,
+            [source, source],
+            {"sources->base": ([[[4]], [[4]]], [[[4]], [[4]]])},
+            subspaces=[[[0]], [[1]]],
+        )
+        _, pv_out4 = pv_gpt2(
+            base,
+            [source, source],
+            {"sources->base": ([[[4]], [[4]]], [[[4]], [[4]]])},
+            subspaces=[[[1]], [[0]]],
+        )
+        self.assertTrue(torch.equal(pv_out3.last_hidden_state, pv_out4.last_hidden_state))
+    
+    def test_new_model_type(self):
+
+        # get a flan-t5 from HuggingFace
+        from transformers import T5ForConditionalGeneration, T5Tokenizer, T5Config
+        config = T5Config.from_pretrained("google/flan-t5-small")
+        tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-small")
+        t5 = T5ForConditionalGeneration.from_pretrained(
+            "google/flan-t5-small", config=config, cache_dir=self._test_dir
+        )
+
+        # config the intervention mapping with pv global vars
+        """Only define for the block output here for simplicity"""
+        pv.type_to_module_mapping[type(t5)] = {
+            "mlp_output": ("encoder.block[%s].layer[1]", 
+                           pv.models.constants.CONST_OUTPUT_HOOK),
+            "attention_input": ("encoder.block[%s].layer[0]", 
+                                pv.models.constants.CONST_OUTPUT_HOOK),
+        }
+        pv.type_to_dimension_mapping[type(t5)] = {
+            "mlp_output": ("d_model",),
+            "attention_input": ("d_model",),
+            "block_output": ("d_model",),
+            "head_attention_value_output": ("d_model/num_heads",),
+        }
+
+        # wrap as gpt2
+        pv_t5 = pv.IntervenableModel({
+            "layer": 0,
+            "component": "mlp_output",
+            "source_representation": torch.zeros(
+                t5.config.d_model)
+        }, model=t5)
+
+        # then intervene!
+        base = tokenizer("The capital of Spain is", 
+                         return_tensors="pt")
+        decoder_input_ids = tokenizer(
+            "", return_tensors="pt").input_ids
+        base["decoder_input_ids"] = decoder_input_ids
+        intervened_outputs = pv_t5(
+            base, 
+            unit_locations={"base": 3}
+        )
+    
     @classmethod
     def tearDownClass(self):
         print(f"Removing testing dir {self._test_dir}")

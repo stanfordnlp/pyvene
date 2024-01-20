@@ -35,7 +35,7 @@ from torch.utils.data import Dataset, DataLoader
 
 from pyvene import (
     IntervenableModel,
-    IntervenableRepresentationConfig,
+    RepresentationConfig,
     IntervenableConfig,
     LowRankRotatedSpaceIntervention,
     SkipIntervention,
@@ -514,7 +514,7 @@ def single_d_low_rank_das_position_config(
     config = IntervenableConfig(
         model_type=model_type,
         representations=[
-            IntervenableRepresentationConfig(
+            RepresentationConfig(
                 layer,  # layer
                 intervention_type,  # intervention type
                 "pos" if not head_level else "h.pos",
