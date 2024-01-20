@@ -1134,7 +1134,28 @@ class IntervenableModel(nn.Module):
                     else:
                         _unit_locations[k] = v
         elif self.mode == "serial":
-            return unit_locations
+            _unit_locations = {}
+            for k, v in unit_locations.items():
+                if isinstance(v, int):
+                    _unit_locations[k] = (
+                        [[[v]]*batch_size]*intervention_group_size, 
+                        [[[v]]*batch_size]*intervention_group_size
+                    )
+                    self.use_fast = True
+                elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
+                    _unit_locations[k] = (
+                        [[[v[0]]]*batch_size]*intervention_group_size, 
+                        [[[v[1]]]*batch_size]*intervention_group_size
+                    )
+                    self.use_fast = True
+                elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
+                    _unit_locations[k] = (None, [[[v[1]]]*batch_size]*intervention_group_size)
+                    self.use_fast = True
+                elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
+                    _unit_locations[k] = ([[[v[0]]]*batch_size]*intervention_group_size, None)
+                    self.use_fast = True
+                else:
+                    _unit_locations[k] = v
         else:
             raise ValueError(f"The mode {self.mode} is not supported.")
         return _unit_locations

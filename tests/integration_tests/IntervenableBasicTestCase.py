@@ -428,7 +428,11 @@ class IntervenableBasicTestCase(unittest.TestCase):
         self.assertTrue(torch.equal(pv_out3.last_hidden_state, pv_out4.last_hidden_state))
     
     def test_new_model_type(self):
-
+        try:
+            import sentencepiece
+        except:
+            print("sentencepiece is not installed. skipping")
+            return
         # get a flan-t5 from HuggingFace
         from transformers import T5ForConditionalGeneration, T5Tokenizer, T5Config
         config = T5Config.from_pretrained("google/flan-t5-small")
@@ -470,7 +474,136 @@ class IntervenableBasicTestCase(unittest.TestCase):
             base, 
             unit_locations={"base": 3}
         )
+
+    def test_path_patching(self):
+
+        def path_patching_config(
+            layer, last_layer, 
+            component="head_attention_value_output", unit="h.pos"
+        ):
+            intervening_component = [
+                {"layer": layer, "component": component, "unit": unit, "group_key": 0}]
+            restoring_components = []
+            if not component.startswith("mlp_"):
+                restoring_components += [
+                    {"layer": layer, "component": "mlp_output", "group_key": 1}]
+            for i in range(layer+1, last_layer):
+                restoring_components += [
+                    {"layer": i, "component": "attention_output", "group_key": 1},
+                    {"layer": i, "component": "mlp_output", "group_key": 1}
+                ]
+            intervenable_config = pv.IntervenableConfig(
+                intervening_component + restoring_components)
+            return intervenable_config
+
+        _, tokenizer, gpt2 = pv.create_gpt2(cache_dir=self._test_dir)
+
+        pv_gpt2 = pv.IntervenableModel(
+            path_patching_config(4, gpt2.config.n_layer), 
+            model=gpt2
+        )
+
+        pv_gpt2.save(
+            save_directory="./tmp/"
+        )
+        
+        pv_gpt2 = pv.IntervenableModel.load(
+            "./tmp/",
+            model=gpt2)
     
+    def test_multisource_parallel(self):
+
+        _, tokenizer, gpt2 = pv.create_gpt2(cache_dir=self._test_dir)
+
+        config = pv.IntervenableConfig([
+            {"layer": 0, "component": "mlp_output"},
+            {"layer": 2, "component": "mlp_output"}],
+            mode="parallel"
+        )
+        pv_gpt2 = pv.IntervenableModel(config, model=gpt2)
+
+        base = tokenizer("The capital of Spain is", return_tensors="pt")
+        sources = [tokenizer("The capital of Italy is", return_tensors="pt"),
+                  tokenizer("The capital of China is", return_tensors="pt")]
+
+        intervened_outputs = pv_gpt2(
+            base, sources,
+            # on same position
+            {"sources->base": 4},
+        )
+        
+        _, tokenizer, gpt2 = pv.create_gpt2(cache_dir=self._test_dir)
+
+        config = pv.IntervenableConfig([
+            {"layer": 0, "component": "block_output",
+             "subspace_partition": 
+                 [[0, 128], [128, 256]]}]*2,
+            intervention_types=pv.VanillaIntervention,
+            # act in parallel
+            mode="parallel"
+        )
+        pv_gpt2 = pv.IntervenableModel(config, model=gpt2)
+
+        base = tokenizer("The capital of Spain is", return_tensors="pt")
+        sources = [tokenizer("The capital of Italy is", return_tensors="pt"),
+                  tokenizer("The capital of China is", return_tensors="pt")]
+
+        intervened_outputs = pv_gpt2(
+            base, sources,
+            # on same position
+            {"sources->base": 4},
+            # on different subspaces
+            subspaces=[[[0]], [[1]]],
+        )
+    
+    def test_multisource_serial(self):
+        
+        _, tokenizer, gpt2 = pv.create_gpt2(cache_dir=self._test_dir)
+
+        config = pv.IntervenableConfig([
+            {"layer": 0, "component": "mlp_output"},
+            {"layer": 2, "component": "mlp_output"}],
+            mode="serial"
+        )
+        pv_gpt2 = pv.IntervenableModel(config, model=gpt2)
+
+        base = tokenizer("The capital of Spain is", return_tensors="pt")
+        sources = [tokenizer("The capital of Italy is", return_tensors="pt"),
+                  tokenizer("The capital of China is", return_tensors="pt")]
+
+        intervened_outputs = pv_gpt2(
+            base, sources,
+            # serialized intervention
+            # order is based on sources list
+            {"source_0->source_1": 3, "source_1->base": 4},
+        )
+        
+        _, tokenizer, gpt2 = pv.create_gpt2(cache_dir=self._test_dir)
+
+        config = pv.IntervenableConfig([
+            {"layer": 0, "component": "block_output",
+             "subspace_partition": [[0, 128], [128, 256]]},
+            {"layer": 2, "component": "block_output",
+             "subspace_partition": [[0, 128], [128, 256]]}],
+            intervention_types=pv.VanillaIntervention,
+            # act in parallel
+            mode="serial"
+        )
+        pv_gpt2 = pv.IntervenableModel(config, model=gpt2)
+
+        base = tokenizer("The capital of Spain is", return_tensors="pt")
+        sources = [tokenizer("The capital of Italy is", return_tensors="pt"),
+                  tokenizer("The capital of China is", return_tensors="pt")]
+
+        intervened_outputs = pv_gpt2(
+            base, sources,
+            # serialized intervention
+            # order is based on sources list
+            {"source_0->source_1": 3, "source_1->base": 4},
+            # on different subspaces
+            subspaces=[[[0]], [[1]]],
+        )
+
     @classmethod
     def tearDownClass(self):
         print(f"Removing testing dir {self._test_dir}")
