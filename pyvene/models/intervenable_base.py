@@ -423,9 +423,7 @@ class IntervenableModel(nn.Module):
                         serialized_reprs["hidden_source_representation"] = True
                     serialized_reprs[k] = None
                 elif k == "intervention_type":
-                    if v is not None:
-                        serialized_reprs[k] = str(v)
-                    serialized_reprs[k] = v
+                    serialized_reprs[k] = None
                 else:
                     serialized_reprs[k] = v
             serialized_representations += [
@@ -534,12 +532,12 @@ class IntervenableModel(nn.Module):
                         cache_dir=local_directory,
                     )
                 logging.warn(f"Loading trainable intervention from {binary_filename}.")
-                saved_state_dict = torch.load(os.path.join(load_directory, binary_filename))
-                if intervention.is_source_constant:
+                if intervention.is_source_constant and not isinstance(intervention, ZeroIntervention):
+                    saved_state_dict = torch.load(os.path.join(load_directory, binary_filename))
                     intervention.register_buffer(
                         'source_representation', saved_state_dict['source_representation']
                     )
-                intervention.load_state_dict(saved_state_dict)
+                    intervention.load_state_dict(saved_state_dict)
             intervention.set_interchange_dim(saving_config.intervention_dimensions[i])
 
         return intervenable

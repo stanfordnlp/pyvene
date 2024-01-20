@@ -4,7 +4,7 @@ from ..utils import *
 import torch
 import pyvene as pv
 
-class InterventionWithGPT2TestCase(unittest.TestCase):
+class IntervenableBasicTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         _uuid = str(uuid.uuid4())[:6]
@@ -290,21 +290,9 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
 
         _, tokenizer, gpt2 = pv.create_gpt2(cache_dir=self._test_dir)
 
-        class MultiplierIntervention(
-        pv.SourcelessIntervention):
-            def __init__(self, embed_dim, **kwargs):
-                super().__init__()
-                self.register_buffer(
-                    'interchange_dim', 
-                    torch.tensor(embed_dim))
-            def forward(
-            self, base, source=None, subspaces=None):
-                return base * 99.0
-            def __str__(self):
-                return f"MultiplierIntervention()"
         # run with new intervention type
         pv_gpt2 = pv.IntervenableModel({
-        "intervention_type": MultiplierIntervention}, 
+        "intervention_type": pv.ZeroIntervention}, 
         model=gpt2)
 
         pv_gpt2.save(self._test_dir)
