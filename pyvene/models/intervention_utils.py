@@ -37,7 +37,7 @@ class InterventionState(object):
     def __str__(self):
         return json.dumps(self.state_dict, indent=4)
 
-def broadcast_tensor(x, target_shape):
+def broadcast_tensor_v1(x, target_shape):
     # Ensure the last dimension of target_shape matches x's size
     if target_shape[-1] != x.shape[-1]:
         raise ValueError("The last dimension of target_shape must match the size of x")
@@ -48,6 +48,19 @@ def broadcast_tensor(x, target_shape):
     # Reshape x and then broadcast it
     x_reshaped = x.view(*reshape_shape)
     broadcasted_x = x_reshaped.expand(*target_shape)
+    return broadcasted_x
+    
+def broadcast_tensor_v2(x, target_shape):
+    # Ensure that target_shape has at least one dimension
+    if len(target_shape) < 1:
+        raise ValueError("Target shape must have at least one dimension")
+
+    # Extract the first n-1 dimensions from the target shape
+    target_dims_except_last = target_shape[:-1]
+
+    # Broadcast the input tensor x to match the target_dims_except_last and keep its last dimension
+    broadcasted_x = x.expand(*target_dims_except_last, x.shape[-1])
+
     return broadcasted_x
     
 def _do_intervention_by_swap(
@@ -66,7 +79,7 @@ def _do_intervention_by_swap(
         # auto broadcast
         if base.shape != source.shape:
             try:
-                source = broadcast_tensor(source, base.shape)
+                source = broadcast_tensor_v1(source, base.shape)
             except:
                 raise ValueError(
                     f"source with shape {source.shape} cannot be broadcasted "

@@ -522,3 +522,23 @@ class PCARotatedSpaceIntervention(BasisAgnosticIntervention, DistributedRepresen
 
     def __str__(self):
         return f"PCARotatedSpaceIntervention(embed_dim={self.embed_dim})"
+
+class NoiseIntervention(ConstantSourceIntervention, LocalistRepresentationIntervention):
+    """Noise intervention"""
+    
+    def __init__(self, embed_dim, **kwargs):
+        super().__init__()
+        self.interchange_dim = embed_dim
+        rs = np.random.RandomState(1)
+        prng = lambda *shape: rs.randn(*shape)
+        self.noise = torch.from_numpy(
+            prng(1, 4, embed_dim)).to(device)
+        self.noise_level = kwargs["noise_leve"] \
+            if "noise_leve" in kwargs else 0.13462981581687927 
+
+    def forward(self, base, source=None, subspaces=None):
+        base[..., : self.interchange_dim] += self.noise * self.noise_level
+        return base
+
+    def __str__(self):
+        return f"NoiseIntervention(embed_dim={self.embed_dim})"

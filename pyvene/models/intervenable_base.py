@@ -116,7 +116,7 @@ class IntervenableModel(nn.Module):
                 other_medata = representation._asdict()
                 other_medata["use_fast"] = self.use_fast
                 intervention = intervention_function(
-                    get_dimension(
+                    embed_dim=get_dimension(
                         get_internal_model_type(model), model.config, representation
                     ), **other_medata 
                 )
