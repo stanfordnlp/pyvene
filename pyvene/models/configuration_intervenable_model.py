@@ -8,15 +8,15 @@ from transformers.configuration_utils import PretrainedConfig
 from .interventions import VanillaIntervention
 
 
-IntervenableRepresentationConfig = namedtuple(
-    "IntervenableRepresentationConfig",
-    "intervenable_layer intervenable_representation_type "
-    "intervenable_unit max_number_of_units "
-    "intervenable_low_rank_dimension "
-    "subspace_partition group_key intervention_link_key intervenable_moe "
+RepresentationConfig = namedtuple(
+    "RepresentationConfig",
+    "layer component unit "
+    "max_number_of_units "
+    "low_rank_dimension intervention_type "
+    "subspace_partition group_key intervention_link_key moe_key "
     "source_representation hidden_source_representation",
     defaults=(
-        0, "block_output", "pos", 1, 
+        0, "block_output", "pos", 1, None,
         None, None, None, None, None, None, None),
 )
 
@@ -24,49 +24,102 @@ IntervenableRepresentationConfig = namedtuple(
 class IntervenableConfig(PretrainedConfig):
     def __init__(
         self,
-        intervenable_representations=[IntervenableRepresentationConfig()],
-        intervenable_interventions_type=VanillaIntervention,
+        representations=[RepresentationConfig()],
+        intervention_types=VanillaIntervention,
         mode="parallel",
-        intervenable_interventions=[None],
+        interventions=[None],
         sorted_keys=None,
+        model_type=None, # deprecating
+        # hidden fields for backlog
         intervention_dimensions=None,
-        intervenable_model_type=None,
         **kwargs,
     ):
-        if isinstance(intervenable_representations, list):
-            self.intervenable_representations = intervenable_representations
-        else:
-            self.intervenable_representations = [intervenable_representations]
-        self.intervenable_interventions_type = intervenable_interventions_type
+        if not isinstance(representations, list):
+            representations = [representations]
+
+        casted_representations = []
+        for reprs in representations:
+            if isinstance(reprs, RepresentationConfig):
+                casted_representations += [reprs]
+            elif isinstance(reprs, list):
+                casted_representations += [
+                    RepresentationConfig(*reprs)]
+            elif isinstance(reprs, dict):
+                casted_representations += [
+                    RepresentationConfig(**reprs)]
+            else:
+                raise ValueError(
+                    f"{reprs} format in our representation list is not supported.")
+        self.representations = casted_representations
+        self.intervention_types = intervention_types
+        # the type inside reprs can overwrite
+        overwrite = False
+        overwrite_intervention_types = []
+        for reprs in self.representations:
+            
+            if overwrite:
+                if reprs.intervention_type is None:
+                    raise ValueError(
+                        "intervention_type if used should be specified for all")
+            if reprs.intervention_type is not None:
+                overwrite = True
+                overwrite_intervention_types += [reprs.intervention_type]
+        if None in overwrite_intervention_types:
+            raise ValueError(
+                "intervention_type if used should be specified for all")
+        if overwrite:
+            self.intervention_types = overwrite_intervention_types
+            
         self.mode = mode
-        self.intervenable_interventions = intervenable_interventions
+        self.interventions = interventions
         self.sorted_keys = sorted_keys
         self.intervention_dimensions = intervention_dimensions
-        self.intervenable_model_type = intervenable_model_type
+        self.model_type = model_type
         super().__init__(**kwargs)
+    
+    def add_intervention(self, representations):
+        if not isinstance(representations, list):
+            representations = [representations]
 
+        for reprs in representations:
+            if isinstance(reprs, RepresentationConfig):
+                self.representations += [reprs]
+            elif isinstance(reprs, list):
+                self.representations += [
+                    RepresentationConfig(*reprs)]
+            elif isinstance(reprs, dict):
+                self.representations += [
+                    RepresentationConfig(**reprs)]
+            else:
+                raise ValueError(
+                    f"{reprs} format in our representation list is not supported.")
+            if self.representations[-1].intervention_type is None:
+                raise ValueError(
+                    "intervention_type should be provided.")
+            self.intervention_types += [self.representations[-1].intervention_type]
+            
     def __repr__(self):
-        intervenable_representations = []
-        for reprs in self.intervenable_representations:
+        representations = []
+        for reprs in self.representations:
             if isinstance(reprs, list):
-                reprs = IntervenableRepresentationConfig(*reprs)
+                reprs = RepresentationConfig(*reprs)
             new_d = {}
             for k, v in reprs._asdict().items():
                 if type(v) not in {str, int, list, tuple, dict} and v is not None and v != [None]:
                     new_d[k] = "PLACEHOLDER"
                 else:
                     new_d[k] = v
-            intervenable_representations += [new_d]
+            representations += [new_d]
         _repr = {
-            "intervenable_model_type": str(self.intervenable_model_type),
-            "intervenable_representations": tuple(intervenable_representations),
-            "intervenable_interventions_type": str(
-                self.intervenable_interventions_type
+            "model_type": str(self.model_type),
+            "representations": tuple(representations),
+            "intervention_types": str(
+                self.intervention_types
             ),
             "mode": self.mode,
-            "intervenable_interventions": [
-                str(intervenable_intervention)
-                for intervenable_intervention in self.intervenable_interventions
+            "interventions": [
+                str(intervention)
+                for intervention in self.interventions
             ],
             "sorted_keys": tuple(self.sorted_keys) if self.sorted_keys is not None else str(self.sorted_keys),
             "intervention_dimensions": str(self.intervention_dimensions),

@@ -24,26 +24,26 @@ class IntervenableUnitTestCase(unittest.TestCase):
         self.test_output_dir_pool = []
 
     def test_initialization_positive(self):
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
                 ),
-                IntervenableRepresentationConfig(
+                RepresentationConfig(
                     1,
                     "block_output",
                     "pos",
                     1,
                 ),
             ],
-            intervenable_interventions_type=VanillaIntervention,
+            intervention_types=VanillaIntervention,
         )
 
-        intervenable = IntervenableModel(intervenable_config, self.gpt2)
+        intervenable = IntervenableModel(config, self.gpt2)
 
         assert intervenable.mode == "parallel"
         self.assertTrue(intervenable.is_model_stateless)
@@ -66,26 +66,26 @@ class IntervenableUnitTestCase(unittest.TestCase):
         assert len(intervenable._batched_setter_activation_select) == 0
 
     def test_initialization_invalid_order_negative(self):
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     1,
                     "block_output",
                     "pos",
                     1,
                 ),
-                IntervenableRepresentationConfig(
+                RepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
                 ),
             ],
-            intervenable_interventions_type=VanillaIntervention,
+            intervention_types=VanillaIntervention,
         )
         try:
-            intervenable = IntervenableModel(intervenable_config, self.gpt2)
+            intervenable = IntervenableModel(config, self.gpt2)
         except ValueError:
             pass
         else:
@@ -93,26 +93,26 @@ class IntervenableUnitTestCase(unittest.TestCase):
                 "ValueError for invalid intervention " "order is not thrown"
             )
 
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
                 ),
-                IntervenableRepresentationConfig(
+                RepresentationConfig(
                     0,
                     "mlp_output",
                     "pos",
                     1,
                 ),
             ],
-            intervenable_interventions_type=VanillaIntervention,
+            intervention_types=VanillaIntervention,
         )
         try:
-            intervenable = IntervenableModel(intervenable_config, self.gpt2)
+            intervenable = IntervenableModel(config, self.gpt2)
         except ValueError:
             pass
         else:
@@ -121,26 +121,26 @@ class IntervenableUnitTestCase(unittest.TestCase):
             )
 
     def test_initialization_invalid_repr_name_negative(self):
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     1,
                     "block_output",
                     "pos",
                     1,
                 ),
-                IntervenableRepresentationConfig(
+                RepresentationConfig(
                     0,
                     "strange_stream_me",
                     "pos",
                     1,
                 ),
             ],
-            intervenable_interventions_type=VanillaIntervention,
+            intervention_types=VanillaIntervention,
         )
         try:
-            intervenable = IntervenableModel(intervenable_config, self.gpt2)
+            intervenable = IntervenableModel(config, self.gpt2)
         except KeyError:
             pass
         else:
@@ -149,26 +149,26 @@ class IntervenableUnitTestCase(unittest.TestCase):
             )
 
     def test_local_non_trainable_save_positive(self):
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
                 ),
-                IntervenableRepresentationConfig(
+                RepresentationConfig(
                     1,
                     "block_output",
                     "pos",
                     1,
                 ),
             ],
-            intervenable_interventions_type=VanillaIntervention,
+            intervention_types=VanillaIntervention,
         )
 
-        intervenable = IntervenableModel(intervenable_config, self.gpt2)
+        intervenable = IntervenableModel(config, self.gpt2)
         _uuid = str(uuid.uuid4())[:6]
         _test_dir = os.path.join(f"./test_output_dir_prefix-{_uuid}")
         self.test_output_dir_pool += [_test_dir]
@@ -184,26 +184,26 @@ class IntervenableUnitTestCase(unittest.TestCase):
                 )
 
     def test_local_trainable_save_positive(self):
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
                 ),
-                IntervenableRepresentationConfig(
+                RepresentationConfig(
                     1,
                     "block_output",
                     "pos",
                     1,
                 ),
             ],
-            intervenable_interventions_type=RotatedSpaceIntervention,
+            intervention_types=RotatedSpaceIntervention,
         )
 
-        intervenable = IntervenableModel(intervenable_config, self.gpt2)
+        intervenable = IntervenableModel(config, self.gpt2)
         _uuid = str(uuid.uuid4())[:6]
         _test_dir = os.path.join(f"./test_output_dir_prefix-{_uuid}")
         self.test_output_dir_pool += [_test_dir]
@@ -221,35 +221,35 @@ class IntervenableUnitTestCase(unittest.TestCase):
                 "there should binary file for each of them."
             )
 
-    def _test_local_trainable_load_positive(self, intervenable_interventions_type):
+    def _test_local_trainable_load_positive(self, intervention_types):
         b_s = 10
 
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
-                    0, "block_output", "pos", 1, intervenable_low_rank_dimension=4
+        config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
+                    0, "block_output", "pos", 1, low_rank_dimension=4
                 ),
-                IntervenableRepresentationConfig(
-                    1, "block_output", "pos", 1, intervenable_low_rank_dimension=4
+                RepresentationConfig(
+                    1, "block_output", "pos", 1, low_rank_dimension=4
                 ),
             ],
-            intervenable_interventions_type=intervenable_interventions_type,
+            intervention_types=intervention_types,
         )
 
-        intervenable = IntervenableModel(intervenable_config, self.gpt2)
+        intervenable = IntervenableModel(config, self.gpt2)
         _uuid = str(uuid.uuid4())[:6]
         _test_dir = os.path.join(f"./test_output_dir_prefix-{_uuid}")
         self.test_output_dir_pool += [_test_dir]
 
         intervenable.save(save_directory=_test_dir, save_to_hf_hub=False)
 
-        intervenable_loaded = IntervenableModel.load(
+        loaded = IntervenableModel.load(
             load_directory=_test_dir,
             model=self.gpt2,
         )
 
-        assert intervenable != intervenable_loaded
+        assert intervenable != loaded
 
         base = {"input_ids": torch.randint(0, 10, (b_s, 10))}
         source = {"input_ids": torch.randint(0, 10, (b_s, 10))}
@@ -258,7 +258,7 @@ class IntervenableUnitTestCase(unittest.TestCase):
             base, [source, source], {"sources->base": ([[[3]], [[4]]], [[[3]], [[4]]])}
         )
 
-        _, counterfactual_outputs_loaded = intervenable_loaded(
+        _, counterfactual_outputs_loaded = loaded(
             base, [source, source], {"sources->base": ([[[3]], [[4]]], [[[3]], [[4]]])}
         )
 

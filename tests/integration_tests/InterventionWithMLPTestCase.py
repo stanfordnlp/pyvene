@@ -13,10 +13,10 @@ class InterventionWithMLPTestCase(unittest.TestCase):
             )
         )
 
-        self.test_subspace_intervention_link_intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.mlp),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        self.test_subspace_intervention_link_config = IntervenableConfig(
+            model_type=type(self.mlp),
+            representations=[
+                RepresentationConfig(
                     0,
                     "mlp_activation",
                     "pos",  # mlp layer creates a single token reprs
@@ -27,7 +27,7 @@ class InterventionWithMLPTestCase(unittest.TestCase):
                     ],  # partition into two sets of subspaces
                     intervention_link_key=0,  # linked ones target the same subspace
                 ),
-                IntervenableRepresentationConfig(
+                RepresentationConfig(
                     0,
                     "mlp_activation",
                     "pos",  # mlp layer creates a single token reprs
@@ -39,14 +39,14 @@ class InterventionWithMLPTestCase(unittest.TestCase):
                     intervention_link_key=0,  # linked ones target the same subspace
                 ),
             ],
-            intervenable_interventions_type=VanillaIntervention,
+            intervention_types=VanillaIntervention,
         )
 
-        self.test_subspace_no_intervention_link_intervenable_config = (
+        self.test_subspace_no_intervention_link_config = (
             IntervenableConfig(
-                intervenable_model_type=type(self.mlp),
-                intervenable_representations=[
-                    IntervenableRepresentationConfig(
+                model_type=type(self.mlp),
+                representations=[
+                    RepresentationConfig(
                         0,
                         "mlp_activation",
                         "pos",  # mlp layer creates a single token reprs
@@ -56,7 +56,7 @@ class InterventionWithMLPTestCase(unittest.TestCase):
                             [1, 3],
                         ],  # partition into two sets of subspaces
                     ),
-                    IntervenableRepresentationConfig(
+                    RepresentationConfig(
                         0,
                         "mlp_activation",
                         "pos",  # mlp layer creates a single token reprs
@@ -67,38 +67,38 @@ class InterventionWithMLPTestCase(unittest.TestCase):
                         ],  # partition into two sets of subspaces
                     ),
                 ],
-                intervenable_interventions_type=VanillaIntervention,
+                intervention_types=VanillaIntervention,
             )
         )
 
-        self.test_subspace_no_intervention_link_trainable_intervenable_config = (
+        self.test_subspace_no_intervention_link_trainable_config = (
             IntervenableConfig(
-                intervenable_model_type=type(self.mlp),
-                intervenable_representations=[
-                    IntervenableRepresentationConfig(
+                model_type=type(self.mlp),
+                representations=[
+                    RepresentationConfig(
                         0,
                         "mlp_activation",
                         "pos",  # mlp layer creates a single token reprs
                         1,
-                        intervenable_low_rank_dimension=2,
+                        low_rank_dimension=2,
                         subspace_partition=[
                             [0, 1],
                             [1, 2],
                         ],  # partition into two sets of subspaces
                     ),
-                    IntervenableRepresentationConfig(
+                    RepresentationConfig(
                         0,
                         "mlp_activation",
                         "pos",  # mlp layer creates a single token reprs
                         1,
-                        intervenable_low_rank_dimension=2,
+                        low_rank_dimension=2,
                         subspace_partition=[
                             [0, 1],
                             [1, 2],
                         ],  # partition into two sets of subspaces
                     ),
                 ],
-                intervenable_interventions_type=LowRankRotatedSpaceIntervention,
+                intervention_types=LowRankRotatedSpaceIntervention,
             )
         )
 
@@ -108,7 +108,7 @@ class InterventionWithMLPTestCase(unittest.TestCase):
         with our object.
         """
         intervenable = IntervenableModel(
-            self.test_subspace_intervention_link_intervenable_config, self.mlp
+            self.test_subspace_intervention_link_config, self.mlp
         )
         base = {"inputs_embeds": torch.rand(10, 1, 3)}
         self.assertTrue(
@@ -120,7 +120,7 @@ class InterventionWithMLPTestCase(unittest.TestCase):
         Positive test case to intervene only a set of subspace.
         """
         intervenable = IntervenableModel(
-            self.test_subspace_intervention_link_intervenable_config, self.mlp
+            self.test_subspace_intervention_link_config, self.mlp
         )
         # golden label
         b_s = 10
@@ -148,7 +148,7 @@ class InterventionWithMLPTestCase(unittest.TestCase):
         Negative test case to check input length.
         """
         intervenable = IntervenableModel(
-            self.test_subspace_intervention_link_intervenable_config, self.mlp
+            self.test_subspace_intervention_link_config, self.mlp
         )
         # golden label
         b_s = 10
@@ -173,7 +173,7 @@ class InterventionWithMLPTestCase(unittest.TestCase):
         Positive test case to intervene linked subspace.
         """
         intervenable = IntervenableModel(
-            self.test_subspace_intervention_link_intervenable_config, self.mlp
+            self.test_subspace_intervention_link_config, self.mlp
         )
         # golden label
         b_s = 10
@@ -219,7 +219,7 @@ class InterventionWithMLPTestCase(unittest.TestCase):
         Positive test case to intervene not linked subspace (overwrite).
         """
         intervenable = IntervenableModel(
-            self.test_subspace_no_intervention_link_intervenable_config, self.mlp
+            self.test_subspace_no_intervention_link_config, self.mlp
         )
         # golden label
         b_s = 10
@@ -266,7 +266,7 @@ class InterventionWithMLPTestCase(unittest.TestCase):
         Negative test case to intervene not linked subspace with trainable interventions.
         """
         intervenable = IntervenableModel(
-            self.test_subspace_no_intervention_link_trainable_intervenable_config,
+            self.test_subspace_no_intervention_link_trainable_config,
             self.mlp,
         )
         # golden label

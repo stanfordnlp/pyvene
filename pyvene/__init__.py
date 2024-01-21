@@ -2,7 +2,7 @@
 from .data_generators.causal_model import CausalModel
 from .models.intervenable_base import IntervenableModel
 from .models.configuration_intervenable_model import IntervenableConfig
-from .models.configuration_intervenable_model import IntervenableRepresentationConfig
+from .models.configuration_intervenable_model import RepresentationConfig
 
 
 # Interventions
@@ -24,6 +24,8 @@ from .models.interventions import ConstantSourceIntervention
 from .models.interventions import ZeroIntervention
 from .models.interventions import LocalistRepresentationIntervention
 from .models.interventions import DistributedRepresentationIntervention
+from .models.interventions import SourcelessIntervention
+from .models.interventions import NoiseIntervention
 
 
 # Utils
