@@ -30,17 +30,11 @@ import pyvene as pv
 _, tokenizer, gpt2 = pv.create_gpt2()
 
 pv_gpt2 = pv.IntervenableModel({
-    "layer": 0,
-    "component": "mlp_output",
-    "source_representation": torch.zeros(
-        gpt2.config.n_embd)
+    "source_representation": torch.zeros(gpt2.config.n_embd)
 }, model=gpt2)
 
 orig_outputs, intervened_outputs = pv_gpt2(
-    base = tokenizer(
-        "The capital of Spain is", 
-        return_tensors="pt"
-    ), 
+    base = tokenizer("The capital of Spain is", return_tensors="pt"), 
     unit_locations={"base": 3}
 )
 print(intervened_outputs.last_hidden_state - orig_outputs.last_hidden_state)
