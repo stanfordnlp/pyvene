@@ -14,7 +14,7 @@
 # A Library for _Understanding_ and _Improving_ PyTorch Models via Interventions
 Interventions on model-internal states are fundamental operations in many areas of AI, including model editing, steering, robustness, and interpretability. To facilitate such research, we introduce **pyvene**, an open-source Python library that supports customizable interventions on a range of different PyTorch modules. **pyvene** supports complex intervention schemes with an intuitive configuration format, and its interventions can be static or include trainable parameters.
 
-**Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene/pyvene_101.ipynb) [**Main _pyvene_ 101**]  
+**Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github.com/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb) [**Main _pyvene_ 101**]  
 
 ## Installation
 ```bash
@@ -134,7 +134,7 @@ pv_gpt2 = pv.IntervenableModel.load(
 
 | **Level** |  **Tutorial** |  **Run in Colab** |  **Description** |
 | --- | -------------  |  -------------  |  -------------  | 
-| Beginner |  [**pyvene 101**](pyvene_101.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene/pyvene_101.ipynb)  |  Introduce you to the basics of pyvene |
+| Beginner |  [**pyvene 101**](pyvene_101.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github.com/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb)  |  Introduce you to the basics of pyvene |
 | Intermediate | [**ROME Causal Tracing**](tutorials/advanced_tutorials/Causal_Tracing.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/advanced_tutorials/Causal_Tracing.ipynb) | Reproduce ROME's Results on Factual Associations with GPT2-XL |
 | Intermediate | [**Intervention v.s. Probing**](tutorials/advanced_tutorials/Probing_Gender.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/advanced_tutorials/Probing_Gender.ipynb) | Illustrates how to run trainable interventions and probing with pythia-6.9B |
 | Advanced | [**Trainable Interventions for Causal Abstraction**](tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) | Illustrates how to train an intervention to discover causal mechanisms of a neural model |
