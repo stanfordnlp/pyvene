@@ -1,19 +1,18 @@
-import torch, random
-from torch import nn
+import random, torch
 import numpy as np
+from torch import nn
 from .intervenable_modelcard import *
 from .interventions import *
 
 
 def get_internal_model_type(model):
-    """Return the model type"""
+    """Return the model type."""
     return type(model)
 
 
 def is_stateless(model):
-    """
-    Determine if the model is stateful (e.g., rnn)
-    or stateless (e.g., transformer)
+    """Determine if the model is stateful (e.g., rnn) or stateless (e.g.,
+    transformer)
     """
     if is_gru(model):
         return False
@@ -21,7 +20,7 @@ def is_stateless(model):
 
 
 def is_gru(model):
-    """Determine if this is a transformer model"""
+    """Determine if this is a transformer model."""
     if (
         type(model) == GRUModel
         or type(model) == GRULMHeadModel
@@ -32,21 +31,21 @@ def is_gru(model):
 
 
 def is_mlp(model):
-    """Determine if this is a mlp model"""
+    """Determine if this is a mlp model."""
     if type(model) == MLPModel or type(model) == MLPForClassification:
         return True
     return False
 
 
 def is_transformer(model):
-    """Determine if this is a transformer model"""
+    """Determine if this is a transformer model."""
     if not is_gru(model) and not is_mlp(model):
         return True
     return False
 
 
 def print_forward_hooks(main_module):
-    """Function to print forward hooks of a module and its sub-modules"""
+    """Function to print forward hooks of a module and its sub-modules."""
     for name, submodule in main_module.named_modules():
         if hasattr(submodule, "_forward_hooks") and submodule._forward_hooks:
             print(f"Module: {name if name else 'Main Module'}")
@@ -60,7 +59,10 @@ def print_forward_hooks(main_module):
 
 
 def remove_forward_hooks(main_module: nn.Module):
-    """Function to remove all forward and pre-forward hooks from a module and its sub-modules."""
+    """Function to remove all forward and pre-forward hooks from a module and
+
+    its sub-modules.
+    """
 
     # Remove forward hooks
     for _, submodule in main_module.named_modules():
@@ -79,7 +81,7 @@ def remove_forward_hooks(main_module: nn.Module):
 
 
 def getattr_for_torch_module(model, parameter_name):
-    """Recursively fetch the model based on the name"""
+    """Recursively fetch the model based on the name."""
     current_module = model
     for param in parameter_name.split("."):
         if "[" in param:
@@ -92,7 +94,7 @@ def getattr_for_torch_module(model, parameter_name):
 
 
 def get_dimension(model_type, model_config, representation) -> int:
-    """Based on the representation, get the aligning dimension size"""
+    """Based on the representation, get the aligning dimension size."""
 
     dimension_proposals = type_to_dimension_mapping[model_type][
         representation.component
@@ -120,7 +122,7 @@ def get_dimension(model_type, model_config, representation) -> int:
 def get_representation_dimension_by_type(
     model_type, model_config, representation_type
 ) -> int:
-    """Based on the representation, get the aligning dimension size"""
+    """Based on the representation, get the aligning dimension size."""
 
     dimension_proposals = type_to_dimension_mapping[model_type][representation_type]
     for proposal in dimension_proposals:
@@ -144,7 +146,7 @@ def get_representation_dimension_by_type(
 
 
 def get_module_hook(model, representation) -> nn.Module:
-    """Render the intervening module with a hook"""
+    """Render the intervening module with a hook."""
     type_info = type_to_module_mapping[get_internal_model_type(model)][
         representation.component
     ]
@@ -155,8 +157,8 @@ def get_module_hook(model, representation) -> nn.Module:
         parameter_name = parameter_name % (representation.layer)
     else:
         parameter_name = parameter_name % (
-            int(representation.layer), 
-            int(representation.moe_key)
+            int(representation.layer),
+            int(representation.moe_key),
         )
     module = getattr_for_torch_module(model, parameter_name)
     module_hook = getattr(module, hook_type)
@@ -167,7 +169,7 @@ def get_module_hook(model, representation) -> nn.Module:
 def check_sorted_intervenables_by_topological_order(
     model, representations, sorted_keys
 ):
-    """Sort the intervention with topology in transformer arch"""
+    """Sort the intervention with topology in transformer arch."""
     if is_transformer(model):
         TOPOLOGICAL_ORDER = CONST_TRANSFORMER_TOPOLOGICAL_ORDER
     elif is_mlp(model):
@@ -177,18 +179,18 @@ def check_sorted_intervenables_by_topological_order(
 
     scores = {}
     for k, _ in representations.items():
-        l = 100*(int(k.split(".")[1]) + 1)
-        r = 10*TOPOLOGICAL_ORDER.index(k.split(".")[3])
+        l = 100 * (int(k.split(".")[1]) + 1)
+        r = 10 * TOPOLOGICAL_ORDER.index(k.split(".")[3])
         # incoming order in case they are ordered
-        o = 1*(int(k.split("#")[1]) + 1)
+        o = 1 * (int(k.split("#")[1]) + 1)
         scores[k] = l + r + o
     sorted_keys_by_topological_order = sorted(scores.keys(), key=lambda x: scores[x])
-    
+
     return sorted_keys == sorted_keys_by_topological_order
 
 
 class HandlerList:
-    """General class to set hooks and set off hooks"""
+    """General class to set hooks and set off hooks."""
 
     def __init__(self, handlers):
         self.handlers = handlers
@@ -206,9 +208,7 @@ class HandlerList:
 
 
 def bsd_to_b_sd(tensor):
-    """
-    Convert a tensor of shape (b, s, d) to (b, s*d).
-    """
+    """Convert a tensor of shape (b, s, d) to (b, s*d)."""
     if tensor is None:
         return tensor
     b, s, d = tensor.shape
@@ -216,9 +216,7 @@ def bsd_to_b_sd(tensor):
 
 
 def b_sd_to_bsd(tensor, s):
-    """
-    Convert a tensor of shape (b, s*d) back to (b, s, d).
-    """
+    """Convert a tensor of shape (b, s*d) back to (b, s, d)."""
     if tensor is None:
         return tensor
     b, sd = tensor.shape
@@ -227,9 +225,7 @@ def b_sd_to_bsd(tensor, s):
 
 
 def bhsd_to_bs_hd(tensor):
-    """
-    Convert a tensor of shape (b, h, s, d) to (b, s, h*d).
-    """
+    """Convert a tensor of shape (b, h, s, d) to (b, s, h*d)."""
     if tensor is None:
         return tensor
     b, h, s, d = tensor.shape
@@ -237,24 +233,29 @@ def bhsd_to_bs_hd(tensor):
 
 
 def bs_hd_to_bhsd(tensor, h):
-    """
-    Convert a tensor of shape (b, s, h*d) back to (b, h, s, d).
-    """
+    """Convert a tensor of shape (b, s, h*d) back to (b, h, s, d)."""
     if tensor is None:
         return tensor
     b, s, hd = tensor.shape
-    
+
     d = hd // h
 
     return tensor.reshape(b, s, h, d).permute(0, 2, 1, 3)
 
 
 def gather_neurons(tensor_input, unit, unit_locations_as_list):
-    """
-    Gather intervening neurons.
-    :param tensor_input: tensors of shape (batch_size, sequence_length, ...) if `unit` is "pos" or "h", tensors of shape (batch_size, num_heads, sequence_length, ...) if `unit` is "h.pos"
-    :param unit: the intervention units to gather. Units could be "h" - head number, "pos" - position in the sequence, or "dim" - a particular dimension in the embedding space. If intervening multiple units, they are ordered and separated by `.`. Currently only support "pos", "h", and "h.pos" units.
-    :param unit_locations_as_list: tuple of lists of lists of positions to gather in tensor_input, according to the unit. 
+    """Gather intervening neurons.
+
+    :param tensor_input: tensors of shape (batch_size, sequence_length, ...) if
+    `unit` is "pos" or "h", tensors of shape (batch_size, num_heads,
+    sequence_length, ...) if `unit` is "h.pos"
+    :param unit: the intervention units to gather. Units could be "h" - head
+    number, "pos" - position in the sequence, or "dim" - a particular dimension in
+    the embedding space. If intervening multiple units, they are ordered and
+    separated by `.`. Currently only support "pos", "h", and "h.pos" units.
+    :param unit_locations_as_list: tuple of lists of lists of positions to gather
+    in tensor_input, according to the unit.
+    :return the gathered tensor as tensor_output
     """
     if "." in unit:
         unit_locations = (
@@ -272,9 +273,9 @@ def gather_neurons(tensor_input, unit, unit_locations_as_list):
             1,
             unit_locations.reshape(
                 *unit_locations.shape, *(1,) * (len(tensor_input.shape) - 2)
-            ).expand(-1, -1, *tensor_input.shape[2:])
+            ).expand(-1, -1, *tensor_input.shape[2:]),
         )
-        
+
         return tensor_output
     elif unit in {"h.pos"}:
         # we assume unit_locations is a tuple
@@ -308,22 +309,18 @@ def gather_neurons(tensor_input, unit, unit_locations_as_list):
 
 
 def split_heads(tensor, num_heads, attn_head_size):
-    """
-    Splits hidden_size dim into attn_head_size and num_heads
-    """
+    """Splits hidden_size dim into attn_head_size and num_heads."""
     new_shape = tensor.size()[:-1] + (num_heads, attn_head_size)
     tensor = tensor.view(new_shape)
     return tensor.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
 
 
-def output_to_subcomponent(
-    output, representation_type, model_type, model_config
-):
-    if (
-        "head" in representation_type
-        or representation_type
-        in {"query_output", "key_output", "value_output"}
-    ):
+def output_to_subcomponent(output, representation_type, model_type, model_config):
+    if "head" in representation_type or representation_type in {
+        "query_output",
+        "key_output",
+        "value_output",
+    }:
         n_embd = get_representation_dimension_by_type(
             model_type, model_config, "block_output"
         )
@@ -376,9 +373,7 @@ def output_to_subcomponent(
                 model_type, model_config, "cell_output"
             )
             start_index = CONST_RUN_INDICES[representation_type] * n_embd
-            end_index = (
-                CONST_RUN_INDICES[representation_type] + 1
-            ) * n_embd
+            end_index = (CONST_RUN_INDICES[representation_type] + 1) * n_embd
             return output[..., start_index:end_index]
         else:
             return output
@@ -404,6 +399,28 @@ def scatter_neurons(
     model_config,
     use_fast,
 ):
+    """Replace selected neurons in `tensor_input` by `replacing_tensor_input`.
+
+    :param tensor_input: tensors of shape (batch_size, sequence_length, ...) if
+    `unit` is "pos" or "h", tensors of shape (batch_size, num_heads,
+    sequence_length, ...) if `unit` is "h.pos"
+    :param replacing_tensor_input: tensors of shape (batch_size, sequence_length,
+    ...) if `unit` is "pos" or
+    "h", tensors of shape (batch_size, num_heads, sequence_length, ...) if
+    `unit` is "h.pos".
+    :param representation_type: types of intervention representations, such as
+    "block_output" and "query_output"
+    :param unit: the intervention units to gather. Units could be "h" - head
+    number, "pos" - position in the sequence, or "dim" - a particular dimension in
+    the embedding space. If intervening multiple units, they are ordered and
+    separated by `.`. Currently only support "pos", "h", and "h.pos" units.
+    :param unit_locations_as_list: tuple of lists of lists of positions to gather
+    in tensor_input, according to the unit.
+    :param model_type: Hugging Face Model Type
+    :param model_config: Hugging Face Model Config
+    :param use_fast: whether to use fast path (TODO: fast path condition)
+    :return the in-place modified tensor_input
+    """
     if "." in unit:
         # extra dimension for multi-level intervention
         unit_locations = (
@@ -415,11 +432,11 @@ def scatter_neurons(
             unit_locations_as_list, device=tensor_input.device
         )
 
-    if (
-        "head" in representation_type
-        or representation_type
-        in {"query_output", "key_output", "value_output"}
-    ):
+    if "head" in representation_type or representation_type in {
+        "query_output",
+        "key_output",
+        "value_output",
+    }:
         n_embd = get_representation_dimension_by_type(
             model_type, model_config, "block_output"
         )
@@ -441,9 +458,7 @@ def scatter_neurons(
             or "value" in representation_type
         ) and "attention" not in representation_type:
             start_index = CONST_QKV_INDICES[representation_type] * n_embd
-            end_index = (
-                CONST_QKV_INDICES[representation_type] + 1
-            ) * n_embd
+            end_index = (CONST_QKV_INDICES[representation_type] + 1) * n_embd
         else:
             start_index, end_index = None, None
     elif model_type in {GRUModel, GRULMHeadModel, GRUForClassification}:
@@ -459,9 +474,7 @@ def scatter_neurons(
                 model_type, model_config, "cell_output"
             )
             start_index = CONST_RUN_INDICES[representation_type] * n_embd
-            end_index = (
-                CONST_RUN_INDICES[representation_type] + 1
-            ) * n_embd
+            end_index = (CONST_RUN_INDICES[representation_type] + 1) * n_embd
         else:
             start_index, end_index = None, None
     else:
@@ -519,19 +532,19 @@ def scatter_neurons(
 def do_intervention(
     base_representation, source_representation, intervention, subspaces
 ):
-    """Do the actual intervention"""
-    
+    """Do the actual intervention."""
+
     num_unit = base_representation.shape[1]
-    
+
     # flatten
     original_base_shape = base_representation.shape
-    if len(original_base_shape) == 2 or \
-        (isinstance(intervention, LocalistRepresentationIntervention)):
+    if len(original_base_shape) == 2 or (
+        isinstance(intervention, LocalistRepresentationIntervention)
+    ):
         # no pos dimension, e.g., gru
         base_representation_f = base_representation
         source_representation_f = source_representation
     elif len(original_base_shape) == 3:
-        
         # b, num_unit (pos), d -> b, num_unit*d
         base_representation_f = bsd_to_b_sd(base_representation)
         source_representation_f = bsd_to_b_sd(source_representation)
@@ -541,16 +554,17 @@ def do_intervention(
         source_representation_f = bhsd_to_bs_hd(source_representation)
     else:
         assert False  # what's going on?
-    
+
     intervened_representation = intervention(
         base_representation_f, source_representation_f, subspaces
     )
-    
+
     post_d = intervened_representation.shape[-1]
-    
+
     # unflatten
-    if len(original_base_shape) == 2 or \
-        isinstance(intervention, LocalistRepresentationIntervention):
+    if len(original_base_shape) == 2 or isinstance(
+        intervention, LocalistRepresentationIntervention
+    ):
         # no pos dimension, e.g., gru
         pass
     elif len(original_base_shape) == 3:
@@ -563,10 +577,8 @@ def do_intervention(
     return intervened_representation
 
 
-def simple_output_to_subcomponent(
-    output, representation_type, model_config
-):
-    """This is an oversimplied version for demo"""
+def simple_output_to_subcomponent(output, representation_type, model_config):
+    """This is an oversimplied version for demo."""
     return output
 
 
@@ -578,7 +590,7 @@ def simple_scatter_intervention_output(
     unit_locations,
     model_config,
 ):
-    """This is an oversimplied version for demo"""
+    """This is an oversimplied version for demo."""
     for batch_i, locations in enumerate(unit_locations):
         original_output[batch_i, locations] = intervened_representation[batch_i]
 
