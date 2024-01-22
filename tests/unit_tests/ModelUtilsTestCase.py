@@ -16,7 +16,6 @@ class ModelUtilsTestCase(unittest.TestCase):
     def test_gather_neurons_pos_h_positive(self):
         tensor_input = torch.rand((5, 4, 3, 2)) # batch_size, #heads, seq_len, emb_dim
         tensor_output = gather_neurons(tensor_input, "h.pos", ([[1,2]] * 5, [[0,1]] * 5))
-        print(tensor_input, tensor_output)
         self.assertTrue(torch.allclose(tensor_output, tensor_input[:, 1:3, 0:2, :]))
     
     def _test_gather_neurons_negative(self, name, unit, expected_error_msg):
