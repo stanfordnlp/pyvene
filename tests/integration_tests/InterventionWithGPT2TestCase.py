@@ -104,7 +104,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
         intervention_type,
         positions=[0],
         use_fast=False,
-        use_boardcast=False,
+        use_broadcast=False,
     ):
         max_position = np.max(np.array(positions))
         if isinstance(positions[0], list):
@@ -157,7 +157,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
             self.gpt2, base["input_ids"], {}, {_key: base_activations[_key]}
         )
         
-        if use_boardcast:
+        if use_broadcast:
             assert isinstance(positions[0], int)
             _, out_output_1 = intervenable(
                 base, [source], {"sources->base": positions[0]}
@@ -361,7 +361,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                 intervention_stream=stream,
                 intervention_type=VanillaIntervention,
                 positions=[random.randint(0, 3)],
-                use_boardcast=True,
+                use_broadcast=True,
             )
             print(f"testing broadcast with stream: {stream} with a single position (with fast)")
             self._test_with_position_intervention(
@@ -370,7 +370,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                 intervention_type=VanillaIntervention,
                 positions=[random.randint(0, 3)],
                 use_fast=True,
-                use_boardcast=True,
+                use_broadcast=True,
             )
 
     def _test_with_position_intervention_constant_source(
@@ -381,7 +381,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
         positions=[0],
         use_base_only=False,
         use_fast=False,
-        use_boardcast=False,
+        use_broadcast=False,
     ):
         max_position = np.max(np.array(positions))
         if isinstance(positions[0], list):
@@ -432,7 +432,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
         )
         
         if use_base_only:
-            if use_boardcast:
+            if use_broadcast:
                 _, out_output = intervenable(
                     base,
                     unit_locations={"base": positions[0]},
@@ -443,7 +443,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                     unit_locations={"base": ([[positions] * b_s])},
                 )
         else:
-            if use_boardcast:
+            if use_broadcast:
                 _, out_output = intervenable(
                     base,
                     unit_locations={"sources->base": (None, positions[0])},
@@ -483,7 +483,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                 intervention_type=VanillaIntervention,
                 positions=[0],
                 use_base_only=True,
-                use_boardcast=True
+                use_broadcast=True
             )
             self._test_with_position_intervention_constant_source(
                 intervention_layer=random.randint(0, 3),
@@ -491,7 +491,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                 intervention_type=VanillaIntervention,
                 positions=[0],
                 use_base_only=True,
-                use_boardcast=True,
+                use_broadcast=True,
                 use_fast=True
             )
             
