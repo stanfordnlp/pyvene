@@ -250,8 +250,12 @@ def bs_hd_to_bhsd(tensor, h):
 
 
 def gather_neurons(tensor_input, unit, unit_locations_as_list):
-    """Gather intervening neurons"""
-
+    """
+    Gather intervening neurons.
+    :param tensor_input: tensors of shape (batch_size, sequence_length, ...) if `unit` is "pos" or "h", tensors of shape (batch_size, num_heads, sequence_length, ...) if `unit` is "h.pos"
+    :param unit: the intervention units to gather. Units could be "h" - head number, "pos" - position in the sequence, or "dim" - a particular dimension in the embedding space. If intervening multiple units, they are ordered and separated by `.`. Currently only support "pos", "h", and "h.pos" units.
+    :param unit_locations_as_list: tuple of lists of lists of positions to gather in tensor_input, according to the unit. 
+    """
     if "." in unit:
         unit_locations = (
             torch.tensor(unit_locations_as_list[0], device=tensor_input.device),
@@ -268,7 +272,7 @@ def gather_neurons(tensor_input, unit, unit_locations_as_list):
             1,
             unit_locations.reshape(
                 *unit_locations.shape, *(1,) * (len(tensor_input.shape) - 2)
-            ).expand(-1, -1, *tensor_input.shape[2:]),
+            ).expand(-1, -1, *tensor_input.shape[2:])
         )
         
         return tensor_output
