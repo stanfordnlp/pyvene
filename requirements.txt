@@ -8,3 +8,4 @@ seaborn
 ipywidgets
 plotnine
 huggingface-hub
+circuitsvis

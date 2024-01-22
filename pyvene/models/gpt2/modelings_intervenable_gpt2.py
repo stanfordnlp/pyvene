@@ -21,6 +21,7 @@ gpt2_type_to_module_mapping = {
     "mlp_input": ("h[%s].mlp", CONST_INPUT_HOOK),
     "attention_value_output": ("h[%s].attn.c_proj", CONST_INPUT_HOOK),
     "head_attention_value_output": ("h[%s].attn.c_proj", CONST_INPUT_HOOK),
+    "attention_weight": ("h[%s].attn.attn_dropout", CONST_INPUT_HOOK),
     "attention_output": ("h[%s].attn", CONST_OUTPUT_HOOK),
     "attention_input": ("h[%s].attn", CONST_INPUT_HOOK),
     "query_output": ("h[%s].attn.c_attn", CONST_OUTPUT_HOOK),
@@ -43,6 +44,8 @@ gpt2_type_to_dimension_mapping = {
     "mlp_input": ("n_embd",),
     "attention_value_output": ("n_embd",),
     "head_attention_value_output": ("n_embd/n_head",),
+    # attention weight dimension does not really matter
+    "attention_weight": ("max_position_embeddings", ),
     "attention_output": ("n_embd",),
     "attention_input": ("n_embd",),
     "query_output": ("n_embd",),

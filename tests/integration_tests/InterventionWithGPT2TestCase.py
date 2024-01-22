@@ -20,17 +20,17 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                 vocab_size=10,
             )
         )
-        self.vanilla_block_output_intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        self.vanilla_block_output_config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     0,
                     "block_output",
                     "pos",
                     1,
                 ),
             ],
-            intervenable_interventions_type=VanillaIntervention,
+            intervention_types=VanillaIntervention,
         )
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.gpt2 = self.gpt2.to(self.device)
@@ -62,7 +62,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
         with our object.
         """
         intervenable = IntervenableModel(
-            self.vanilla_block_output_intervenable_config, self.gpt2
+            self.vanilla_block_output_config, self.gpt2
         )
         intervenable.set_device(self.device)
         base = {"input_ids": torch.randint(0, 10, (10, 5)).to(self.device)}
@@ -74,24 +74,24 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
             torch.allclose(GPT2_RUN(self.gpt2, base["input_ids"], {}, {}), golden_out)
         )
 
-    def test_invalid_intervenable_unit_negative(self):
+    def test_invalid_unit_negative(self):
         """
         Invalid intervenable unit.
         """
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     0,
                     "block_output",
                     "pos.h",
                     1,
                 ),
             ],
-            intervenable_interventions_type=VanillaIntervention,
+            intervention_types=VanillaIntervention,
         )
         try:
-            intervenable = IntervenableModel(intervenable_config, self.gpt2)
+            intervenable = IntervenableModel(config, self.gpt2)
         except ValueError:
             pass
         else:
@@ -104,7 +104,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
         intervention_type,
         positions=[0],
         use_fast=False,
-        use_boardcast=False,
+        use_broadcast=False,
     ):
         max_position = np.max(np.array(positions))
         if isinstance(positions[0], list):
@@ -118,20 +118,20 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
             "input_ids": torch.randint(0, 10, (b_s, max_position + 2)).to(self.device)
         }
 
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     intervention_layer,
                     intervention_stream,
                     "pos",
                     len(positions),
                 )
             ],
-            intervenable_interventions_type=intervention_type,
+            intervention_types=intervention_type,
         )
         intervenable = IntervenableModel(
-            intervenable_config, self.gpt2, use_fast=use_fast
+            config, self.gpt2, use_fast=use_fast
         )
         intervention = list(intervenable.interventions.values())[0][0]
 
@@ -157,7 +157,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
             self.gpt2, base["input_ids"], {}, {_key: base_activations[_key]}
         )
         
-        if use_boardcast:
+        if use_broadcast:
             assert isinstance(positions[0], int)
             _, out_output_1 = intervenable(
                 base, [source], {"sources->base": positions[0]}
@@ -241,19 +241,19 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
             "input_ids": torch.randint(0, 10, (b_s, max_position + 2)).to(self.device)
         }
 
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     intervention_layer,
                     intervention_stream,
                     "h.pos",
                     len(positions),
                 )
             ],
-            intervenable_interventions_type=intervention_type,
+            intervention_types=intervention_type,
         )
-        intervenable = IntervenableModel(intervenable_config, self.gpt2)
+        intervenable = IntervenableModel(config, self.gpt2)
         intervention = list(intervenable.interventions.values())[0][0]
 
         base_activations = {}
@@ -361,7 +361,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                 intervention_stream=stream,
                 intervention_type=VanillaIntervention,
                 positions=[random.randint(0, 3)],
-                use_boardcast=True,
+                use_broadcast=True,
             )
             print(f"testing broadcast with stream: {stream} with a single position (with fast)")
             self._test_with_position_intervention(
@@ -370,7 +370,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                 intervention_type=VanillaIntervention,
                 positions=[random.randint(0, 3)],
                 use_fast=True,
-                use_boardcast=True,
+                use_broadcast=True,
             )
 
     def _test_with_position_intervention_constant_source(
@@ -381,7 +381,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
         positions=[0],
         use_base_only=False,
         use_fast=False,
-        use_boardcast=False,
+        use_broadcast=False,
     ):
         max_position = np.max(np.array(positions))
         if isinstance(positions[0], list):
@@ -392,10 +392,10 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
             "input_ids": torch.randint(0, 10, (b_s, max_position + 1)).to(self.device)
         }
 
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     intervention_layer,
                     intervention_stream,
                     "pos",
@@ -406,10 +406,10 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                             torch.rand(self.config.n_embd*4).to(self.gpt2.device)
                 )
             ],
-            intervenable_interventions_type=intervention_type,
+            intervention_types=intervention_type,
         )
         intervenable = IntervenableModel(
-            intervenable_config, self.gpt2, use_fast=use_fast
+            config, self.gpt2, use_fast=use_fast
         )
         intervention = list(intervenable.interventions.values())[0][0]
 
@@ -432,7 +432,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
         )
         
         if use_base_only:
-            if use_boardcast:
+            if use_broadcast:
                 _, out_output = intervenable(
                     base,
                     unit_locations={"base": positions[0]},
@@ -443,7 +443,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                     unit_locations={"base": ([[positions] * b_s])},
                 )
         else:
-            if use_boardcast:
+            if use_broadcast:
                 _, out_output = intervenable(
                     base,
                     unit_locations={"sources->base": (None, positions[0])},
@@ -483,7 +483,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                 intervention_type=VanillaIntervention,
                 positions=[0],
                 use_base_only=True,
-                use_boardcast=True
+                use_broadcast=True
             )
             self._test_with_position_intervention_constant_source(
                 intervention_layer=random.randint(0, 3),
@@ -491,7 +491,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                 intervention_type=VanillaIntervention,
                 positions=[0],
                 use_base_only=True,
-                use_boardcast=True,
+                use_broadcast=True,
                 use_fast=True
             )
             
@@ -571,10 +571,10 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
         }
         intervention_layer = random.randint(0, 2)
         
-        intervenable_config = IntervenableConfig(
-            intervenable_model_type=type(self.gpt2),
-            intervenable_representations=[
-                IntervenableRepresentationConfig(
+        config = IntervenableConfig(
+            model_type=type(self.gpt2),
+            representations=[
+                RepresentationConfig(
                     intervention_layer,
                     intervention_stream,
                     "pos",
@@ -585,10 +585,10 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                             torch.rand(self.config.n_embd*4).to(self.gpt2.device)
                 )
             ],
-            intervenable_interventions_type=intervention_type,
+            intervention_types=intervention_type,
         )
         intervenable = IntervenableModel(
-            intervenable_config, self.gpt2, use_fast=True
+            config, self.gpt2, use_fast=True
         )
         intervention = list(intervenable.interventions.values())[0][0]
 
@@ -641,7 +641,7 @@ def suite():
     suite.addTest(InterventionWithGPT2TestCase("test_clean_run_positive"))
     suite.addTest(
         InterventionWithGPT2TestCase(
-            "test_invalid_intervenable_unit_negative"
+            "test_invalid_unit_negative"
         )
     )
     suite.addTest(

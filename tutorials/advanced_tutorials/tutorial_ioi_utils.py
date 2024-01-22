@@ -35,7 +35,7 @@ from torch.utils.data import Dataset, DataLoader
 
 from pyvene import (
     IntervenableModel,
-    IntervenableRepresentationConfig,
+    RepresentationConfig,
     IntervenableConfig,
     LowRankRotatedSpaceIntervention,
     SkipIntervention,
@@ -529,25 +529,25 @@ def single_d_low_rank_das_position_config(
     model_type,
     intervention_type,
     layer,
-    intervenable_interventions_type,
-    intervenable_low_rank_dimension=1,
+    intervention_types,
+    low_rank_dimension=1,
     num_unit=1,
     head_level=False,
 ):
-    intervenable_config = IntervenableConfig(
-        intervenable_model_type=model_type,
-        intervenable_representations=[
-            IntervenableRepresentationConfig(
+    config = IntervenableConfig(
+        model_type=model_type,
+        representations=[
+            RepresentationConfig(
                 layer,  # layer
                 intervention_type,  # intervention type
                 "pos" if not head_level else "h.pos",
                 num_unit,
-                intervenable_low_rank_dimension=intervenable_low_rank_dimension,  # a single das direction
+                low_rank_dimension=low_rank_dimension,  # a single das direction
             ),
         ],
-        intervenable_interventions_type=intervenable_interventions_type,
+        intervention_types=intervention_types,
     )
-    return intervenable_config
+    return config
 
 
 def calculate_boundless_das_loss(logits, labels, intervenable):
@@ -565,7 +565,7 @@ def find_variable_at(
     layers,
     stream,
     heads=None,
-    intervenable_low_rank_dimension=1,
+    low_rank_dimension=1,
     aligning_variable="position",
     do_vanilla_intervention=False,
     do_boundless_das=False,
@@ -665,34 +665,34 @@ def find_variable_at(
                     f"layers->{aligning_layer}, stream->{stream}"
                 )
             if heads is not None:
-                intervenable_config = single_d_low_rank_das_position_config(
+                config = single_d_low_rank_das_position_config(
                     type(gpt2),
                     aligning_stream,
                     aligning_layer,
                     _intervention_type,
-                    intervenable_low_rank_dimension=intervenable_low_rank_dimension,
+                    low_rank_dimension=low_rank_dimension,
                     num_unit=len(heads),
                     head_level=True,
                 )
             else:
                 if across_positions:
-                    intervenable_config = single_d_low_rank_das_position_config(
+                    config = single_d_low_rank_das_position_config(
                         type(gpt2),
                         aligning_stream,
                         aligning_layer,
                         _intervention_type,
-                        intervenable_low_rank_dimension=intervenable_low_rank_dimension,
+                        low_rank_dimension=low_rank_dimension,
                         num_unit=len(positions[0]),
                     )
                 else:
-                    intervenable_config = single_d_low_rank_das_position_config(
+                    config = single_d_low_rank_das_position_config(
                         type(gpt2),
                         aligning_stream,
                         aligning_layer,
                         _intervention_type,
-                        intervenable_low_rank_dimension=intervenable_low_rank_dimension,
+                        low_rank_dimension=low_rank_dimension,
                     )
-            intervenable = IntervenableModel(intervenable_config, gpt2)
+            intervenable = IntervenableModel(config, gpt2)
             intervenable.set_device("cuda")
             intervenable.disable_model_gradients()
             total_step = 0

@@ -25,6 +25,11 @@ When adding new methods or APIs, unit tests are now enforced. To run existing te
 cd pyvene
 python -m unittest discover -p '*TestCase.py'
 ```
+For specific test case, yoou can run
+```bash
+cd pyvene
+python -m unittest tests.integration_tests.ComplexInterventionWithGPT2TestCase
+```
 When checking in new code, please also consider to add new tests in the same PR. Please include test results in the PR to make sure all the existing test cases are passing. Please see the `qa_runbook.ipynb` notebook about a set of conventions about how to add test cases. The code coverage for this repository is currently `low`, and we are adding more automated tests.
 
 #### Format
