@@ -1116,6 +1116,16 @@ class IntervenableModel(nn.Module):
                             [[[v]]*batch_size]*intervention_group_size
                         )
                     self.use_fast = True
+                elif isinstance(v, list) and get_list_depth(v) == 1:
+                    # [0,1,2,3] -> [[[0,1,2,3]]], ...
+                    if is_base_only:
+                        _unit_locations[k] = (None, [[v]*batch_size]*intervention_group_size)
+                    else:
+                        _unit_locations[k] = (
+                            [[v]*batch_size]*intervention_group_size, 
+                            [[v]*batch_size]*intervention_group_size
+                        )
+                    self.use_fast = True
                 elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
                     _unit_locations[k] = (
                         [[[v[0]]]*batch_size]*intervention_group_size, 
@@ -1140,6 +1150,13 @@ class IntervenableModel(nn.Module):
                     _unit_locations[k] = (
                         [[[v]]*batch_size]*intervention_group_size, 
                         [[[v]]*batch_size]*intervention_group_size
+                    )
+                    self.use_fast = True
+                elif isinstance(v, list) and get_list_depth(v) == 1:
+                    # [0,1,2,3] -> [[[0,1,2,3]]], ...
+                    _unit_locations[k] = (
+                        [[v]*batch_size]*intervention_group_size, 
+                        [[v]*batch_size]*intervention_group_size
                     )
                     self.use_fast = True
                 elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
