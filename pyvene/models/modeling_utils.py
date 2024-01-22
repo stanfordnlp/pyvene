@@ -404,6 +404,17 @@ def scatter_neurons(
     model_config,
     use_fast,
 ):
+    """
+    Replace selected neurons in `tensor_input` by `replacing_tensor_input`.
+    :param tensor_input: tensors of shape (batch_size, sequence_length, ...) if `unit` is "pos" or "h", tensors of shape (batch_size, num_heads, sequence_length, ...) if `unit` is "h.pos"
+    :param replacing_tensor_input: tensors of shape (batch_size, sequence_length, ...) if `unit` is "pos" or "h", tensors of shape (batch_size, num_heads, sequence_length, ...) if `unit` is "h.pos"
+    :param representation_type: types of intervention representations, such as "block_output" and "query_output"
+    :param unit: the intervention units to gather. Units could be "h" - head number, "pos" - position in the sequence, or "dim" - a particular dimension in the embedding space. If intervening multiple units, they are ordered and separated by `.`. Currently only support "pos", "h", and "h.pos" units.
+    :param unit_locations_as_list: tuple of lists of lists of positions to gather in tensor_input, according to the unit.
+    :param model_type: Hugging Face Model Type
+    :param model_config: Hugging Face Model Config
+    :param use_fast: whether to use fast path (TODO: fast path condition)
+    """
     if "." in unit:
         # extra dimension for multi-level intervention
         unit_locations = (
