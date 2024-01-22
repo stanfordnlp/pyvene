@@ -1,5 +1,6 @@
 import unittest
 from ..utils import *
+from pyvene.models.modeling_utils import *
 
 class ModelUtilsTestCase(unittest.TestCase):
     @classmethod
