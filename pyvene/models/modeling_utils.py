@@ -3,7 +3,7 @@ import numpy as np
 from torch import nn
 from .intervenable_modelcard import *
 from .interventions import *
-
+from .constants import *
 
 def get_internal_model_type(model):
     """Return the model type."""
@@ -95,10 +95,14 @@ def getattr_for_torch_module(model, parameter_name):
 
 def get_dimension(model_type, model_config, representation) -> int:
     """Based on the representation, get the aligning dimension size."""
-
-    dimension_proposals = type_to_dimension_mapping[model_type][
-        representation.component
-    ]
+    if representation.component in type_to_dimension_mapping[model_type]:
+        dimension_proposals = type_to_dimension_mapping[model_type][
+            representation.component
+        ]
+    else:
+        # if no pre-defined dimension has been found, we do search
+        pass
+        
     for proposal in dimension_proposals:
         if "*" in proposal:
             # often constant multiplier with MLP
@@ -147,19 +151,30 @@ def get_representation_dimension_by_type(
 
 def get_module_hook(model, representation) -> nn.Module:
     """Render the intervening module with a hook."""
-    type_info = type_to_module_mapping[get_internal_model_type(model)][
-        representation.component
-    ]
-    parameter_name = type_info[0]
-    hook_type = type_info[1]
-    if "%s" in parameter_name and representation.moe_key is None:
-        # we assume it is for the layer.
-        parameter_name = parameter_name % (representation.layer)
+    if representation.component in type_to_module_mapping[get_internal_model_type(model)]:
+        type_info = type_to_module_mapping[get_internal_model_type(model)][
+            representation.component
+        ]
+        parameter_name = type_info[0]
+        hook_type = type_info[1]
+        if "%s" in parameter_name and representation.moe_key is None:
+            # we assume it is for the layer.
+            parameter_name = parameter_name % (representation.layer)
+        else:
+            parameter_name = parameter_name % (
+                int(representation.layer),
+                int(representation.moe_key),
+            )
     else:
-        parameter_name = parameter_name % (
-            int(representation.layer),
-            int(representation.moe_key),
-        )
+        # we assume this is an expert user, so honor the input
+        parameter_name = ".".join(representation.component.split(".")[:-1])
+        if representation.component.split(".")[-1] == "output":
+            hook_type = CONST_OUTPUT_HOOK
+        elif representation.component.split(".")[-1] == "input":
+            hook_type = CONST_INPUT_HOOK
+        else:
+            raise ValueError(f"{representation.component} is invalid.")
+
     module = getattr_for_torch_module(model, parameter_name)
     module_hook = getattr(module, hook_type)
 

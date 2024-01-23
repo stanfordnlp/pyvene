@@ -101,39 +101,39 @@ class IntervenableModel(nn.Module):
                     f"{CONST_VALID_INTERVENABLE_UNIT}",
                 )
 
-            if (
-                config.interventions is not None
-                and config.interventions[0] is not None
-            ):
-                # we leave this option open but not sure if it is a desired one
-                intervention = config.interventions[i]
+            if representation.intervention is not None:
+                intervention = representation.intervention
+                intervention.use_fast = self.use_fast
             else:
                 intervention_function = (
                     intervention_type
                     if type(intervention_type) != list
                     else intervention_type[i]
                 )
-                other_medata = representation._asdict()
-                other_medata["use_fast"] = self.use_fast
-                intervention = intervention_function(
-                    embed_dim=get_dimension(
-                        get_internal_model_type(model), model.config, representation
-                    ), **other_medata 
+                all_medata = representation._asdict()
+                all_medata["embed_dim"] = get_dimension(
+                    get_internal_model_type(model), model.config, representation
                 )
-                if representation.intervention_link_key in self._intervention_pointers:
-                    self._intervention_reverse_link[
-                        _key
-                    ] = f"link#{representation.intervention_link_key}"
-                    intervention = self._intervention_pointers[
-                        representation.intervention_link_key
-                    ]
-                elif representation.intervention_link_key is not None:
-                    self._intervention_pointers[
-                        representation.intervention_link_key
-                    ] = intervention
-                    self._intervention_reverse_link[
-                        _key
-                    ] = f"link#{representation.intervention_link_key}"
+                all_medata["use_fast"] = self.use_fast
+                intervention = intervention_function(
+                    **all_medata 
+                )
+                
+            if representation.intervention_link_key in self._intervention_pointers:
+                self._intervention_reverse_link[
+                    _key
+                ] = f"link#{representation.intervention_link_key}"
+                intervention = self._intervention_pointers[
+                    representation.intervention_link_key
+                ]
+            elif representation.intervention_link_key is not None:
+                self._intervention_pointers[
+                    representation.intervention_link_key
+                ] = intervention
+                self._intervention_reverse_link[
+                    _key
+                ] = f"link#{representation.intervention_link_key}"
+                
             if isinstance(
                 intervention,
                 CollectIntervention
@@ -171,15 +171,15 @@ class IntervenableModel(nn.Module):
                 model, self.representations
             )
 
-        # check it follows topological order
-        if not check_sorted_intervenables_by_topological_order(
-            model, self.representations, self.sorted_keys
-        ):
-            raise ValueError(
-                "The representations in your config must follow the "
-                "topological order of model components. E.g., layer 2 intervention "
-                "cannot appear before layer 1 in transformers."
-            )
+#         # check it follows topological order
+#         if not check_sorted_intervenables_by_topological_order(
+#             model, self.representations, self.sorted_keys
+#         ):
+#             raise ValueError(
+#                 "The representations in your config must follow the "
+#                 "topological order of model components. E.g., layer 2 intervention "
+#                 "cannot appear before layer 1 in transformers."
+#             )
 
         """
         We later use _intervention_group to run actual interventions.
