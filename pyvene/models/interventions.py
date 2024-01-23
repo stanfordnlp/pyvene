@@ -507,13 +507,12 @@ class NoiseIntervention(ConstantSourceIntervention, LocalistRepresentationInterv
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.interchange_dim = embed_dim
         rs = np.random.RandomState(1)
         prng = lambda *shape: rs.randn(*shape)
         noise_level = kwargs["noise_leve"] \
             if "noise_leve" in kwargs else 0.13462981581687927 
         self.register_buffer('noise', torch.from_numpy(
-            prng(1, 4, embed_dim)))
+            prng(1, 4, self.embed_dim)))
         self.register_buffer('noise_level', torch.tensor(noise_level))
         
     def forward(self, base, source=None, subspaces=None):
