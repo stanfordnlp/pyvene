@@ -155,11 +155,12 @@ def get_module_hook(model, representation) -> nn.Module:
     if "%s" in parameter_name and representation.moe_key is None:
         # we assume it is for the layer.
         parameter_name = parameter_name % (representation.layer)
-    else:
+    elif "%s" in parameter_name and representation.moe_key is not None:
         parameter_name = parameter_name % (
             int(representation.layer),
             int(representation.moe_key),
         )
+
     module = getattr_for_torch_module(model, parameter_name)
     module_hook = getattr(module, hook_type)
 
@@ -444,6 +445,16 @@ def scatter_neurons(
             model_type, model_config, "head_attention_value_output"
         )
         num_heads = int(n_embd / attn_head_size)
+    elif "sense" in representation_type:
+        n_embd = get_representation_dimension_by_type(
+            model_type, model_config, "sense_output"
+        )
+        attn_head_size = get_representation_dimension_by_type(
+            model_type, model_config, "sense_output"
+        )
+        num_heads = get_representation_dimension_by_type(
+            model_type, model_config, "num_senses"
+        )
     else:
         pass  # this is likely to be non-transformer model for advance usages
 
@@ -515,6 +526,22 @@ def scatter_neurons(
                         ] = replacing_tensor_input[
                             batch_i, loc_i
                         ]  # [s, dh]
+        elif unit in {"h.pos"} and "sense" in representation_type:
+            start_index = 0 if start_index is None else start_index
+            end_index = 0 if end_index is None else end_index
+            # we assume unit_locations is a tuple
+            for head_batch_i, head_locations in enumerate(unit_locations[0]):
+                for head_loc_i, head_loc in enumerate(head_locations):
+                    for pos_loc_i, pos_loc in enumerate(
+                        unit_locations[1][head_batch_i]
+                    ):
+                        h_start_index = start_index + head_loc * attn_head_size
+                        h_end_index = start_index + (head_loc + 1) * attn_head_size
+                        tensor_input[
+                            head_batch_i, head_loc, pos_loc
+                        ] = replacing_tensor_input[
+                            head_batch_i, head_loc_i, pos_loc_i
+                        ]  # [dh]
         else:
             if use_fast:
                 tensor_input[
