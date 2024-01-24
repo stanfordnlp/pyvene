@@ -8,7 +8,7 @@ ipywidgets==8.1.1
 plotnine==0.12.4
 huggingface-hub==0.20.3
 circuitsvis==1.43.2
-numpy==1.23.5
+numpy==1.24.1
 fsspec==2023.6.0
 uvicorn
 python-multipart
