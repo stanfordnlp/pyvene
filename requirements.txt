@@ -9,4 +9,3 @@ ipywidgets
 plotnine
 huggingface-hub
 circuitsvis
-numpy==1.19.2
