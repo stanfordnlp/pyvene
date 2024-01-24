@@ -1,4 +1,4 @@
-numpy==1.26.0
+numpy==1.19.2
 torch
 transformers
 datasets
