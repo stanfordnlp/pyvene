@@ -327,6 +327,8 @@ class CausalModel:
         intervention_sampler=None,
         filter=None,
         device="cpu",
+        inputFunction=None,
+        outputFunction=None
     ):
         maxlength = len(
             [
