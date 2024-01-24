@@ -58,32 +58,29 @@ class ModelUtilsTestCase(unittest.TestCase):
             "h.pos.dim", "h.pos.dim", "Not Implemented Gathering with Unit = h.pos.dim"
         )
 
-    def test_scatter_neurons_positive(self):
+    def test_scatter_neurons_gpt2_no_head_positive(self):
         # batch_size, seq_len, emb_dim
-        tensor_input = torch.arange(60).view(2, 5, 6)
-        # batch_size, #heads, seq_len, emb_dim
-        replacing_tensor_input = torch.arange(60, 96).view(2, 3, 3, 2)
+        tensor_input = torch.rand((2, 5, 6))
+        # batch_size, seq_len, emb_dim
+        replacing_tensor_input = torch.rand((2, 2, 6))
 
         # Replace the heads 1, 2 at positions 0, 1 with the first
-        golden_output = tensor_input.clone().view((2, 5, 3, 2))
-        golden_output[:, 0:2, 1:3, :] = replacing_tensor_input[:, 0:2, 0:2, :].permute(
-            0, 2, 1, 3
-        )
+        golden_output = tensor_input.clone()
+        golden_output[:, 1:3, :] = replacing_tensor_input[:, 0:2, :]
 
         tensor_output = scatter_neurons(
             tensor_input,
             replacing_tensor_input,
-            "head_attention_value_output",
-            "h.pos",
-            ([[1, 2]] * 2, [[0, 1]] * 2),
+            "attention_input",
+            "pos",
+            ([[1, 2]] * 2),
             self.gpt2_model,
             self.gpt2_config,
             False,
         )
-        tensor_output = tensor_output.view((2, 5, 3, 2))
         self.assertTrue(torch.allclose(tensor_output, golden_output))
 
-    def test_scatter_gathered_neurons_positive(self):
+    def test_scatter_gathered_neurons_gpt2_positive(self):
         # batch_size, #heads, seq_len, emb_dim
         replacing_tensor_input = torch.rand((2, 3, 5, 2))
         gathered_replacing_tensor_input = gather_neurons(
@@ -108,28 +105,55 @@ class ModelUtilsTestCase(unittest.TestCase):
         tensor_output = tensor_output.view((2, 5, 3, 2))
         self.assertTrue(torch.allclose(tensor_output, golden_output))
 
-    def test_scatter_neurons_no_head_positive(self):
-        # batch_size, seq_len, emb_dim
-        tensor_input = torch.rand((2, 5, 2))
-        # batch_size, #heads, seq_len, emb_dim
-        replacing_tensor_input = torch.rand((2, 2, 2))
-        # Replacing the above line with the line below fails the test
-        #         replacing_tensor_input = torch.rand((2, 3, 2))
+    def test_scatter_neurons_gpt2_qkv_positive(self):
+        # batch_size, seq_len, emb_dim (#qkv * emb_dim)
+        tensor_input = torch.arange(180).view(2, 5, 18)
+        # batch_size, #heads, seq_len, emb_dim (#qkv * emb_dim)
+        replacing_tensor_input = torch.arange(180, 180 + 16).view(2, 2, 2, 2)
 
         # Replace the heads 1, 2 at positions 0, 1 with the first
-        golden_output = tensor_input.clone()
-        golden_output[:, 1:3, :] = replacing_tensor_input[:, 0:2, :]
+        # (batch_size, seq_len, qkv, #head, emb_dim)
+        golden_output = tensor_input.clone().view((2, 5, 3, 3, 2))
+        # golden_output's dim=2 is qkv, here we only replace values
+        golden_output[:, 0:2, 2, 1:3, :] = replacing_tensor_input.permute(0, 2, 1, 3)
 
         tensor_output = scatter_neurons(
             tensor_input,
             replacing_tensor_input,
-            "attention_value_output",
-            "pos",
-            ([[1, 2]] * 2),
+            "head_value_output",
+            "h.pos",
+            ([[1, 2]] * 2, [[0, 1]] * 2),
             self.gpt2_model,
             self.gpt2_config,
             False,
         )
+        tensor_output = tensor_output.view(2, 5, 3, 3, 2)
+        self.assertTrue(torch.allclose(tensor_output, golden_output))
+
+    def test_scatter_neurons_gpt2_attn_with_head_positive(self):
+        # batch_size, seq_len, emb_dim
+        tensor_input = torch.arange(60).view(2, 5, 6)
+        # batch_size, #head, seq_len, emb_dim
+        replacing_tensor_input = torch.arange(60, 96).view(2, 3, 3, 2)
+        # ?
+
+        # Replace the heads 1, 2 at positions 0, 1 with the first
+        golden_output = tensor_input.clone().view(2, 5, 3, 2)
+        golden_output[:, 0:2, 1:3, :] = replacing_tensor_input[:, 0:2, 0:2, :].permute(
+            0, 2, 1, 3
+        )
+
+        tensor_output = scatter_neurons(
+            tensor_input,
+            replacing_tensor_input,
+            "head_attention_value_output",
+            "h.pos",
+            ([[1, 2]] * 2, [[0, 1]] * 2),
+            self.gpt2_model,
+            self.gpt2_config,
+            False,
+        )
+        tensor_output = tensor_output.view((2, 5, 3, 2))
         self.assertTrue(torch.allclose(tensor_output, golden_output))
 
 
@@ -138,9 +162,12 @@ def suite():
     suite.addTest(ModelUtilsTestCase("test_gather_neurons_pos_h_positive"))
     suite.addTest(ModelUtilsTestCase("test_gather_neurons_positive"))
     suite.addTest(ModelUtilsTestCase("test_gather_neurons_negative"))
-    suite.addTest(ModelUtilsTestCase("test_scather_neurons_positive"))
-    suite.addTest(ModelUtilsTestCase("test_scather_neurons_no_head_positive"))
-    suite.addTest(ModelUtilsTestCase("test_scatter_gathered_neurons_positive"))
+    suite.addTest(ModelUtilsTestCase("test_scatter_gathered_neurons_gpt2_positive"))
+    suite.addTest(ModelUtilsTestCase("test_scatter_neurons_gpt2_no_head_positive"))
+    suite.addTest(ModelUtilsTestCase("test_scatter_neurons_gpt2_qkv_positive"))
+    suite.addTest(
+        ModelUtilsTestCase("test_scatter_neurons_gpt2_attn_with_head_positive")
+    )
     return suite
 
 
