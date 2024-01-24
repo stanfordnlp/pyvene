@@ -9,3 +9,5 @@ ipywidgets
 plotnine
 huggingface-hub
 circuitsvis
+numpy==1.23
+fsspec==2023.10.0
