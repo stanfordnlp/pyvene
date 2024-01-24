@@ -1,4 +1,4 @@
-torch==2.1.2
+torch>=2.0.0
 transformers==4.37.0
 datasets==2.16.1
 protobuf==3.20.*
@@ -10,7 +10,3 @@ huggingface-hub==0.20.3
 circuitsvis==1.43.2
 numpy==1.24.1
 fsspec==2023.6.0
-uvicorn
-python-multipart
-kaleido
-fastapi
