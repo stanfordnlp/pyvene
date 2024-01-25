@@ -61,13 +61,11 @@ def is_single_token(s: str, tokenizer) -> bool:
 NAMES_PATH = "tutorial_data/names.json"
 OBJECTS_PATH = "tutorial_data/objects.json"
 PLACES_PATH = "tutorial_data/places.json"
-PREFIXES_PATH = "tutorial_data/prefixes.json"
 TEMPLATES_PATH = "tutorial_data/templates.json"
 
 NAMES = json.load(open(NAMES_PATH))
 OBJECTS = json.load(open(OBJECTS_PATH))
 PLACES = json.load(open(PLACES_PATH))
-PREFIXES = json.load(open(PREFIXES_PATH))
 TEMPLATES = json.load(open(TEMPLATES_PATH))
 
 
@@ -80,13 +78,11 @@ class Prompt:
     def __init__(
         self,
         names: Tuple[str, str, str],
-        prefix: str,
         template: str,
         obj: str,
         place: str,
     ):
         self.names = names
-        self.prefix = prefix
         self.template = template
         self.obj = obj
         self.place = place
@@ -109,7 +105,7 @@ class Prompt:
 
     @property
     def sentence(self) -> str:
-        return self.prefix + self.template.format(
+        return self.template.format(
             name_A=self.names[0],
             name_B=self.names[1],
             name_C=self.names[2],
@@ -187,7 +183,6 @@ class Prompt:
             template=self.template,
             obj=self.obj,
             place=self.place,
-            prefix=self.prefix,
         )
 
 
@@ -204,8 +199,6 @@ class PromptDataset(Dataset):
         self.prompts: Sequence[Prompt] = np.array(prompts)
         self.tokenizer = tokenizer
         ls = self.lengths
-        if not all(x == ls[0] for x in ls):
-            raise ValueError("Prompts must all have the same length")
 
     def __getitem__(self, idx: Union[int, Sequence, slice]) -> "PromptDataset":
         if isinstance(idx, int):
@@ -242,6 +235,7 @@ class PromptDataset(Dataset):
         return self.tokenizer(
             [x.sentence for x in self.prompts],
             return_tensors="pt",
+            padding=True,
         )
 
     @property
@@ -336,16 +330,11 @@ class PromptDistribution:
     """
     A class to represent a distribution over prompts.
 
-    It uses a combination of names, places, objects, prefixes, and templates
+    It uses a combination of names, places, objects, and templates
     loaded from JSON files or provided lists.
 
     Each prompt is constructed using a selected template and a randomly selected
     name, object, and place.
-
-    Attributes
-    ----------
-    prefix_len : int
-        The length of the prefix to use when creating the prompts.
     """
 
     def __init__(
@@ -353,15 +342,11 @@ class PromptDistribution:
         names: Union[List[str], str, Path],
         places: Union[List[str], str, Path],
         objects: Union[List[str], str, Path],
-        prefixes: Union[List[str], str, Path],
         templates: Union[List[str], str, Path],
-        prefix_len: int = 2,
     ):
-        self.prefix_len = prefix_len
         self.names = load_data(names)
         self.places = load_data(places)
         self.objects = load_data(objects)
-        self.prefixes = load_data(prefixes)
         self.templates = load_data(templates)
 
     def sample_one(
@@ -378,9 +363,8 @@ class PromptDistribution:
         prompt_names = tuple([unique_names[unique_ids.index(i)] for i in pattern])
         obj = random.choice(self.objects)
         place = random.choice(self.places)
-        prefix = self.prefixes[self.prefix_len]
         return Prompt(
-            names=prompt_names, template=template, obj=obj, place=place, prefix=prefix
+            names=prompt_names, template=template, obj=obj, place=place
         )
 
     def sample_das(
@@ -468,15 +452,11 @@ criterion = torch.nn.CrossEntropyLoss()
 
 
 # You can define your custom compute_metrics function.
-def compute_metrics(eval_preds, eval_labels, eval_alt_labels=None):
+def compute_metrics(eval_preds, eval_labels):
     total_count = 0
     correct_count = 0
-    flip_count = 0
-    label_logit = 0
-    label_prob = 0
-    alt_label_logit = 0
     kl_divs = []
-    for i, (eval_pred, eval_label) in enumerate(zip(eval_preds, eval_labels)):
+    for eval_pred, eval_label in zip(eval_preds, eval_labels):
         # acc
         actual_test_labels = eval_label
         pred_test_labels = torch.argmax(eval_pred[:, -1], dim=-1)
@@ -487,29 +467,9 @@ def compute_metrics(eval_preds, eval_labels, eval_alt_labels=None):
         kl_divs += [
             eval_pred[:, -1][torch.arange(len(actual_test_labels)), actual_test_labels]
         ]
-        # logit flip
-        if eval_alt_labels is not None:
-            alt_label = eval_alt_labels[i]
-            alt_label_logit += eval_pred[:, -1][torch.arange(len(actual_test_labels)), alt_label].mean().item()
-            for b in range(len(actual_test_labels)):
-                if eval_pred[b, -1, actual_test_labels[b]] >\
-                        eval_pred[b, -1, alt_label[b]]:
-                    flip_count += 1
-        # label logits
-        label_logit += eval_pred[:, -1][torch.arange(len(actual_test_labels)), actual_test_labels].mean().item()
-        label_prob += eval_pred[:, -1].softmax(-1)[torch.arange(len(actual_test_labels)), actual_test_labels].mean().item()
-    accuracy = correct_count / total_count
+    accuracy = round(correct_count / total_count, 2)
     kl_div = torch.cat(kl_divs, dim=0).mean()
-    result = {
-        "accuracy": accuracy,
-        "kl_div": kl_div,
-        "label_logit": label_logit / total_count,
-        "label_prob": label_prob / total_count
-    }
-    if eval_alt_labels is not None:
-        result["logit_flip"] = flip_count / total_count
-        result["alt_label_logit"] = alt_label_logit / total_count
-    return result
+    return {"accuracy": accuracy, "kl_div": kl_div}
 
 
 def calculate_loss(logits, labels):
@@ -581,8 +541,6 @@ def find_variable_at(
             names=NAMES[:20],
             objects=OBJECTS[: len(OBJECTS) // 2],
             places=PLACES[: len(PLACES) // 2],
-            prefix_len=2,
-            prefixes=PREFIXES,
             templates=TEMPLATES[:2],
         )
 
@@ -590,8 +548,6 @@ def find_variable_at(
             names=NAMES[:20],
             objects=OBJECTS[len(OBJECTS) // 2 :],
             places=PLACES[len(PLACES) // 2 :],
-            prefix_len=2,
-            prefixes=PREFIXES,
             templates=TEMPLATES[2:],
         )
     else:
@@ -599,8 +555,6 @@ def find_variable_at(
             names=NAMES[: len(NAMES) // 2],
             objects=OBJECTS[: len(OBJECTS) // 2],
             places=PLACES[: len(PLACES) // 2],
-            prefix_len=2,
-            prefixes=PREFIXES,
             templates=TEMPLATES[:2],
         )
 
@@ -608,8 +562,6 @@ def find_variable_at(
             names=NAMES[len(NAMES) // 2 :],
             objects=OBJECTS[len(OBJECTS) // 2 :],
             places=PLACES[len(PLACES) // 2 :],
-            prefix_len=2,
-            prefixes=PREFIXES,
             templates=TEMPLATES[2:],
         )
 
