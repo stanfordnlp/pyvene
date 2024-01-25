@@ -6,20 +6,18 @@ from pyvene.models.modeling_utils import *
 class ModelUtilsTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.gpt2_config, _, self.gpt2 = create_gpt2_lm(
-            config=GPT2Config(
-                n_embd=6,
-                n_head=3,
-                attn_pdrop=0.0,
-                embd_pdrop=0.0,
-                resid_pdrop=0.0,
-                summary_first_dropout=0.0,
-                n_layer=4,
-                bos_token_id=0,
-                eos_token_id=0,
-                n_positions=20,
-                vocab_size=10,
-            )
+        self.gpt2_config = GPT2Config(
+            n_embd=6,
+            n_head=3,
+            attn_pdrop=0.0,
+            embd_pdrop=0.0,
+            resid_pdrop=0.0,
+            summary_first_dropout=0.0,
+            n_layer=4,
+            bos_token_id=0,
+            eos_token_id=0,
+            n_positions=20,
+            vocab_size=10,
         )
         self.gpt2_model = hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel
 
