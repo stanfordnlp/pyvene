@@ -505,16 +505,19 @@ def scatter_neurons(
                             ] = replacing_tensor_input[
                                 head_batch_i, head_loc_i, pos_loc_i
                             ]  # [dh]
-            else:
+            elif unit in {"h"}:
                 for batch_i, locations in enumerate(unit_locations):
                     for loc_i, loc in enumerate(locations):
                         h_start_index = start_index + loc * attn_head_size
                         h_end_index = start_index + (loc + 1) * attn_head_size
+                        print(tensor_input.shape, replacing_tensor_input.shape, batch_i, loc, h_start_index, h_end_index, loc_i)
                         tensor_input[
                             batch_i, :, h_start_index:h_end_index
                         ] = replacing_tensor_input[
                             batch_i, loc_i
                         ]  # [s, dh]
+            else:
+                assert False, f"`head` in representation type should not associate with {unit}"
         else:
             if use_fast:
                 tensor_input[
