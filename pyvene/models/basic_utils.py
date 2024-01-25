@@ -116,13 +116,17 @@ def format_token(tokenizer, tok):
     return tokenizer.decode(tok).replace(" ", "_").replace("\n", "\\n")
 
 
-def top_vals(tokenizer, res, n=10):
+def top_vals(tokenizer, res, n=10, return_results=False):
     """Pretty print the top n values of a distribution over the vocabulary"""
     top_values, top_indices = torch.topk(res, n)
+    ret = []
     for i, _ in enumerate(top_values):
         tok = format_token(tokenizer, top_indices[i].item())
-        print(f"{tok:<20} {top_values[i].item()}")
-
+        ret += [(tok, top_values[i].item())]
+        if not return_results:
+            print(f"{tok:<20} {top_values[i].item()}")
+    if return_results:
+        return ret
         
 def get_list_depth(lst):
     """Return the max depth of the input list"""

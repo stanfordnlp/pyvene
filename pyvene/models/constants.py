@@ -27,6 +27,12 @@ CONST_TRANSFORMER_TOPOLOGICAL_ORDER = [
     "mlp_activation",
     "mlp_output",
     "block_output",
+    # special keys for backpack model
+    "sense_block_output",
+    "sense_mlp_input",
+    "sense_mlp_activation",
+    "sense_mlp_output",
+    "sense_output",
 ]
 
 
