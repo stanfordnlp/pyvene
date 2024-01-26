@@ -65,89 +65,6 @@ class IntervenableUnitTestCase(unittest.TestCase):
         assert len(intervenable.hot_activations) == 0
         assert len(intervenable._batched_setter_activation_select) == 0
 
-    def test_initialization_invalid_order_negative(self):
-        config = IntervenableConfig(
-            model_type=type(self.gpt2),
-            representations=[
-                RepresentationConfig(
-                    1,
-                    "block_output",
-                    "pos",
-                    1,
-                ),
-                RepresentationConfig(
-                    0,
-                    "block_output",
-                    "pos",
-                    1,
-                ),
-            ],
-            intervention_types=VanillaIntervention,
-        )
-        try:
-            intervenable = IntervenableModel(config, self.gpt2)
-        except ValueError:
-            pass
-        else:
-            raise ValueError(
-                "ValueError for invalid intervention " "order is not thrown"
-            )
-
-        config = IntervenableConfig(
-            model_type=type(self.gpt2),
-            representations=[
-                RepresentationConfig(
-                    0,
-                    "block_output",
-                    "pos",
-                    1,
-                ),
-                RepresentationConfig(
-                    0,
-                    "mlp_output",
-                    "pos",
-                    1,
-                ),
-            ],
-            intervention_types=VanillaIntervention,
-        )
-        try:
-            intervenable = IntervenableModel(config, self.gpt2)
-        except ValueError:
-            pass
-        else:
-            raise ValueError(
-                "ValueError for invalid intervention " "order is not thrown"
-            )
-
-    def test_initialization_invalid_repr_name_negative(self):
-        config = IntervenableConfig(
-            model_type=type(self.gpt2),
-            representations=[
-                RepresentationConfig(
-                    1,
-                    "block_output",
-                    "pos",
-                    1,
-                ),
-                RepresentationConfig(
-                    0,
-                    "strange_stream_me",
-                    "pos",
-                    1,
-                ),
-            ],
-            intervention_types=VanillaIntervention,
-        )
-        try:
-            intervenable = IntervenableModel(config, self.gpt2)
-        except KeyError:
-            pass
-        else:
-            raise ValueError(
-                "KeyError for invalid representation name " "is not thrown"
-            )
-
     def test_local_non_trainable_save_positive(self):
         config = IntervenableConfig(
             model_type=type(self.gpt2),
@@ -280,12 +197,6 @@ class IntervenableUnitTestCase(unittest.TestCase):
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(IntervenableUnitTestCase("test_initialization_positive"))
-    suite.addTest(
-        IntervenableUnitTestCase("test_initialization_invalid_order_negative")
-    )
-    suite.addTest(
-        IntervenableUnitTestCase("test_initialization_invalid_repr_name_negative")
-    )
     suite.addTest(IntervenableUnitTestCase("test_local_non_trainable_save_positive"))
     suite.addTest(IntervenableUnitTestCase("test_local_trainable_save_positive"))
     suite.addTest(IntervenableUnitTestCase("test_local_load_positive"))

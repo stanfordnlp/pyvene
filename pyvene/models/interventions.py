@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 from .layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotateLayer
 from .basic_utils import sigmoid_boundary
-from .intervention_utils import _do_intervention_by_swap
+from .intervention_utils import _can_use_fast, _do_intervention_by_swap
 
 
 class Intervention(torch.nn.Module):
@@ -20,7 +20,17 @@ class Intervention(torch.nn.Module):
         self.subspace_partition = (
             kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
         )
-        
+        # we turn the partition into list indices
+        if self.subspace_partition is not None:
+            expanded_subspace_partition = []
+            for subspace in self.subspace_partition:
+                if len(subspace) == 2 and isinstance(subspace[0], int):
+                    expanded_subspace_partition.append([i for i in range(subspace[0],subspace[1])])
+                else:
+                    # it could be discrete indices.
+                    expanded_subspace_partition.append(subspace)
+            self.subspace_partition = expanded_subspace_partition
+            
         if "embed_dim" in kwargs and kwargs["embed_dim"] is not None:
             self.register_buffer('embed_dim', torch.tensor(kwargs["embed_dim"]))
             self.register_buffer('interchange_dim', torch.tensor(kwargs["embed_dim"]))
@@ -191,7 +201,7 @@ class VanillaIntervention(Intervention, LocalistRepresentationIntervention):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def forward(self, base, source, subspaces=None):
+    def forward(self, base, source, subspaces=None):        
         return _do_intervention_by_swap(
             base,
             source if self.source_representation is None else self.source_representation,
@@ -398,20 +408,14 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresen
         rotated_base = self.rotate_layer(base)
         rotated_source = self.rotate_layer(source)
         if subspaces is not None:
-            if self.use_fast:
+            if self.use_fast or _can_use_fast(subspaces):
                 if self.subspace_partition is None:
                     sel_subspace_indices = subspaces[0]
                 else:
                     sel_subspace_indices = []
                     for subspace in subspaces[0]:
                         sel_subspace_indices.extend(
-                            [
-                                i
-                                for i in range(
-                                    self.subspace_partition[subspace][0],
-                                    self.subspace_partition[subspace][1],
-                                )
-                            ]
+                            self.subspace_partition[subspace]
                         )
                 diff = rotated_source - rotated_base
                 assert rotated_base.shape[0] == len(subspaces)
@@ -432,13 +436,7 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresen
                     sel_subspace_indices = []
                     for subspace in subspaces[example_i]:
                         sel_subspace_indices.extend(
-                            [
-                                i
-                                for i in range(
-                                    self.subspace_partition[subspace][0],
-                                    self.subspace_partition[subspace][1],
-                                )
-                            ]
+                            self.subspace_partition[subspace]
                         )
 
                     LHS = diff[example_i, sel_subspace_indices].unsqueeze(dim=0)

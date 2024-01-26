@@ -9,7 +9,7 @@ defined in the huggingface library.
 """
 
 
-from ..constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK
+from ..constants import *
 
 
 """gru base model"""
@@ -23,12 +23,12 @@ gru_type_to_module_mapping = {
     "new_gate_output": ("cells[%s].new_act", CONST_OUTPUT_HOOK),
     "x2h_output": ("cells[%s].x2h", CONST_OUTPUT_HOOK),
     "h2h_output": ("cells[%s].h2h", CONST_OUTPUT_HOOK),
-    "reset_x2h_output": ("cells[%s].x2h", CONST_OUTPUT_HOOK),
-    "update_x2h_output": ("cells[%s].x2h", CONST_OUTPUT_HOOK),
-    "new_x2h_output": ("cells[%s].x2h", CONST_OUTPUT_HOOK),
-    "reset_h2h_output": ("cells[%s].h2h", CONST_OUTPUT_HOOK),
-    "update_h2h_output": ("cells[%s].h2h", CONST_OUTPUT_HOOK),
-    "new_h2h_output": ("cells[%s].h2h", CONST_OUTPUT_HOOK),
+    "reset_x2h_output": ("cells[%s].x2h", CONST_OUTPUT_HOOK, (split_three, 0)),
+    "update_x2h_output": ("cells[%s].x2h", CONST_OUTPUT_HOOK, (split_three, 1)),
+    "new_x2h_output": ("cells[%s].x2h", CONST_OUTPUT_HOOK, (split_three, 2)),
+    "reset_h2h_output": ("cells[%s].h2h", CONST_OUTPUT_HOOK, (split_three, 0)),
+    "update_h2h_output": ("cells[%s].h2h", CONST_OUTPUT_HOOK, (split_three, 1)),
+    "new_h2h_output": ("cells[%s].h2h", CONST_OUTPUT_HOOK, (split_three, 2)),
     "cell_output": ("cells[%s]", CONST_OUTPUT_HOOK),
 }
 
@@ -56,7 +56,7 @@ gru_type_to_dimension_mapping = {
 """mlp model with classification head"""
 gru_classifier_type_to_module_mapping = {}
 for k, v in gru_type_to_module_mapping.items():
-    gru_classifier_type_to_module_mapping[k] = (f"gru.{v[0]}", v[1])
+    gru_classifier_type_to_module_mapping[k] = (f"gru.{v[0]}", ) + v[1:]
 
 gru_classifier_type_to_dimension_mapping = gru_type_to_dimension_mapping
 

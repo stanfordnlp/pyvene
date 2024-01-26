@@ -9,7 +9,7 @@ defined in the huggingface library.
 """
 
 
-from ..constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK, CONST_QKV_INDICES
+from ..constants import *
 
 """blip base model"""
 blip_type_to_module_mapping = {
