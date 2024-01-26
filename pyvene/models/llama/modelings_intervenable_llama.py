@@ -10,7 +10,7 @@ defined in the huggingface library.
 
 
 import torch
-from ..constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK, CONST_QKV_INDICES
+from ..constants import *
 
 
 llama_type_to_module_mapping = {
@@ -58,15 +58,6 @@ for k, v in llama_type_to_module_mapping.items():
 
 
 llama_lm_type_to_dimension_mapping = llama_type_to_dimension_mapping
-
-
-def split_heads(tensor, num_heads, attn_head_size):
-    """
-    Splits hidden_size dim into attn_head_size and num_heads
-    """
-    new_shape = tensor.size()[:-1] + (num_heads, attn_head_size)
-    tensor = tensor.view(new_shape)
-    return tensor.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
 
 
 def create_llama(

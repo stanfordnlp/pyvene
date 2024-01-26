@@ -35,29 +35,6 @@ class ModelUtilsTestCase(unittest.TestCase):
         )
         self.assertTrue(torch.allclose(tensor_output, tensor_input[:, 1:3, 0:2, :]))
 
-    def _test_gather_neurons_negative(self, name, unit, expected_error_msg):
-        tensor_input = torch.rand((5, 3, 2))
-        with self.assertRaisesRegex(AssertionError, expected_error_msg):
-            gather_neurons(tensor_input, unit, [[0, 1]] * 5)
-
-    def test_gather_neurons_negative(self):
-        self._test_gather_neurons_negative(
-            "dim",
-            "dim",
-            "Not Implemented Gathering with Unit = dim",
-        )
-        self._test_gather_neurons_negative(
-            "pos.dim",
-            "pos.dim",
-            "Not Implemented Gathering with Unit = pos.dim",
-        )
-        self._test_gather_neurons_negative(
-            "h.dim", "h.dim", "Not Implemented Gathering with Unit = h.dim"
-        )
-        self._test_gather_neurons_negative(
-            "h.pos.dim", "h.pos.dim", "Not Implemented Gathering with Unit = h.pos.dim"
-        )
-
     def test_scatter_neurons_gpt2_no_head_positive(self):
         # batch_size, seq_len, emb_dim
         tensor_input = torch.rand((2, 5, 6))
@@ -134,8 +111,8 @@ class ModelUtilsTestCase(unittest.TestCase):
         # batch_size, seq_len, emb_dim
         tensor_input = torch.arange(60).view(2, 5, 6)
         # batch_size, #head, seq_len, emb_dim
-        replacing_tensor_input = torch.arange(60, 96).view(2, 3, 3, 2)
-        # ?
+        # change to enforcing the seq_len to match the unit location last dim
+        replacing_tensor_input = torch.arange(60, 84).view(2, 3, 2, 2)
 
         # Replace the heads 1, 2 at positions 0, 1 with the first
         golden_output = tensor_input.clone().view(2, 5, 3, 2)

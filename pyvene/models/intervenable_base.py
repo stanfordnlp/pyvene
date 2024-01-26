@@ -7,7 +7,6 @@ from .basic_utils import *
 from .modeling_utils import *
 from .intervention_utils import *
 from .interventions import *
-from .constants import CONST_QKV_INDICES
 from .configuration_intervenable_model import (
     IntervenableConfig,
     RepresentationConfig,
@@ -95,12 +94,6 @@ class IntervenableModel(nn.Module):
         ):
             _key = self._get_representation_key(representation)
 
-            if representation.unit not in CONST_VALID_INTERVENABLE_UNIT:
-                raise ValueError(
-                    f"{representation.unit} is not supported as intervenable unit. Valid options: ",
-                    f"{CONST_VALID_INTERVENABLE_UNIT}",
-                )
-
             if representation.intervention is not None:
                 intervention = representation.intervention
                 intervention.use_fast = self.use_fast
@@ -110,13 +103,14 @@ class IntervenableModel(nn.Module):
                     if type(intervention_type) != list
                     else intervention_type[i]
                 )
-                all_medata = representation._asdict()
-                all_medata["embed_dim"] = get_dimension(
-                    get_internal_model_type(model), model.config, representation
-                )
-                all_medata["use_fast"] = self.use_fast
+                all_metadata = representation._asdict()
+                all_metadata["embed_dim"] = get_dimension_by_component(
+                    get_internal_model_type(model), model.config, 
+                    representation.component
+                ) * int(representation.max_number_of_units)
+                all_metadata["use_fast"] = self.use_fast
                 intervention = intervention_function(
-                    **all_medata 
+                    **all_metadata 
                 )
                 
             if representation.intervention_link_key in self._intervention_pointers:
@@ -169,16 +163,6 @@ class IntervenableModel(nn.Module):
             # the key order is independent of group, it is used to read out intervention locations.
             self.sorted_keys = kwargs["intervenables_sort_fn"](
                 model, self.representations
-            )
-
-        # check it follows topological order
-        if not check_sorted_intervenables_by_topological_order(
-            model, self.representations, self.sorted_keys
-        ):
-            raise ValueError(
-                "The representations in your config must follow the "
-                "topological order of model components. E.g., layer 2 intervention "
-                "cannot appear before layer 1 in transformers."
             )
 
         """
@@ -570,8 +554,13 @@ class IntervenableModel(nn.Module):
             if isinstance(output, tuple):
                 original_output = output[0]
             # gather subcomponent
-            original_output = self._output_to_subcomponent(
-                original_output, representations_key
+            original_output = output_to_subcomponent(
+                original_output,
+                self.representations[
+                    representations_key
+                ].component,
+                self.model_type,
+                self.model_config,
             )
 
             # gather based on intervention locations
@@ -585,25 +574,6 @@ class IntervenableModel(nn.Module):
 
         return selected_output
 
-    def _output_to_subcomponent(
-        self,
-        output,
-        representations_key,
-    ) -> List[torch.Tensor]:
-        """
-        Helps to get subcomponent of inputs/outputs of a hook
-
-        For instance, we need to separate QKV from a hidden representation
-        by slicing the original output
-        """
-        return output_to_subcomponent(
-            output,
-            self.representations[
-                representations_key
-            ].component,
-            self.model_type,
-            self.model_config,
-        )
 
     def _scatter_intervention_output(
         self,
@@ -818,7 +788,7 @@ class IntervenableModel(nn.Module):
                 # TODO: need to figure out why clone is needed
                 if not self.is_model_stateless:
                     selected_output = selected_output.clone()
-                    
+                
                 if isinstance(
                     intervention,
                     CollectIntervention
@@ -1128,6 +1098,16 @@ class IntervenableModel(nn.Module):
                 elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
                     _unit_locations[k] = ([[[v[0]]]*batch_size]*intervention_group_size, None)
                     self.use_fast = True
+                elif isinstance(v, list) and get_list_depth(v) == 1:
+                    # [0,1,2,3] -> [[[0,1,2,3]]], ...
+                    if is_base_only:
+                        _unit_locations[k] = (None, [[v]*batch_size]*intervention_group_size)
+                    else:
+                        _unit_locations[k] = (
+                            [[v]*batch_size]*intervention_group_size, 
+                            [[v]*batch_size]*intervention_group_size
+                        )
+                    self.use_fast = True
                 else:
                     if is_base_only:
                         _unit_locations[k] = (None, v)
@@ -1153,6 +1133,13 @@ class IntervenableModel(nn.Module):
                     self.use_fast = True
                 elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
                     _unit_locations[k] = ([[[v[0]]]*batch_size]*intervention_group_size, None)
+                    self.use_fast = True
+                elif isinstance(v, list) and get_list_depth(v) == 1:
+                    # [0,1,2,3] -> [[[0,1,2,3]]], ...
+                    _unit_locations[k] = (
+                        [[v]*batch_size]*intervention_group_size, 
+                        [[v]*batch_size]*intervention_group_size
+                    )
                     self.use_fast = True
                 else:
                     _unit_locations[k] = v
