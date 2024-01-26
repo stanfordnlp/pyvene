@@ -9,7 +9,7 @@ defined in the huggingface library.
 """
 
 
-from ..constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK
+from ..constants import *
 
 
 """mlp base model"""

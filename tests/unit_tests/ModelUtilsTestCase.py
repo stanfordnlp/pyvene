@@ -297,8 +297,8 @@ class ModelUtilsTestCase(unittest.TestCase):
         # batch_size, seq_len, emb_dim
         tensor_input = torch.arange(60).view(2, 5, 6)
         # batch_size, #head, seq_len, emb_dim
-        replacing_tensor_input = torch.arange(60, 96).view(2, 3, 3, 2)
-        # ?
+        # change to enforcing the seq_len to match the unit location last dim
+        replacing_tensor_input = torch.arange(60, 84).view(2, 3, 2, 2)
 
         # Replace the heads 1, 2 at positions 0, 1 with the first
         golden_output = tensor_input.clone().view(2, 5, 3, 2)
