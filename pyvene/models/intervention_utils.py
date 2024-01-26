@@ -80,8 +80,8 @@ def _can_use_fast(
     tensorfiable = True
     row_same_val = False
     try:
-        torch.tensor(subspaces)
-        row_same_val = torch.all(tensor == tensor[0], axis=1).all()
+        subspaces = torch.tensor(subspaces)
+        row_same_val = torch.all(subspaces == subspaces[0], axis=1).all()
     except:
         tensorfiable = False
         
