@@ -37,7 +37,7 @@ class ModelUtilsTestCase(unittest.TestCase):
 
     def _test_gather_neurons_negative(self, name, unit, expected_error_msg):
         tensor_input = torch.rand((5, 3, 2))
-        with self.assertRaisesRegex(AssertionError, expected_error_msg):
+        with self.assertRaisesRegex(ValueError, expected_error_msg):
             gather_neurons(tensor_input, unit, [[0, 1]] * 5)
 
     def test_gather_neurons_negative(self):
@@ -297,12 +297,12 @@ class ModelUtilsTestCase(unittest.TestCase):
         # batch_size, seq_len, emb_dim
         tensor_input = torch.arange(60).view(2, 5, 6)
         # batch_size, #head, seq_len, emb_dim
-        # change to enforcing the seq_len to match the unit location last dim
         replacing_tensor_input = torch.arange(60, 84).view(2, 3, 2, 2)
+        # ?
 
         # Replace the heads 1, 2 at positions 0, 1 with the first
         golden_output = tensor_input.clone().view(2, 5, 3, 2)
-        golden_output[:, 0:2, 1:3, :] = replacing_tensor_input[:, 0:2, 0:2, :].permute(
+        golden_output[:, 0:2, 1:3, :] = replacing_tensor_input[:, 0:2, :, :].permute(
             0, 2, 1, 3
         )
 
