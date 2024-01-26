@@ -120,16 +120,7 @@ def _do_intervention_by_swap(
         elif mode == "collect":
             return base[..., :interchange_dim] # return without side-effect
         return base
-    
-    # subspace optimization
-    tensorfiable = True
-    row_same_val = False
-    try:
-        torch.tensor(subspaces)
-        row_same_val = torch.all(tensor == tensor[0], axis=1).all()
-    except:
-        tensorfiable = False
-    
+
     sel_subspace_indices = None
     if use_fast or _can_use_fast(subspaces):
         # its tensor, and each row the same
@@ -155,7 +146,7 @@ def _do_intervention_by_swap(
                     )
                 sel_subspace_indices.append(_sel_subspace_indices)
     
-    # if it is either row_same_val or tensorfiable, we use advance indexing
+    # _can_use_fast or _can_cast_tensor will prepare the sel_subspace_indices
     if sel_subspace_indices is not None:
         pad_idx = torch.arange(base.shape[-2]).unsqueeze(dim=-1).to(base.device)
         if mode == "interchange":
