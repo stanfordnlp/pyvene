@@ -48,6 +48,9 @@ class Intervention(torch.nn.Module):
             else:
                 self.source_representation = None
                 
+    def set_source_representation(self, source_representation):
+        self.is_source_constant = True
+        self.register_buffer('source_representation', kwargs["source_representation"])
                 
     def set_interchange_dim(self, interchange_dim):
         if isinstance(interchange_dim, int):
