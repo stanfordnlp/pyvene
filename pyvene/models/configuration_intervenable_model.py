@@ -31,6 +31,7 @@ class IntervenableConfig(PretrainedConfig):
         model_type=None, # deprecating
         # hidden fields for backlog
         intervention_dimensions=None,
+        intervention_constant_sources=None,
         **kwargs,
     ):
         if not isinstance(representations, list):
@@ -77,6 +78,7 @@ class IntervenableConfig(PretrainedConfig):
         self.mode = mode
         self.sorted_keys = sorted_keys
         self.intervention_dimensions = intervention_dimensions
+        self.intervention_constant_sources = intervention_constant_sources
         self.model_type = model_type
         super().__init__(**kwargs)
     
