@@ -253,35 +253,34 @@ def gather_neurons(tensor_input, unit, unit_locations_as_list):
         return tensor_input
 
     if "." in unit:
-        if unit in {"h.pos"}:
-            unit_locations = (
-                torch.tensor(unit_locations_as_list[0], device=tensor_input.device),
-                torch.tensor(unit_locations_as_list[1], device=tensor_input.device),
-            )
-            # we assume unit_locations is a tuple
-            head_unit_locations = unit_locations[0]
-            pos_unit_locations = unit_locations[1]
+        unit_locations = (
+            torch.tensor(unit_locations_as_list[0], device=tensor_input.device),
+            torch.tensor(unit_locations_as_list[1], device=tensor_input.device),
+        )
+        # we assume unit_locations is a tuple
+        head_unit_locations = unit_locations[0]
+        pos_unit_locations = unit_locations[1]
 
-            head_tensor_output = torch.gather(
-                tensor_input,
-                1,
-                head_unit_locations.reshape(
-                    *head_unit_locations.shape, *(1,) * (len(tensor_input.shape) - 2)
-                ).expand(-1, -1, *tensor_input.shape[2:]),
-            )  # b, h, s, d
-            d = head_tensor_output.shape[1]
-            pos_tensor_input = bhsd_to_bs_hd(head_tensor_output)
-            pos_tensor_output = torch.gather(
-                pos_tensor_input,
-                1,
-                pos_unit_locations.reshape(
-                    *pos_unit_locations.shape, *(1,) * (len(pos_tensor_input.shape) - 2)
-                ).expand(-1, -1, *pos_tensor_input.shape[2:]),
-            )  # b, num_unit (pos), num_unit (h)*d
-            tensor_output = bs_hd_to_bhsd(pos_tensor_output, d)
+        head_tensor_output = torch.gather(
+            tensor_input,
+            1,
+            head_unit_locations.reshape(
+                *head_unit_locations.shape, *(1,) * (len(tensor_input.shape) - 2)
+            ).expand(-1, -1, *tensor_input.shape[2:]),
+        )  # b, h, s, d
+        d = head_tensor_output.shape[1]
+        pos_tensor_input = bhsd_to_bs_hd(head_tensor_output)
+        pos_tensor_output = torch.gather(
+            pos_tensor_input,
+            1,
+            pos_unit_locations.reshape(
+                *pos_unit_locations.shape, *(1,) * (len(pos_tensor_input.shape) - 2)
+            ).expand(-1, -1, *pos_tensor_input.shape[2:]),
+        )  # b, num_unit (pos), num_unit (h)*d
+        tensor_output = bs_hd_to_bhsd(pos_tensor_output, d)
 
-            return tensor_output  # b, num_unit (h), num_unit (pos), d
-    elif unit in {"h", "pos"}:
+        return tensor_output  # b, num_unit (h), num_unit (pos), d
+    else:
         unit_locations = torch.tensor(
             unit_locations_as_list, device=tensor_input.device
         )
@@ -293,8 +292,6 @@ def gather_neurons(tensor_input, unit, unit_locations_as_list):
             ).expand(-1, -1, *tensor_input.shape[2:]),
         )
         return tensor_output
-
-    raise ValueError(f"Not Implemented Gathering with Unit = {unit}")
 
 
 def scatter_neurons(

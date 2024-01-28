@@ -35,29 +35,6 @@ class ModelUtilsTestCase(unittest.TestCase):
         )
         self.assertTrue(torch.allclose(tensor_output, tensor_input[:, 1:3, 0:2, :]))
 
-    def _test_gather_neurons_negative(self, name, unit, expected_error_msg):
-        tensor_input = torch.rand((5, 3, 2))
-        with self.assertRaisesRegex(ValueError, expected_error_msg):
-            gather_neurons(tensor_input, unit, [[0, 1]] * 5)
-
-    def test_gather_neurons_negative(self):
-        self._test_gather_neurons_negative(
-            "dim",
-            "dim",
-            "Not Implemented Gathering with Unit = dim",
-        )
-        self._test_gather_neurons_negative(
-            "pos.dim",
-            "pos.dim",
-            "Not Implemented Gathering with Unit = pos.dim",
-        )
-        self._test_gather_neurons_negative(
-            "h.dim", "h.dim", "Not Implemented Gathering with Unit = h.dim"
-        )
-        self._test_gather_neurons_negative(
-            "h.pos.dim", "h.pos.dim", "Not Implemented Gathering with Unit = h.pos.dim"
-        )
-
     def test_output_to_subcomponent_gpt2_no_head_positive(self):
         # batch_size, seq_len, emb_dim
         tensor_input = torch.rand((2, 5, 6))
@@ -65,10 +42,7 @@ class ModelUtilsTestCase(unittest.TestCase):
         golden_output = tensor_input.clone()
 
         tensor_output = output_to_subcomponent(
-            tensor_input,
-            "attention_input",
-            self.gpt2_model,
-            self.gpt2_config,
+            tensor_input, "attention_input", self.gpt2_model, self.gpt2_config,
         )
         self.assertTrue(torch.allclose(tensor_output, golden_output))
 
@@ -357,7 +331,6 @@ def suite():
     suite = unittest.TestSuite()
     suite.addTest(ModelUtilsTestCase("test_gather_neurons_pos_h_positive"))
     suite.addTest(ModelUtilsTestCase("test_gather_neurons_positive"))
-    suite.addTest(ModelUtilsTestCase("test_gather_neurons_negative"))
     suite.addTest(ModelUtilsTestCase("test_scatter_gathered_neurons_gpt2_positive"))
     suite.addTest(ModelUtilsTestCase("test_scatter_gathered_neurons_gpt2_qkv_positive"))
     suite.addTest(
