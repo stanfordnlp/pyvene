@@ -13,7 +13,7 @@ class Intervention(torch.nn.Module):
 
     def __init__(self, **kwargs):
         super().__init__()
-        self.trainble = False
+        self.trainable = False
         self.is_source_constant = False
         
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
@@ -87,7 +87,7 @@ class TrainableIntervention(Intervention):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.trainble = True
+        self.trainable = True
         self.is_source_constant = False
         
     def tie_weight(self, linked_intervention):
@@ -204,7 +204,7 @@ class VanillaIntervention(Intervention, LocalistRepresentationIntervention):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def forward(self, base, source, subspaces=None):        
+    def forward(self, base, source, subspaces=None): 
         return _do_intervention_by_swap(
             base,
             source if self.source_representation is None else self.source_representation,
@@ -478,7 +478,7 @@ class PCARotatedSpaceIntervention(BasisAgnosticIntervention, DistributedRepresen
         self.pca_std = torch.nn.Parameter(
             torch.tensor(pca_std, dtype=torch.float32), requires_grad=False
         )
-        self.trainble = False
+        self.trainable = False
 
     def forward(self, base, source, subspaces=None):
         base_norm = (base - self.pca_mean) / self.pca_std

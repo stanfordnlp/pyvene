@@ -555,11 +555,11 @@ class IntervenableModel(nn.Module):
                 self._intervention_reverse_link[representations_key]
             ]
         else:
-            # cold gather
-            original_output = output
             # data structure casting
             if isinstance(output, tuple):
-                original_output = output[0]
+                original_output = output[0].clone()
+            else:
+                original_output = output.clone()
             # gather subcomponent
             original_output = output_to_subcomponent(
                 original_output,
@@ -788,7 +788,7 @@ class IntervenableModel(nn.Module):
                         output = kwargs[list(kwargs.keys())[0]]
                     else:
                         output = args
-
+                        
                 selected_output = self._gather_intervention_output(
                     output, key, unit_locations_base[key_i]
                 )
@@ -838,26 +838,15 @@ class IntervenableModel(nn.Module):
                             self._intervention_reverse_link[key]
                         ] = intervened_representation.clone()
                     
-                    # very buggy due to tensor version
-                    if self.model_has_grad:
-                        # TODO: figure out how to allow this!
-                        if isinstance(output, tuple):
-                            raise ValueError(
-                                "Model grad is not allowed when "
-                                "intervening output is tuple type."
-                            )
-                        output_c = output.clone()
-                        # patched in the intervned activations in-place
+                    if isinstance(output, tuple):
                         _ = self._scatter_intervention_output(
-                            output_c, intervened_representation, key, unit_locations_base[key_i]
+                            output[0], intervened_representation, key, unit_locations_base[key_i]
                         )
-                        output = output_c.clone()
                     else:
-                        # patched in the intervned activations in-place
                         _ = self._scatter_intervention_output(
                             output, intervened_representation, key, unit_locations_base[key_i]
                         )
-
+                            
                     self._intervention_state[key].inc_setter_version()
 
             handlers.append(module_hook(hook_callback, with_kwargs=True))
@@ -1073,7 +1062,6 @@ class IntervenableModel(nn.Module):
     def _broadcast_unit_locations(
         self,
         batch_size,
-        intervention_group_size,
         unit_locations
     ):
         if self.mode == "parallel":
@@ -1086,33 +1074,33 @@ class IntervenableModel(nn.Module):
                     k = "sources->base"
                 if isinstance(v, int):
                     if is_base_only:
-                        _unit_locations[k] = (None, [[[v]]*batch_size]*intervention_group_size)
+                        _unit_locations[k] = (None, [[[v]]*batch_size]*len(self.interventions))
                     else:
                         _unit_locations[k] = (
-                            [[[v]]*batch_size]*intervention_group_size, 
-                            [[[v]]*batch_size]*intervention_group_size
+                            [[[v]]*batch_size]*len(self.interventions), 
+                            [[[v]]*batch_size]*len(self.interventions)
                         )
                     self.use_fast = True
                 elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
                     _unit_locations[k] = (
-                        [[[v[0]]]*batch_size]*intervention_group_size, 
-                        [[[v[1]]]*batch_size]*intervention_group_size
+                        [[[v[0]]]*batch_size]*len(self.interventions), 
+                        [[[v[1]]]*batch_size]*len(self.interventions)
                     )
                     self.use_fast = True
                 elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
-                    _unit_locations[k] = (None, [[[v[1]]]*batch_size]*intervention_group_size)
+                    _unit_locations[k] = (None, [[[v[1]]]*batch_size]*len(self.interventions))
                     self.use_fast = True
                 elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
-                    _unit_locations[k] = ([[[v[0]]]*batch_size]*intervention_group_size, None)
+                    _unit_locations[k] = ([[[v[0]]]*batch_size]*len(self.interventions), None)
                     self.use_fast = True
                 elif isinstance(v, list) and get_list_depth(v) == 1:
                     # [0,1,2,3] -> [[[0,1,2,3]]], ...
                     if is_base_only:
-                        _unit_locations[k] = (None, [[v]*batch_size]*intervention_group_size)
+                        _unit_locations[k] = (None, [[v]*batch_size]*len(self.interventions))
                     else:
                         _unit_locations[k] = (
-                            [[v]*batch_size]*intervention_group_size, 
-                            [[v]*batch_size]*intervention_group_size
+                            [[v]*batch_size]*len(self.interventions), 
+                            [[v]*batch_size]*len(self.interventions)
                         )
                     self.use_fast = True
                 else:
@@ -1125,27 +1113,27 @@ class IntervenableModel(nn.Module):
             for k, v in unit_locations.items():
                 if isinstance(v, int):
                     _unit_locations[k] = (
-                        [[[v]]*batch_size]*intervention_group_size, 
-                        [[[v]]*batch_size]*intervention_group_size
+                        [[[v]]*batch_size]*len(self.interventions), 
+                        [[[v]]*batch_size]*len(self.interventions)
                     )
                     self.use_fast = True
                 elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
                     _unit_locations[k] = (
-                        [[[v[0]]]*batch_size]*intervention_group_size, 
-                        [[[v[1]]]*batch_size]*intervention_group_size
+                        [[[v[0]]]*batch_size]*len(self.interventions), 
+                        [[[v[1]]]*batch_size]*len(self.interventions)
                     )
                     self.use_fast = True
                 elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
-                    _unit_locations[k] = (None, [[[v[1]]]*batch_size]*intervention_group_size)
+                    _unit_locations[k] = (None, [[[v[1]]]*batch_size]*len(self.interventions))
                     self.use_fast = True
                 elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
-                    _unit_locations[k] = ([[[v[0]]]*batch_size]*intervention_group_size, None)
+                    _unit_locations[k] = ([[[v[0]]]*batch_size]*len(self.interventions), None)
                     self.use_fast = True
                 elif isinstance(v, list) and get_list_depth(v) == 1:
                     # [0,1,2,3] -> [[[0,1,2,3]]], ...
                     _unit_locations[k] = (
-                        [[v]*batch_size]*intervention_group_size, 
-                        [[v]*batch_size]*intervention_group_size
+                        [[v]*batch_size]*len(self.interventions), 
+                        [[v]*batch_size]*len(self.interventions)
                     )
                     self.use_fast = True
                 else:
@@ -1191,16 +1179,15 @@ class IntervenableModel(nn.Module):
     def _broadcast_subspaces(
         self,
         batch_size,
-        intervention_group_size,
         subspaces
     ):
         """Broadcast simple subspaces input"""
         _subspaces = subspaces
         if isinstance(subspaces, int):
-            _subspaces = [[[subspaces]]*batch_size]*intervention_group_size
+            _subspaces = [[[subspaces]]*batch_size]*len(self.interventions)
             
         elif isinstance(subspaces, list) and isinstance(subspaces[0], int):
-            _subspaces = [[subspaces]*batch_size]*intervention_group_size
+            _subspaces = [[subspaces]*batch_size]*len(self.interventions)
         else:
             # TODO: subspaces is easier to add more broadcast majic.
             pass
@@ -1292,13 +1279,11 @@ class IntervenableModel(nn.Module):
             return self.model(**base), None
         
         # broadcast
-        unit_locations = self._broadcast_unit_locations(
-            get_batch_size(base), len(self._intervention_group), unit_locations)
+        unit_locations = self._broadcast_unit_locations(get_batch_size(base), unit_locations)
         sources = [None]*len(self._intervention_group) if sources is None else sources
         sources = self._broadcast_sources(sources)
         activations_sources = self._broadcast_source_representations(activations_sources)
-        subspaces = self._broadcast_subspaces(
-            get_batch_size(base), len(self._intervention_group), subspaces)
+        subspaces = self._broadcast_subspaces(get_batch_size(base), subspaces)
         
         self._input_validation(
             base,
@@ -1412,13 +1397,11 @@ class IntervenableModel(nn.Module):
             unit_locations = {"base": 0}
         
         # broadcast
-        unit_locations = self._broadcast_unit_locations(
-            get_batch_size(base), len(self._intervention_group), unit_locations)
+        unit_locations = self._broadcast_unit_locations(get_batch_size(base), unit_locations)
         sources = [None]*len(self._intervention_group) if sources is None else sources
         sources = self._broadcast_sources(sources)
         activations_sources = self._broadcast_source_representations(activations_sources)
-        subspaces = self._broadcast_subspaces(
-            get_batch_size(base), len(self._intervention_group), subspaces)
+        subspaces = self._broadcast_subspaces(get_batch_size(base), subspaces)
         
         self._input_validation(
             base,

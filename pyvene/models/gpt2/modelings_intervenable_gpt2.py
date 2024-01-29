@@ -22,7 +22,7 @@ gpt2_type_to_module_mapping = {
     "attention_value_output": ("h[%s].attn.c_proj", CONST_INPUT_HOOK),
     "head_attention_value_output": ("h[%s].attn.c_proj", CONST_INPUT_HOOK, (split_head_and_permute, "n_head")),
     "attention_weight": ("h[%s].attn.attn_dropout", CONST_INPUT_HOOK),
-    "attention_output": ("h[%s].attn", CONST_OUTPUT_HOOK),
+    "attention_output": ("h[%s].attn.resid_dropout", CONST_OUTPUT_HOOK),
     "attention_input": ("h[%s].attn", CONST_INPUT_HOOK),
     "query_output": ("h[%s].attn.c_attn", CONST_OUTPUT_HOOK, (split_three, 0)),
     "key_output": ("h[%s].attn.c_attn", CONST_OUTPUT_HOOK, (split_three, 1)),
