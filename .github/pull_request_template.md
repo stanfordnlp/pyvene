@@ -1,4 +1,4 @@
-## 📝 Description
+## Description
 
 [Describe Your Changes Here ...]
 
@@ -6,7 +6,7 @@
 
 [Describe Your Changes Here ...]
 
-# Checklist:
+## Checklist:
 
 - [ ] My PR title strictly follows the format: `[Your Priority] Your Title`
 - [ ] I have attached the testing log above
