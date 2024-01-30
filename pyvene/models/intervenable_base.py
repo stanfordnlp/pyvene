@@ -936,7 +936,7 @@ class IntervenableModel(nn.Module):
         activations_sources: Optional[Dict] = None,
         subspaces: Optional[List] = None,
     ):
-        torch.autograd.set_detect_anomaly(True)
+        # torch.autograd.set_detect_anomaly(True)
         all_set_handlers = HandlerList([])
         unit_locations_sources = unit_locations["sources->base"][0]
         unit_locations_base = unit_locations["sources->base"][1]
