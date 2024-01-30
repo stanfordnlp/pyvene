@@ -264,6 +264,12 @@ class PromptDataset(Dataset):
         )
 
 
+def get_last_token(logits, attention_mask):
+    last_token_indices = attention_mask.sum(1) - 1
+    batch_indices = torch.arange(logits.size(0)).unsqueeze(1)
+    return logits[batch_indices, last_token_indices.unsqueeze(1)].squeeze(1)
+
+
 class PatchingDataset(Dataset):
     """
     Bundle together the data needed to *train* a (DAS or other) patching for a
@@ -645,7 +651,7 @@ def find_variable_at(
                         low_rank_dimension=low_rank_dimension,
                     )
             intervenable = IntervenableModel(config, gpt2)
-            intervenable.set_device("cuda")
+            intervenable.set_device("cuda" if torch.cuda.is_available() else "cpu")
             intervenable.disable_model_gradients()
             total_step = 0
             if not do_vanilla_intervention:
@@ -665,7 +671,7 @@ def find_variable_at(
                             temperature_start, temperature_end, target_total_step
                         )
                         .to(torch.bfloat16)
-                        .to("cuda")
+                        .to("cuda" if torch.cuda.is_available() else "cpu")
                     )
                     intervenable.set_temperature(temperature_schedule[total_step])
                 else:
@@ -733,15 +739,16 @@ def find_variable_at(
                                     },
                                 )
 
+                        logits = get_last_token(counterfactual_outputs.logits, base_inputs["attention_mask"]).unsqueeze(1)
                         eval_metrics = compute_metrics(
-                            [counterfactual_outputs.logits], [labels]
+                            [logits], [labels]
                         )
                         if do_boundless_das:
                             loss = calculate_boundless_das_loss(
-                                counterfactual_outputs.logits, labels, intervenable
+                                logits, labels, intervenable
                             )
                         else:
-                            loss = calculate_loss(counterfactual_outputs.logits, labels)
+                            loss = calculate_loss(logits, labels)
                         loss_str = round(loss.item(), 2)
                         loss.backward()
                         optimizer.step()
@@ -815,7 +822,8 @@ def find_variable_at(
                                 },
                             )
                     eval_labels += [labels]
-                    eval_preds += [counterfactual_outputs.logits]
+                    logits = get_last_token(counterfactual_outputs.logits, base_inputs["attention_mask"]).unsqueeze(1)
+                    eval_preds += [logits]
             eval_metrics = compute_metrics(eval_preds, eval_labels)
 
             if do_boundless_das:
