@@ -1,2 +1,4 @@
-tutorials/* linguist-vendored
+tutorials/basic_tutorials/* linguist-vendored
+tutorials/advanced_tutorials/* linguist-vendored
+pyvene_101.ipynb
 tests/qa_runbook.ipynb linguist-vendored

@@ -10,6 +10,7 @@ logs
 _hidden_local_dev*
 tmp_dir_new*/
 tmp/
+tmp_*/
 notebooks/figures/
 *.tsv
 *.csv

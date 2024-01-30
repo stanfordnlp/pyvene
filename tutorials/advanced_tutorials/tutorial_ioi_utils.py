@@ -856,3 +856,212 @@ def find_variable_at(
     if return_intervenable:
         return data, intervenable
     return data
+
+
+def path_patching_config(
+    layer, last_layer, low_rank_dimension,
+    component="attention_output", unit="pos"
+):
+    intervening_component = [{
+        "layer": layer, "component": component, 
+        "unit": unit, "group_key": 0,
+        "intervention_type": LowRankRotatedSpaceIntervention,
+        "low_rank_dimension": low_rank_dimension,
+    }]
+    restoring_components = []
+    if not component.startswith("mlp_"):
+        restoring_components += [{
+            "layer": layer, "component": "mlp_output", "group_key": 1,
+            "intervention_type": VanillaIntervention,
+        }]
+    for i in range(layer+1, last_layer):
+        restoring_components += [{
+            "layer": i, "component": "attention_output", "group_key": 1, 
+            "intervention_type": VanillaIntervention},{
+            "layer": i, "component": "mlp_output", "group_key": 1,
+            "intervention_type": VanillaIntervention
+        }]
+    intervenable_config = IntervenableConfig(
+        intervening_component + restoring_components)
+    return intervenable_config, len(restoring_components)
+
+
+def with_path_patch_find_variable_at(
+    gpt2,
+    tokenizer,
+    positions,
+    layers,
+    stream,
+    low_rank_dimension=1,
+    seed=42,
+    debug=False,
+):
+    transformers.set_seed(seed)
+
+    train_distribution = PromptDistribution(
+        names=NAMES[: len(NAMES) // 2],
+        objects=OBJECTS[: len(OBJECTS) // 2],
+        places=PLACES[: len(PLACES) // 2],
+        prefix_len=2,
+        prefixes=PREFIXES,
+        templates=TEMPLATES[:2],
+    )
+
+    test_distribution = PromptDistribution(
+        names=NAMES[len(NAMES) // 2 :],
+        objects=OBJECTS[len(OBJECTS) // 2 :],
+        places=PLACES[len(PLACES) // 2 :],
+        prefix_len=2,
+        prefixes=PREFIXES,
+        templates=TEMPLATES[2:],
+    )
+
+    D_train = train_distribution.sample_das(
+        tokenizer=tokenizer,
+        base_patterns=["ABB", "BAB"],
+        source_patterns=["ABB", "BAB"],
+        labels="position",
+        samples_per_combination=50,
+    )
+    D_test = test_distribution.sample_das(
+        tokenizer=tokenizer,
+        base_patterns=[
+            "ABB",
+        ],
+        source_patterns=["BAB"],
+        labels="position",
+        samples_per_combination=50,
+    ) + test_distribution.sample_das(
+        tokenizer=tokenizer,
+        base_patterns=[
+            "BAB",
+        ],
+        source_patterns=["ABB"],
+        labels="position",
+        samples_per_combination=50,
+    )
+
+    data = []
+
+    batch_size = 20
+    eval_every = 5
+    initial_lr = 0.01
+    n_epochs = 10
+    aligning_stream = stream
+
+    for aligning_pos in positions:
+        for aligning_layer in layers:
+            if debug:
+                print(
+                    f"finding name position at: pos->{aligning_pos}, "
+                    f"layers->{aligning_layer}, stream->{stream}"
+                )
+            config, num_restores = path_patching_config(
+                aligning_layer, 
+                gpt2.config.n_layer, 
+                low_rank_dimension,
+                component=aligning_stream,
+                unit="pos"
+            )
+            intervenable = IntervenableModel(config, gpt2)
+            intervenable.set_device("cuda")
+            intervenable.disable_model_gradients()
+            total_step = 0
+            optimizer = torch.optim.Adam(
+                intervenable.get_trainable_parameters(), lr=initial_lr
+            )
+            scheduler = torch.optim.lr_scheduler.LinearLR(
+                optimizer, end_factor=0.1, total_iters=n_epochs
+            )
+
+            for epoch in range(n_epochs):
+                torch.cuda.empty_cache()
+                for batch_dataset in D_train.batches(batch_size=batch_size):
+                    # prepare base
+                    base_inputs = batch_dataset.base.tokens
+                    b_s = base_inputs["input_ids"].shape[0]
+                    for k, v in base_inputs.items():
+                        if v is not None and isinstance(v, torch.Tensor):
+                            base_inputs[k] = v.to(gpt2.device)
+                    # prepare source
+                    source_inputs = batch_dataset.source.tokens
+                    for k, v in source_inputs.items():
+                        if v is not None and isinstance(v, torch.Tensor):
+                            source_inputs[k] = v.to(gpt2.device)
+                    # prepare label
+                    labels = batch_dataset.patched_answer_tokens[:, 0].to(
+                        gpt2.device
+                    )
+
+                    assert all(x == 18 for x in batch_dataset.base.lengths)
+                    assert all(x == 18 for x in batch_dataset.source.lengths)
+
+                    _, counterfactual_outputs = intervenable(
+                        {"input_ids": base_inputs["input_ids"]},
+                        [{"input_ids": source_inputs["input_ids"]}, {"input_ids": base_inputs["input_ids"]}],
+                        {
+                            "sources->base": (
+                                [[[aligning_pos]] * b_s]+[[[aligning_pos]] * b_s]*num_restores, 
+                                [[[aligning_pos]] * b_s]+[[[aligning_pos]] * b_s]*num_restores, 
+                            )
+                        },
+                    )
+
+                    eval_metrics = compute_metrics(
+                        [counterfactual_outputs.logits], [labels]
+                    )
+                    loss = calculate_loss(counterfactual_outputs.logits, labels)
+                    loss_str = round(loss.item(), 2)
+                    loss.backward()
+                    optimizer.step()
+                    scheduler.step()
+                    intervenable.set_zero_grad()
+                    total_step += 1
+
+            # eval
+            eval_labels = []
+            eval_preds = []
+            with torch.no_grad():
+                torch.cuda.empty_cache()
+                for batch_dataset in D_test.batches(batch_size=batch_size):
+                    # prepare base
+                    base_inputs = batch_dataset.base.tokens
+                    b_s = base_inputs["input_ids"].shape[0]
+                    for k, v in base_inputs.items():
+                        if v is not None and isinstance(v, torch.Tensor):
+                            base_inputs[k] = v.to(gpt2.device)
+                    # prepare source
+                    source_inputs = batch_dataset.source.tokens
+                    for k, v in source_inputs.items():
+                        if v is not None and isinstance(v, torch.Tensor):
+                            source_inputs[k] = v.to(gpt2.device)
+                    # prepare label
+                    labels = batch_dataset.patched_answer_tokens[:, 0].to(gpt2.device)
+
+                    assert all(x == 18 for x in batch_dataset.base.lengths)
+                    assert all(x == 18 for x in batch_dataset.source.lengths)
+                    _, counterfactual_outputs = intervenable(
+                        {"input_ids": base_inputs["input_ids"]},
+                        [{"input_ids": source_inputs["input_ids"]}, {"input_ids": base_inputs["input_ids"]}],
+                        {
+                            "sources->base": (
+                                [[[aligning_pos]] * b_s]+[[[aligning_pos]] * b_s]*num_restores, 
+                                [[[aligning_pos]] * b_s]+[[[aligning_pos]] * b_s]*num_restores, 
+                            )
+                        },
+                    )
+                    eval_labels += [labels]
+                    eval_preds += [counterfactual_outputs.logits]
+            eval_metrics = compute_metrics(eval_preds, eval_labels)
+
+            data.append(
+                {
+                    "pos": aligning_pos,
+                    "layer": aligning_layer,
+                    "acc": eval_metrics["accuracy"],
+                    "kl_div": eval_metrics["kl_div"],
+                    "stream": stream,
+                }
+            )
+
+    return data

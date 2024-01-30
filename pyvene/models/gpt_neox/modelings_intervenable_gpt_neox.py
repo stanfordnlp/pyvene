@@ -9,7 +9,7 @@ defined in the huggingface library.
 """
 
 
-from ..constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK, CONST_QKV_INDICES
+from ..constants import *
 
 
 """gpt_neox base model"""
@@ -20,7 +20,7 @@ gpt_neox_type_to_module_mapping = {
     "mlp_output": ("layers[%s].mlp", CONST_OUTPUT_HOOK),
     "mlp_input": ("layers[%s].mlp", CONST_INPUT_HOOK),
     "attention_value_output": ("layers[%s].attention.dense", CONST_INPUT_HOOK),
-    "head_attention_value_output": ("layers[%s].attention.dense", CONST_INPUT_HOOK),
+    "head_attention_value_output": ("layers[%s].attention.dense", CONST_INPUT_HOOK, (split_head_and_permute, "n_head")),
     "attention_output": ("layers[%s].attention", CONST_OUTPUT_HOOK),
     "attention_input": ("layers[%s].attention", CONST_INPUT_HOOK),
     # 'query_output': ("layers[%s].attention.query_key_value", CONST_OUTPUT_HOOK),
@@ -33,6 +33,7 @@ gpt_neox_type_to_module_mapping = {
 
 
 gpt_neox_type_to_dimension_mapping = {
+    "n_head": "num_attention_heads",
     "block_input": ("hidden_size",),
     "block_output": ("hidden_size",),
     "mlp_activation": (

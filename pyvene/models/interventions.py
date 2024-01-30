@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 from .layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotateLayer
 from .basic_utils import sigmoid_boundary
-from .intervention_utils import _do_intervention_by_swap
+from .intervention_utils import _can_use_fast, _do_intervention_by_swap
 
 
 class Intervention(torch.nn.Module):
@@ -13,12 +13,31 @@ class Intervention(torch.nn.Module):
 
     def __init__(self, **kwargs):
         super().__init__()
-        self.trainble = False
+        self.trainable = False
         self.is_source_constant = False
+        
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
         self.subspace_partition = (
             kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
         )
+        # we turn the partition into list indices
+        if self.subspace_partition is not None:
+            expanded_subspace_partition = []
+            for subspace in self.subspace_partition:
+                if len(subspace) == 2 and isinstance(subspace[0], int):
+                    expanded_subspace_partition.append([i for i in range(subspace[0],subspace[1])])
+                else:
+                    # it could be discrete indices.
+                    expanded_subspace_partition.append(subspace)
+            self.subspace_partition = expanded_subspace_partition
+            
+        if "embed_dim" in kwargs and kwargs["embed_dim"] is not None:
+            self.register_buffer('embed_dim', torch.tensor(kwargs["embed_dim"]))
+            self.register_buffer('interchange_dim', torch.tensor(kwargs["embed_dim"]))
+        else:
+            self.embed_dim = None
+            self.interchange_dim = None
+            
         if "source_representation" in kwargs and kwargs["source_representation"] is not None:
             self.is_source_constant = True
             self.register_buffer('source_representation', kwargs["source_representation"])
@@ -28,7 +47,11 @@ class Intervention(torch.nn.Module):
                 self.is_source_constant = True
             else:
                 self.source_representation = None
-
+                
+    def set_source_representation(self, source_representation):
+        self.is_source_constant = True
+        self.register_buffer('source_representation', source_representation)
+                
     def set_interchange_dim(self, interchange_dim):
         if isinstance(interchange_dim, int):
             self.interchange_dim = torch.tensor(interchange_dim)
@@ -64,7 +87,7 @@ class TrainableIntervention(Intervention):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.trainble = True
+        self.trainable = True
         self.is_source_constant = False
         
     def tie_weight(self, linked_intervention):
@@ -111,11 +134,8 @@ class ZeroIntervention(ConstantSourceIntervention, LocalistRepresentationInterve
 
     """Zero-out activations."""
 
-    def __init__(self, embed_dim, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # TODO: put them into a parent class
-        self.register_buffer('embed_dim', torch.tensor(embed_dim))
-        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
         
     def forward(self, base, source=None, subspaces=None):
         return _do_intervention_by_swap(
@@ -129,18 +149,15 @@ class ZeroIntervention(ConstantSourceIntervention, LocalistRepresentationInterve
         )
 
     def __str__(self):
-        return f"ZeroIntervention(embed_dim={self.embed_dim})"
+        return f"ZeroIntervention()"
         
         
 class CollectIntervention(ConstantSourceIntervention):
 
     """Collect activations."""
 
-    def __init__(self, embed_dim, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # TODO: put them into a parent class
-        self.register_buffer('embed_dim', torch.tensor(embed_dim))
-        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
         
     def forward(self, base, source=None, subspaces=None):
         return _do_intervention_by_swap(
@@ -154,17 +171,15 @@ class CollectIntervention(ConstantSourceIntervention):
         )
 
     def __str__(self):
-        return f"CollectIntervention(embed_dim={self.embed_dim})"
+        return f"CollectIntervention()"
         
         
 class SkipIntervention(BasisAgnosticIntervention, LocalistRepresentationIntervention):
 
     """Skip the current intervening layer's computation in the hook function."""
 
-    def __init__(self, embed_dim, **kwargs):
-        # TODO: put them into a parent class
-        self.register_buffer('embed_dim', torch.tensor(embed_dim))
-        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         
     def forward(self, base, source, subspaces=None):
         # source here is the base example input to the hook
@@ -179,20 +194,17 @@ class SkipIntervention(BasisAgnosticIntervention, LocalistRepresentationInterven
         )
 
     def __str__(self):
-        return f"SkipIntervention(embed_dim={self.embed_dim})"
+        return f"SkipIntervention()"
 
 
 class VanillaIntervention(Intervention, LocalistRepresentationIntervention):
 
     """Intervention the original representations."""
 
-    def __init__(self, embed_dim, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # TODO: put them into a parent class
-        self.register_buffer('embed_dim', torch.tensor(embed_dim))
-        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
 
-    def forward(self, base, source, subspaces=None):
+    def forward(self, base, source, subspaces=None): 
         return _do_intervention_by_swap(
             base,
             source if self.source_representation is None else self.source_representation,
@@ -204,18 +216,15 @@ class VanillaIntervention(Intervention, LocalistRepresentationIntervention):
         )
 
     def __str__(self):
-        return f"VanillaIntervention(embed_dim={self.embed_dim})"
+        return f"VanillaIntervention()"
 
 
 class AdditionIntervention(BasisAgnosticIntervention, LocalistRepresentationIntervention):
 
     """Intervention the original representations with activation addition."""
 
-    def __init__(self, embed_dim, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # TODO: put them into a parent class
-        self.register_buffer('embed_dim', torch.tensor(embed_dim))
-        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
 
     def forward(self, base, source, subspaces=None):
         return _do_intervention_by_swap(
@@ -229,18 +238,15 @@ class AdditionIntervention(BasisAgnosticIntervention, LocalistRepresentationInte
         )
 
     def __str__(self):
-        return f"AdditionIntervention(embed_dim={self.embed_dim})"
+        return f"AdditionIntervention()"
 
 
 class SubtractionIntervention(BasisAgnosticIntervention, LocalistRepresentationIntervention):
 
     """Intervention the original representations with activation subtraction."""
 
-    def __init__(self, embed_dim, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # TODO: put them into a parent class
-        self.register_buffer('embed_dim', torch.tensor(embed_dim))
-        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
 
     def forward(self, base, source, subspaces=None):
         
@@ -255,20 +261,17 @@ class SubtractionIntervention(BasisAgnosticIntervention, LocalistRepresentationI
         )
 
     def __str__(self):
-        return f"SubtractionIntervention(embed_dim={self.embed_dim})"
+        return f"SubtractionIntervention()"
 
 
 class RotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 
     """Intervention in the rotated space."""
 
-    def __init__(self, embed_dim, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        rotate_layer = RotateLayer(embed_dim)
+        rotate_layer = RotateLayer(self.embed_dim)
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
-        # TODO: put them into a parent class
-        self.register_buffer('embed_dim', torch.tensor(embed_dim))
-        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
 
     def forward(self, base, source, subspaces=None):
         rotated_base = self.rotate_layer(base)
@@ -288,19 +291,16 @@ class RotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationI
         return output.to(base.dtype)
 
     def __str__(self):
-        return f"RotatedSpaceIntervention(embed_dim={self.embed_dim})"
+        return f"RotatedSpaceIntervention()"
 
 
 class BoundlessRotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 
     """Intervention in the rotated space with boundary mask."""
 
-    def __init__(self, embed_dim, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # TODO: put them into a parent class
-        self.register_buffer('embed_dim', torch.tensor(embed_dim))
-        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
-        rotate_layer = RotateLayer(embed_dim)
+        rotate_layer = RotateLayer(self.embed_dim)
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
         self.intervention_boundaries = torch.nn.Parameter(
             torch.tensor([0.5]), requires_grad=True
@@ -349,25 +349,22 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention, DistributedRepres
         return output.to(base.dtype)
 
     def __str__(self):
-        return f"BoundlessRotatedSpaceIntervention(embed_dim={self.embed_dim})"
+        return f"BoundlessRotatedSpaceIntervention()"
 
 
 class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 
     """Intervention in the rotated space with boundary mask."""
 
-    def __init__(self, embed_dim, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        rotate_layer = RotateLayer(embed_dim)
+        rotate_layer = RotateLayer(self.embed_dim)
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
         # boundary masks are initialized to close to 1
         self.masks = torch.nn.Parameter(
-            torch.tensor([100] * embed_dim), requires_grad=True
+            torch.tensor([100] * self.embed_dim), requires_grad=True
         )
         self.temperature = torch.nn.Parameter(torch.tensor(50.0))
-        # TODO: put them into a parent class
-        self.register_buffer('embed_dim', torch.tensor(embed_dim))
-        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
 
     def get_boundary_parameters(self):
         return self.intervention_boundaries
@@ -398,39 +395,30 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention, DistributedRepr
         return output.to(base.dtype)
 
     def __str__(self):
-        return f"SigmoidMaskRotatedSpaceIntervention(embed_dim={self.embed_dim})"
+        return f"SigmoidMaskRotatedSpaceIntervention()"
 
 
 class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 
     """Intervention in the rotated space."""
 
-    def __init__(self, embed_dim, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        rotate_layer = LowRankRotateLayer(embed_dim, kwargs["low_rank_dimension"])
+        rotate_layer = LowRankRotateLayer(self.embed_dim, kwargs["low_rank_dimension"])
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
-        # TODO: put them into a parent class
-        self.register_buffer('embed_dim', torch.tensor(embed_dim))
-        self.register_buffer('interchange_dim', torch.tensor(embed_dim))
 
     def forward(self, base, source, subspaces=None):
         rotated_base = self.rotate_layer(base)
         rotated_source = self.rotate_layer(source)
         if subspaces is not None:
-            if self.use_fast:
+            if self.use_fast or _can_use_fast(subspaces):
                 if self.subspace_partition is None:
                     sel_subspace_indices = subspaces[0]
                 else:
                     sel_subspace_indices = []
                     for subspace in subspaces[0]:
                         sel_subspace_indices.extend(
-                            [
-                                i
-                                for i in range(
-                                    self.subspace_partition[subspace][0],
-                                    self.subspace_partition[subspace][1],
-                                )
-                            ]
+                            self.subspace_partition[subspace]
                         )
                 diff = rotated_source - rotated_base
                 assert rotated_base.shape[0] == len(subspaces)
@@ -451,13 +439,7 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresen
                     sel_subspace_indices = []
                     for subspace in subspaces[example_i]:
                         sel_subspace_indices.extend(
-                            [
-                                i
-                                for i in range(
-                                    self.subspace_partition[subspace][0],
-                                    self.subspace_partition[subspace][1],
-                                )
-                            ]
+                            self.subspace_partition[subspace]
                         )
 
                     LHS = diff[example_i, sel_subspace_indices].unsqueeze(dim=0)
@@ -476,13 +458,13 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresen
         return output.to(base.dtype)
 
     def __str__(self):
-        return f"LowRankRotatedSpaceIntervention(embed_dim={self.embed_dim})"
+        return f"LowRankRotatedSpaceIntervention()"
 
 
 class PCARotatedSpaceIntervention(BasisAgnosticIntervention, DistributedRepresentationIntervention):
     """Intervention in the pca space."""
 
-    def __init__(self, embed_dim, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
         pca = kwargs["pca"]
         pca_mean = kwargs["pca_mean"]
@@ -496,10 +478,7 @@ class PCARotatedSpaceIntervention(BasisAgnosticIntervention, DistributedRepresen
         self.pca_std = torch.nn.Parameter(
             torch.tensor(pca_std, dtype=torch.float32), requires_grad=False
         )
-        # TODO: put them into a parent class
-        self.register_buffer('embed_dim', torch.tensor(embed_dim))
-        self.register_buffer('interchange_dim', torch.tensor(kwargs["low_rank_dimension"]))
-        self.trainble = False
+        self.trainable = False
 
     def forward(self, base, source, subspaces=None):
         base_norm = (base - self.pca_mean) / self.pca_std
@@ -522,20 +501,19 @@ class PCARotatedSpaceIntervention(BasisAgnosticIntervention, DistributedRepresen
         return output
 
     def __str__(self):
-        return f"PCARotatedSpaceIntervention(embed_dim={self.embed_dim})"
+        return f"PCARotatedSpaceIntervention()"
 
 class NoiseIntervention(ConstantSourceIntervention, LocalistRepresentationIntervention):
     """Noise intervention"""
     
-    def __init__(self, embed_dim, **kwargs):
-        super().__init__()
-        self.interchange_dim = embed_dim
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         rs = np.random.RandomState(1)
         prng = lambda *shape: rs.randn(*shape)
         noise_level = kwargs["noise_leve"] \
             if "noise_leve" in kwargs else 0.13462981581687927 
         self.register_buffer('noise', torch.from_numpy(
-            prng(1, 4, embed_dim)))
+            prng(1, 4, self.embed_dim)))
         self.register_buffer('noise_level', torch.tensor(noise_level))
         
     def forward(self, base, source=None, subspaces=None):
@@ -543,4 +521,5 @@ class NoiseIntervention(ConstantSourceIntervention, LocalistRepresentationInterv
         return base
 
     def __str__(self):
-        return f"NoiseIntervention(embed_dim={self.embed_dim})"
+        return f"NoiseIntervention()"
+    

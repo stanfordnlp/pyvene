@@ -7,7 +7,6 @@ from .basic_utils import *
 from .modeling_utils import *
 from .intervention_utils import *
 from .interventions import *
-from .constants import CONST_QKV_INDICES
 from .configuration_intervenable_model import (
     IntervenableConfig,
     RepresentationConfig,
@@ -95,45 +94,43 @@ class IntervenableModel(nn.Module):
         ):
             _key = self._get_representation_key(representation)
 
-            if representation.unit not in CONST_VALID_INTERVENABLE_UNIT:
-                raise ValueError(
-                    f"{representation.unit} is not supported as intervenable unit. Valid options: ",
-                    f"{CONST_VALID_INTERVENABLE_UNIT}",
-                )
-
-            if (
-                config.interventions is not None
-                and config.interventions[0] is not None
-            ):
-                # we leave this option open but not sure if it is a desired one
-                intervention = config.interventions[i]
+            if representation.intervention is not None:
+                intervention = representation.intervention
+                intervention.use_fast = self.use_fast
             else:
                 intervention_function = (
                     intervention_type
                     if type(intervention_type) != list
                     else intervention_type[i]
                 )
-                other_medata = representation._asdict()
-                other_medata["use_fast"] = self.use_fast
-                intervention = intervention_function(
-                    embed_dim=get_dimension(
-                        get_internal_model_type(model), model.config, representation
-                    ), **other_medata 
+                all_metadata = representation._asdict()
+                component_dim = get_dimension_by_component(
+                    get_internal_model_type(model), model.config, 
+                    representation.component
                 )
-                if representation.intervention_link_key in self._intervention_pointers:
-                    self._intervention_reverse_link[
-                        _key
-                    ] = f"link#{representation.intervention_link_key}"
-                    intervention = self._intervention_pointers[
-                        representation.intervention_link_key
-                    ]
-                elif representation.intervention_link_key is not None:
-                    self._intervention_pointers[
-                        representation.intervention_link_key
-                    ] = intervention
-                    self._intervention_reverse_link[
-                        _key
-                    ] = f"link#{representation.intervention_link_key}"
+                if component_dim is not None:
+                    component_dim *= int(representation.max_number_of_units)
+                all_metadata["embed_dim"] = component_dim
+                all_metadata["use_fast"] = self.use_fast
+                intervention = intervention_function(
+                    **all_metadata 
+                )
+                
+            if representation.intervention_link_key in self._intervention_pointers:
+                self._intervention_reverse_link[
+                    _key
+                ] = f"link#{representation.intervention_link_key}"
+                intervention = self._intervention_pointers[
+                    representation.intervention_link_key
+                ]
+            elif representation.intervention_link_key is not None:
+                self._intervention_pointers[
+                    representation.intervention_link_key
+                ] = intervention
+                self._intervention_reverse_link[
+                    _key
+                ] = f"link#{representation.intervention_link_key}"
+                    
             if isinstance(
                 intervention,
                 CollectIntervention
@@ -169,16 +166,6 @@ class IntervenableModel(nn.Module):
             # the key order is independent of group, it is used to read out intervention locations.
             self.sorted_keys = kwargs["intervenables_sort_fn"](
                 model, self.representations
-            )
-
-        # check it follows topological order
-        if not check_sorted_intervenables_by_topological_order(
-            model, self.representations, self.sorted_keys
-        ):
-            raise ValueError(
-                "The representations in your config must follow the "
-                "topological order of model components. E.g., layer 2 intervention "
-                "cannot appear before layer 1 in transformers."
             )
 
         """
@@ -250,10 +237,14 @@ class IntervenableModel(nn.Module):
         Provide unique key for each intervention
         """
         l = representation.layer
-        r = representation.component
+        c = representation.component
         u = representation.unit
         n = representation.max_number_of_units
-        key_proposal = f"layer.{l}.repr.{r}.unit.{u}.nunit.{n}"
+        if "." in c:
+            # string access for sure
+            key_proposal = f"comp.{c}.unit.{u}.nunit.{n}"
+        else:
+            key_proposal = f"layer.{l}.comp.{c}.unit.{u}.nunit.{n}"
         if key_proposal not in self._key_collision_counter:
             self._key_collision_counter[key_proposal] = 0
         else:
@@ -353,8 +344,7 @@ class IntervenableModel(nn.Module):
         Set device of interventions and the model
         """
         for k, v in self.interventions.items():
-            if isinstance(v[0], TrainableIntervention):
-                v[0].to(device)
+            v[0].to(device)
         self.model.to(device)
 
     def get_device(self):
@@ -409,6 +399,7 @@ class IntervenableModel(nn.Module):
         )
         saving_config.intervention_types = []
         saving_config.intervention_dimensions = []
+        saving_config.intervention_constant_sources = []
         
         # handle constant source reprs if passed in.
         serialized_representations = []
@@ -423,6 +414,8 @@ class IntervenableModel(nn.Module):
                         serialized_reprs["hidden_source_representation"] = True
                     serialized_reprs[k] = None
                 elif k == "intervention_type":
+                    serialized_reprs[k] = None
+                elif k == "intervention":
                     serialized_reprs[k] = None
                 else:
                     serialized_reprs[k] = v
@@ -439,7 +432,7 @@ class IntervenableModel(nn.Module):
             # save intervention binary file
             if isinstance(intervention, TrainableIntervention) or \
                 intervention.source_representation is not None:
-                logging.warn(f"Saving trainable intervention to {binary_filename}.")
+                # logging.info(f"Saving trainable intervention to {binary_filename}.")
                 torch.save(
                     intervention.state_dict(),
                     os.path.join(save_directory, binary_filename),
@@ -449,8 +442,8 @@ class IntervenableModel(nn.Module):
                     try:
                         api.create_repo(hf_repo_name)
                     except:
-                        logging.warn(
-                            f"Skipping creating the repo since "
+                        logging.info(
+                            f"Uploading: {binary_filename}, but skipping creating the repo since "
                             f"either {hf_repo_name} exists or having authentication error."
                         )
                     api.upload_file(
@@ -459,8 +452,12 @@ class IntervenableModel(nn.Module):
                         repo_id=hf_repo_name,
                         repo_type="model",
                     )
-            saving_config.intervention_dimensions += [intervention.interchange_dim.tolist()]
-
+            if intervention.interchange_dim is None:
+                saving_config.intervention_dimensions += [None]
+            else:
+                saving_config.intervention_dimensions += [intervention.interchange_dim.tolist()]
+            saving_config.intervention_constant_sources += [intervention.is_source_constant]
+            
         # save metadata config
         saving_config.save_pretrained(save_directory)
         if save_to_hf_hub:
@@ -468,8 +465,8 @@ class IntervenableModel(nn.Module):
             try:
                 api.create_repo(hf_repo_name)
             except:
-                logging.warn(
-                    f"Skipping creating the repo since "
+                logging.info(
+                    f"Uploading the config, Skipping creating the repo since "
                     f"either {hf_repo_name} exists or having authentication error."
                 )
             api.upload_file(
@@ -485,19 +482,13 @@ class IntervenableModel(nn.Module):
         Load interventions from disk or hub
         """
         if not os.path.exists(load_directory) or from_huggingface_hub:
-            if local_directory is None:
-                raise ValueError(
-                    "You have to provide local_directory to save hf files."
-                )
-            from huggingface_hub import hf_hub_download
-
-            hf_hub_download(
+            from_huggingface_hub = True
+            
+            from huggingface_hub import snapshot_download
+            load_directory = snapshot_download(
                 repo_id=load_directory,
-                filename="config.json",
-                cache_dir=local_directory,
+                local_dir=local_directory,
             )
-            # simple overwrite
-            load_directory = local_directory
 
         # load config
         saving_config = IntervenableConfig.from_pretrained(load_directory)
@@ -522,23 +513,23 @@ class IntervenableModel(nn.Module):
         for i, (k, v) in enumerate(intervenable.interventions.items()):
             intervention = v[0]
             binary_filename = f"intkey_{k}.bin"
-            if isinstance(intervention, TrainableIntervention) or \
-                (intervention.is_source_constant and \
-                     not isinstance(intervention, SourcelessIntervention)):
-                if not os.path.exists(load_directory) or from_huggingface_hub:
-                    hf_hub_download(
-                        repo_id=load_directory,
-                        filename=binary_filename,
-                        cache_dir=local_directory,
-                    )
-                logging.warn(f"Loading trainable intervention from {binary_filename}.")
-                if intervention.is_source_constant and not isinstance(intervention, ZeroIntervention):
-                    saved_state_dict = torch.load(os.path.join(load_directory, binary_filename))
+            intervention.is_source_constant = \
+                saving_config.intervention_constant_sources[i]
+            intervention.set_interchange_dim(saving_config.intervention_dimensions[i])
+            if saving_config.intervention_constant_sources[i] and \
+                not isinstance(intervention, ZeroIntervention) and \
+                not isinstance(intervention, SourcelessIntervention):
+                # logging.warn(f"Loading trainable intervention from {binary_filename}.")
+                saved_state_dict = torch.load(os.path.join(load_directory, binary_filename))
+                try:
                     intervention.register_buffer(
                         'source_representation', saved_state_dict['source_representation']
                     )
-                    intervention.load_state_dict(saved_state_dict)
-            intervention.set_interchange_dim(saving_config.intervention_dimensions[i])
+                except:
+                    intervention.source_representation = saved_state_dict['source_representation']
+            elif isinstance(intervention, TrainableIntervention):
+                saved_state_dict = torch.load(os.path.join(load_directory, binary_filename))
+                intervention.load_state_dict(saved_state_dict)
 
         return intervenable
 
@@ -564,14 +555,19 @@ class IntervenableModel(nn.Module):
                 self._intervention_reverse_link[representations_key]
             ]
         else:
-            # cold gather
-            original_output = output
             # data structure casting
             if isinstance(output, tuple):
-                original_output = output[0]
+                original_output = output[0].clone()
+            else:
+                original_output = output.clone()
             # gather subcomponent
-            original_output = self._output_to_subcomponent(
-                original_output, representations_key
+            original_output = output_to_subcomponent(
+                original_output,
+                self.representations[
+                    representations_key
+                ].component,
+                self.model_type,
+                self.model_config,
             )
 
             # gather based on intervention locations
@@ -585,25 +581,6 @@ class IntervenableModel(nn.Module):
 
         return selected_output
 
-    def _output_to_subcomponent(
-        self,
-        output,
-        representations_key,
-    ) -> List[torch.Tensor]:
-        """
-        Helps to get subcomponent of inputs/outputs of a hook
-
-        For instance, we need to separate QKV from a hidden representation
-        by slicing the original output
-        """
-        return output_to_subcomponent(
-            output,
-            self.representations[
-                representations_key
-            ].component,
-            self.model_type,
-            self.model_config,
-        )
 
     def _scatter_intervention_output(
         self,
@@ -811,14 +788,14 @@ class IntervenableModel(nn.Module):
                         output = kwargs[list(kwargs.keys())[0]]
                     else:
                         output = args
-
+                        
                 selected_output = self._gather_intervention_output(
                     output, key, unit_locations_base[key_i]
                 )
                 # TODO: need to figure out why clone is needed
                 if not self.is_model_stateless:
                     selected_output = selected_output.clone()
-                    
+                
                 if isinstance(
                     intervention,
                     CollectIntervention
@@ -861,26 +838,15 @@ class IntervenableModel(nn.Module):
                             self._intervention_reverse_link[key]
                         ] = intervened_representation.clone()
                     
-                    # very buggy due to tensor version
-                    if self.model_has_grad:
-                        # TODO: figure out how to allow this!
-                        if isinstance(output, tuple):
-                            raise ValueError(
-                                "Model grad is not allowed when "
-                                "intervening output is tuple type."
-                            )
-                        output_c = output.clone()
-                        # patched in the intervned activations in-place
+                    if isinstance(output, tuple):
                         _ = self._scatter_intervention_output(
-                            output_c, intervened_representation, key, unit_locations_base[key_i]
+                            output[0], intervened_representation, key, unit_locations_base[key_i]
                         )
-                        output = output_c.clone()
                     else:
-                        # patched in the intervned activations in-place
                         _ = self._scatter_intervention_output(
                             output, intervened_representation, key, unit_locations_base[key_i]
                         )
-
+                            
                     self._intervention_state[key].inc_setter_version()
 
             handlers.append(module_hook(hook_callback, with_kwargs=True))
@@ -1096,7 +1062,6 @@ class IntervenableModel(nn.Module):
     def _broadcast_unit_locations(
         self,
         batch_size,
-        intervention_group_size,
         unit_locations
     ):
         if self.mode == "parallel":
@@ -1109,24 +1074,34 @@ class IntervenableModel(nn.Module):
                     k = "sources->base"
                 if isinstance(v, int):
                     if is_base_only:
-                        _unit_locations[k] = (None, [[[v]]*batch_size]*intervention_group_size)
+                        _unit_locations[k] = (None, [[[v]]*batch_size]*len(self.interventions))
                     else:
                         _unit_locations[k] = (
-                            [[[v]]*batch_size]*intervention_group_size, 
-                            [[[v]]*batch_size]*intervention_group_size
+                            [[[v]]*batch_size]*len(self.interventions), 
+                            [[[v]]*batch_size]*len(self.interventions)
                         )
                     self.use_fast = True
                 elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
                     _unit_locations[k] = (
-                        [[[v[0]]]*batch_size]*intervention_group_size, 
-                        [[[v[1]]]*batch_size]*intervention_group_size
+                        [[[v[0]]]*batch_size]*len(self.interventions), 
+                        [[[v[1]]]*batch_size]*len(self.interventions)
                     )
                     self.use_fast = True
                 elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
-                    _unit_locations[k] = (None, [[[v[1]]]*batch_size]*intervention_group_size)
+                    _unit_locations[k] = (None, [[[v[1]]]*batch_size]*len(self.interventions))
                     self.use_fast = True
                 elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
-                    _unit_locations[k] = ([[[v[0]]]*batch_size]*intervention_group_size, None)
+                    _unit_locations[k] = ([[[v[0]]]*batch_size]*len(self.interventions), None)
+                    self.use_fast = True
+                elif isinstance(v, list) and get_list_depth(v) == 1:
+                    # [0,1,2,3] -> [[[0,1,2,3]]], ...
+                    if is_base_only:
+                        _unit_locations[k] = (None, [[v]*batch_size]*len(self.interventions))
+                    else:
+                        _unit_locations[k] = (
+                            [[v]*batch_size]*len(self.interventions), 
+                            [[v]*batch_size]*len(self.interventions)
+                        )
                     self.use_fast = True
                 else:
                     if is_base_only:
@@ -1138,21 +1113,28 @@ class IntervenableModel(nn.Module):
             for k, v in unit_locations.items():
                 if isinstance(v, int):
                     _unit_locations[k] = (
-                        [[[v]]*batch_size]*intervention_group_size, 
-                        [[[v]]*batch_size]*intervention_group_size
+                        [[[v]]*batch_size]*len(self.interventions), 
+                        [[[v]]*batch_size]*len(self.interventions)
                     )
                     self.use_fast = True
                 elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
                     _unit_locations[k] = (
-                        [[[v[0]]]*batch_size]*intervention_group_size, 
-                        [[[v[1]]]*batch_size]*intervention_group_size
+                        [[[v[0]]]*batch_size]*len(self.interventions), 
+                        [[[v[1]]]*batch_size]*len(self.interventions)
                     )
                     self.use_fast = True
                 elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
-                    _unit_locations[k] = (None, [[[v[1]]]*batch_size]*intervention_group_size)
+                    _unit_locations[k] = (None, [[[v[1]]]*batch_size]*len(self.interventions))
                     self.use_fast = True
                 elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
-                    _unit_locations[k] = ([[[v[0]]]*batch_size]*intervention_group_size, None)
+                    _unit_locations[k] = ([[[v[0]]]*batch_size]*len(self.interventions), None)
+                    self.use_fast = True
+                elif isinstance(v, list) and get_list_depth(v) == 1:
+                    # [0,1,2,3] -> [[[0,1,2,3]]], ...
+                    _unit_locations[k] = (
+                        [[v]*batch_size]*len(self.interventions), 
+                        [[v]*batch_size]*len(self.interventions)
+                    )
                     self.use_fast = True
                 else:
                     _unit_locations[k] = v
@@ -1197,16 +1179,15 @@ class IntervenableModel(nn.Module):
     def _broadcast_subspaces(
         self,
         batch_size,
-        intervention_group_size,
         subspaces
     ):
         """Broadcast simple subspaces input"""
         _subspaces = subspaces
         if isinstance(subspaces, int):
-            _subspaces = [[[subspaces]]*batch_size]*intervention_group_size
+            _subspaces = [[[subspaces]]*batch_size]*len(self.interventions)
             
         elif isinstance(subspaces, list) and isinstance(subspaces[0], int):
-            _subspaces = [[subspaces]*batch_size]*intervention_group_size
+            _subspaces = [[subspaces]*batch_size]*len(self.interventions)
         else:
             # TODO: subspaces is easier to add more broadcast majic.
             pass
@@ -1298,13 +1279,11 @@ class IntervenableModel(nn.Module):
             return self.model(**base), None
         
         # broadcast
-        unit_locations = self._broadcast_unit_locations(
-            get_batch_size(base), len(self._intervention_group), unit_locations)
+        unit_locations = self._broadcast_unit_locations(get_batch_size(base), unit_locations)
         sources = [None]*len(self._intervention_group) if sources is None else sources
         sources = self._broadcast_sources(sources)
         activations_sources = self._broadcast_source_representations(activations_sources)
-        subspaces = self._broadcast_subspaces(
-            get_batch_size(base), len(self._intervention_group), subspaces)
+        subspaces = self._broadcast_subspaces(get_batch_size(base), subspaces)
         
         self._input_validation(
             base,
@@ -1418,13 +1397,11 @@ class IntervenableModel(nn.Module):
             unit_locations = {"base": 0}
         
         # broadcast
-        unit_locations = self._broadcast_unit_locations(
-            get_batch_size(base), len(self._intervention_group), unit_locations)
+        unit_locations = self._broadcast_unit_locations(get_batch_size(base), unit_locations)
         sources = [None]*len(self._intervention_group) if sources is None else sources
         sources = self._broadcast_sources(sources)
         activations_sources = self._broadcast_source_representations(activations_sources)
-        subspaces = self._broadcast_subspaces(
-            get_batch_size(base), len(self._intervention_group), subspaces)
+        subspaces = self._broadcast_subspaces(get_batch_size(base), subspaces)
         
         self._input_validation(
             base,

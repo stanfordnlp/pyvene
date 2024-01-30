@@ -9,7 +9,7 @@ defined in the huggingface library.
 """
 
 
-from ..constants import CONST_INPUT_HOOK, CONST_OUTPUT_HOOK, CONST_QKV_INDICES
+from ..constants import *
 
 
 """gpt_neo base model"""
@@ -20,19 +20,20 @@ gpt_neo_type_to_module_mapping = {
     "mlp_output": ("h[%s].mlp", CONST_OUTPUT_HOOK),
     "mlp_input": ("h[%s].mlp", CONST_INPUT_HOOK),
     "attention_value_output": ("h[%s].attn.out_proj", CONST_INPUT_HOOK),
-    "head_attention_value_output": ("h[%s].attn.out_proj", CONST_INPUT_HOOK),
+    "head_attention_value_output": ("h[%s].attn.out_proj", CONST_INPUT_HOOK, (split_head_and_permute, "n_head")),
     "attention_output": ("h[%s].attn", CONST_OUTPUT_HOOK),
     "attention_input": ("h[%s].attn", CONST_INPUT_HOOK),
     "query_output": ("h[%s].attn.q_proj", CONST_OUTPUT_HOOK),
     "key_output": ("h[%s].attn.k_proj", CONST_OUTPUT_HOOK),
     "value_output": ("h[%s].attn.v_proj", CONST_OUTPUT_HOOK),
-    "head_query_output": ("h[%s].attn.q_proj", CONST_OUTPUT_HOOK),
-    "head_key_output": ("h[%s].attn.k_proj", CONST_OUTPUT_HOOK),
-    "head_value_output": ("h[%s].attn.v_proj", CONST_OUTPUT_HOOK),
+    "head_query_output": ("h[%s].attn.q_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_head")),
+    "head_key_output": ("h[%s].attn.k_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_head")),
+    "head_value_output": ("h[%s].attn.v_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_head")),
 }
 
 
 gpt_neo_type_to_dimension_mapping = {
+    "n_head": "num_heads",
     "block_input": ("hidden_size",),
     "block_output": ("hidden_size",),
     "mlp_activation": (

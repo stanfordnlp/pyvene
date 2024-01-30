@@ -62,7 +62,31 @@ def broadcast_tensor_v2(x, target_shape):
     broadcasted_x = x.expand(*target_dims_except_last, x.shape[-1])
 
     return broadcasted_x
-    
+
+def _can_cast_tensor(
+    subspaces
+):
+    tensorfiable = True
+    try:
+        torch.tensor(subspaces)
+    except:
+        tensorfiable = False
+        
+    return tensorfiable
+
+def _can_use_fast(
+    subspaces
+):
+    tensorfiable = True
+    row_same_val = False
+    try:
+        subspaces = torch.tensor(subspaces)
+        row_same_val = torch.all(subspaces == subspaces[0], axis=1).all()
+    except:
+        tensorfiable = False
+        
+    return row_same_val and tensorfiable
+
 def _do_intervention_by_swap(
     base,
     source,
@@ -85,41 +109,55 @@ def _do_intervention_by_swap(
                     f"source with shape {source.shape} cannot be broadcasted "
                     f"into base with shape {base.shape}."
                 )
-    # interchange
-    if use_fast:
-        if subspaces is not None:
-            if subspace_partition is None:
-                sel_subspace_indices = subspaces[0]
-            else:
-                sel_subspace_indices = []
-                for subspace in subspaces[0]:
-                    sel_subspace_indices.extend(
-                        [
-                            i
-                            for i in range(
-                                subspace_partition[subspace][0],
-                                subspace_partition[subspace][1],
-                            )
-                        ]
-                    )
-            if mode == "interchange":
-                base[..., sel_subspace_indices] = source[..., sel_subspace_indices]
-            elif mode == "add":
-                base[..., sel_subspace_indices] += source[..., sel_subspace_indices]
-            elif mode == "subtract":
-                base[..., sel_subspace_indices] -= source[..., sel_subspace_indices]
-            elif mode == "collect":
-                return base[..., sel_subspace_indices] # return without side-effect
+    # if subspace is none, then we are doing swap based on interchange_dim
+    if subspaces is None:
+        if mode == "interchange":
+            base[..., :interchange_dim] = source[..., :interchange_dim]
+        elif mode == "add":
+            base[..., :interchange_dim] += source[..., :interchange_dim]
+        elif mode == "subtract":
+            base[..., :interchange_dim] -= source[..., :interchange_dim]
+        elif mode == "collect":
+            return base[..., :interchange_dim] # return without side-effect
+        return base
+
+    sel_subspace_indices = None
+    if use_fast or _can_use_fast(subspaces):
+        # its tensor, and each row the same
+        if subspace_partition is None:
+            sel_subspace_indices = subspaces[0]
         else:
-            if mode == "interchange":
-                base[..., :interchange_dim] = source[..., :interchange_dim]
-            elif mode == "add":
-                base[..., :interchange_dim] += source[..., :interchange_dim]
-            elif mode == "subtract":
-                base[..., :interchange_dim] -= source[..., :interchange_dim]
-            elif mode == "collect":
-                return base[..., :interchange_dim] # return without side-effect
-    elif subspaces is not None:
+            sel_subspace_indices = []
+            for subspace in subspaces[0]:
+                sel_subspace_indices.extend(
+                    subspace_partition[subspace]
+                )
+    elif _can_cast_tensor(subspaces):
+        sel_subspace_indices = []
+        for example_i in range(len(subspaces)):
+            # render subspace as column indices
+            if subspace_partition is None:
+                sel_subspace_indices.append(subspaces[example_i])
+            else:
+                _sel_subspace_indices = []
+                for subspace in subspaces[example_i]:
+                    _sel_subspace_indices.extend(
+                        subspace_partition[subspace]
+                    )
+                sel_subspace_indices.append(_sel_subspace_indices)
+    
+    # _can_use_fast or _can_cast_tensor will prepare the sel_subspace_indices
+    if sel_subspace_indices is not None:
+        pad_idx = torch.arange(base.shape[-2]).unsqueeze(dim=-1).to(base.device)
+        if mode == "interchange":
+            base[..., pad_idx, sel_subspace_indices] = source[..., pad_idx, sel_subspace_indices]
+        elif mode == "add":
+            base[..., pad_idx, sel_subspace_indices] += source[..., pad_idx, sel_subspace_indices]
+        elif mode == "subtract":
+            base[..., pad_idx, sel_subspace_indices] -= source[..., pad_idx, sel_subspace_indices]
+        elif mode == "collect":
+            return base[..., pad_idx, sel_subspace_indices] # return without side-effect
+    else:
         collect_base = []
         for example_i in range(len(subspaces)):
             # render subspace as column indices
@@ -129,13 +167,7 @@ def _do_intervention_by_swap(
                 sel_subspace_indices = []
                 for subspace in subspaces[example_i]:
                     sel_subspace_indices.extend(
-                        [
-                            i
-                            for i in range(
-                                subspace_partition[subspace][0],
-                                subspace_partition[subspace][1],
-                            )
-                        ]
+                        subspace_partition[subspace]
                     )
             if mode == "interchange":
                 base[example_i, ..., sel_subspace_indices] = source[
@@ -153,13 +185,5 @@ def _do_intervention_by_swap(
                 collect_base += [base[example_i, ..., sel_subspace_indices]]
         if mode == "collect":
             return torch.stack(collect_base, dim=0) # return without side-effect
-    else:
-        if mode == "interchange":
-            base[..., :interchange_dim] = source[..., :interchange_dim]
-        elif mode == "add":
-            base[..., :interchange_dim] += source[..., :interchange_dim]
-        elif mode == "subtract":
-            base[..., :interchange_dim] -= source[..., :interchange_dim]
-        elif mode == "collect":
-            return base[..., :interchange_dim] # return without side-effect
+
     return base
