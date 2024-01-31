@@ -60,7 +60,6 @@ class InterventionUtilsTestCase(unittest.TestCase):
         self.assertTrue(torch.allclose(golden, output))
 
     def test_vanilla_intervention_subspace_partition_positive(self):
-        # Both [0,2],[2,4],[4,6], and [0,1],[2,3],[4,5] works
         intervention = VanillaIntervention(subspace_partition=[[0, 2], [2, 4], [4, 6]])
         base = torch.arange(36).view(2, 3, 6)
         source = torch.arange(36, 72).view(2, 3, 6)
@@ -103,7 +102,7 @@ class InterventionUtilsTestCase(unittest.TestCase):
             pass
 
     def test_vanilla_intervention_broadcast_positive(self):
-        intervention = VanillaIntervention(subspace_partition=[[0, 1], [2, 3], [4, 5]])
+        intervention = VanillaIntervention(subspace_partition=[[0, 2], [2, 4], [4, 6]])
         base = torch.arange(36).view(2, 3, 6)
         source = torch.arange(36, 42).view(6)
         output = intervention(base, source, subspaces=[[1, 0], [0, 1], [1, 2]])
@@ -121,10 +120,11 @@ class InterventionUtilsTestCase(unittest.TestCase):
                 ],
             ]
         )
+        self.assertTrue(torch.allclose(golden, output))
 
     def test_vanilla_intervention_fast_positive(self):
         intervention = VanillaIntervention(
-            subspace_partition=[[0, 1], [2, 3], [4, 5]], use_fast=True
+            subspace_partition=[[0, 2], [2, 4], [4, 6]], use_fast=True
         )
         base = torch.arange(36).view(2, 3, 6)
         source = torch.arange(36, 42).view(6)
@@ -134,7 +134,7 @@ class InterventionUtilsTestCase(unittest.TestCase):
                 [
                     [36, 37, 38, 39, 4, 5],
                     [36, 37, 38, 39, 10, 11],
-                    [36, 37, 38, 39, 14, 15],
+                    [36, 37, 38, 39, 16, 17],
                 ],
                 [
                     [36, 37, 38, 39, 22, 23],
@@ -143,9 +143,10 @@ class InterventionUtilsTestCase(unittest.TestCase):
                 ],
             ]
         )
+        self.assertTrue(torch.allclose(golden, output))
 
     def test_collect_intervention_negative(self):
-        intervention = CollectIntervention(subspace_partition=[[0, 1], [2, 3], [4, 5]])
+        intervention = CollectIntervention(subspace_partition=[[0, 2], [2, 4], [4, 6]])
         base = torch.arange(36).view(2, 3, 6)
         source = torch.arange(36, 42).view(6)
         try:
@@ -154,20 +155,24 @@ class InterventionUtilsTestCase(unittest.TestCase):
             pass
 
     def test_collect_intervention_positive(self):
-        intervention = CollectIntervention(subspace_partition=[[0, 1], [2, 3], [4, 5]])
+        intervention = CollectIntervention(subspace_partition=[[0, 2], [2, 4], [4, 6]])
         base = torch.arange(36).view(2, 3, 6)
         output = intervention(base, None, subspaces=[[1, 0], [0, 1], [1, 2]])
-        # `Fast` would treat all subspaces as the same as the first subspace
         golden = torch.tensor(
             [
-                [[0, 1, 2, 3], [6, 7, 8, 9], [14, 15, 16, 17]],
-                [[18, 19, 20, 21], [24, 25, 26, 27], [32, 33, 34, 35]],
+                [[2, 3, 0, 1], [6, 7, 8, 9], [14, 15, 16, 17]],
+                [[20, 21, 18, 19], [24, 25, 26, 27], [32, 33, 34, 35]],
             ]
         )
+        self.assertTrue(torch.allclose(golden, output))
 
-    def test_bas_intervention_positive(self):
-        # TODO: implement
-        pass
+    def test_brs_intervention_positive(self):
+        intervention = BoundlessRotatedSpaceIntervention(embed_dim=6)
+        base = torch.arange(12).view(2, 6)
+        source = torch.arange(12, 24).view(2, 6)
+        output = intervention(base, source)
+        golden = torch.tensor([[3, 4, 5, 6, 7, 8], [9, 10, 11, 12, 13, 14],])
+        self.assertTrue(torch.allclose(golden, output))
 
     def test_low_rank_rotated_space_positive(self):
         # TODO: implement
@@ -200,6 +205,7 @@ def suite():
     suite.addTest(InterventionUtilsTestCase("test_vanilla_intervention_fast_positive"))
     suite.addTest(InterventionUtilsTestCase("test_collect_intervention_positive"))
     suite.addTest(InterventionUtilsTestCase("test_collect_intervention_negative"))
+    suite.addTest(InterventionUtilsTestCase("test_brs_intervention_positive"))
 
     # TODO: Add tests to other interventions
     return suite
