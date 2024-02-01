@@ -1,4 +1,5 @@
 import unittest
+import torch.nn.functional as F
 from ..utils import *
 from pyvene.models.intervention_utils import _do_intervention_by_swap
 from pyvene.models.interventions import VanillaIntervention
@@ -174,9 +175,71 @@ class InterventionUtilsTestCase(unittest.TestCase):
         golden = torch.tensor([[3, 4, 5, 6, 7, 8], [9, 10, 11, 12, 13, 14],])
         self.assertTrue(torch.allclose(golden, output))
 
-    def test_low_rank_rotated_space_positive(self):
-        # TODO: implement
-        pass
+    def test_brs_gradient_positive(self):
+        intervention = BoundlessRotatedSpaceIntervention(embed_dim=6)
+        intervention.temperature = torch.nn.Parameter(torch.tensor(2.0))
+        base = torch.arange(12).float().view(2, 6)
+        source = torch.arange(12, 24).float().view(2, 6)
+
+        optimizer_params = []
+        optimizer_params += [{"params": intervention.rotate_layer.parameters()}]
+        optimizer_params += [{"params": intervention.intervention_boundaries}]
+        optimizer = torch.optim.Adam(optimizer_params, lr=1e-1)
+
+        golden = torch.tensor([[5, 6, 7, 8, 9, 10], [11, 12, 13, 14, 15, 16],]).float()
+
+        for _ in range(1000):
+            optimizer.zero_grad()
+            output = intervention(base, source)
+            loss = F.mse_loss(output, golden)
+            loss.backward()
+            optimizer.step()
+        self.assertTrue(torch.allclose(golden, output, rtol=1e-02, atol=1e-02))
+
+    def test_sigmoid_mask_gradient_positive(self):
+        intervention = SigmoidMaskIntervention(embed_dim=6)
+        base = torch.arange(12).float().view(2, 6)
+        source = torch.arange(12, 24).float().view(2, 6)
+
+        optimizer_params = []
+        optimizer_params += [{"params": intervention.mask}]
+        optimizer_params += [{"params": intervention.temperature}]
+        optimizer = torch.optim.Adam(optimizer_params, lr=1e-1)
+
+        golden = torch.tensor([[0, 1, 14, 15, 16, 17], [6, 7, 20, 21, 22, 23],]).float()
+
+        for _ in range(2000):
+            optimizer.zero_grad()
+            output = intervention(base, source)
+            loss = F.mse_loss(output, golden)
+            loss.backward()
+            optimizer.step()
+        res = torch.sigmoid(intervention.mask)
+        self.assertTrue(
+            torch.allclose(res, torch.tensor([0.0, 0.0, 1.0, 1.0, 1.0, 1.0]))
+        )
+
+    def test_low_rank_gradient_positive(self):
+        intervention = LowRankRotatedSpaceIntervention(
+            embed_dim=6, low_rank_dimension=1
+        )
+        base = torch.arange(12).float().view(2, 6)
+        source = torch.arange(12, 24).float().view(2, 6)
+
+        optimizer_params = []
+        optimizer_params += [{"params": intervention.rotate_layer.parameters()}]
+        optimizer = torch.optim.Adam(optimizer_params, lr=1e-1)
+
+        golden = torch.tensor([[0, 1, 14, 15, 16, 17], [6, 7, 20, 21, 22, 23],]).float()
+
+        for _ in range(2000):
+            optimizer.zero_grad()
+            output = intervention(base, source)
+            loss = F.mse_loss(output, golden)
+            loss.backward()
+            optimizer.step()
+        print(output)
+        self.assertTrue(torch.allclose(golden, output, rtol=1e-02, atol=1e-02))
 
 
 def suite():
@@ -206,6 +269,9 @@ def suite():
     suite.addTest(InterventionUtilsTestCase("test_collect_intervention_positive"))
     suite.addTest(InterventionUtilsTestCase("test_collect_intervention_negative"))
     suite.addTest(InterventionUtilsTestCase("test_brs_intervention_positive"))
+    suite.addTest(InterventionUtilsTestCase("test_brs_gradient_positive"))
+    suite.addTest(InterventionUtilsTestCase("test_sigmoid_mask_gradient_positive"))
+    suite.addTest(InterventionUtilsTestCase("test_low_rank_gradient_positive"))
 
     # TODO: Add tests to other interventions
     return suite
