@@ -1,7 +1,7 @@
 import json, logging, torch
 import numpy as np
 from collections import OrderedDict
-from typing import List, Optional, Tuple, Union, Dict
+from typing import List, Optional, Tuple, Union, Dict, Any
 
 from .basic_utils import *
 from .modeling_utils import *
@@ -20,7 +20,15 @@ from .interventions import (
 
 from torch import optim
 from transformers import get_linear_schedule_with_warmup
+from dataclasses import dataclass
+from transformers.utils import ModelOutput
 from tqdm import tqdm, trange
+
+@dataclass
+class IntervenableModelOutput(ModelOutput):
+    original_outputs: Optional[Any] = None
+    intervened_outputs: Optional[Any] = None
+    collected_activations: Optional[Any] = None
 
 
 class IntervenableModel(nn.Module):
@@ -41,6 +49,14 @@ class IntervenableModel(nn.Module):
         self.is_model_stateless = is_stateless(model)
         self.config.model_type = type(model) # backfill
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
+        self.is_sequence_model = kwargs["is_sequence_model"] if "is_sequence_model" in kwargs else True
+        if not self.is_sequence_model:
+            logging.warn(
+                "Detected is_sequence_model=False means you are "
+                "intervening a non-sequence-based NNs (e.g., MLPs, "
+                "ConvNet and ResNet) where there is no second "
+                "dimension representing the sequence length."
+            )
         self.model_has_grad = False
         if self.use_fast:
             logging.warn(
@@ -561,6 +577,10 @@ class IntervenableModel(nn.Module):
                 original_output = output[0].clone()
             else:
                 original_output = output.clone()
+            # for non-sequence models, there is no concept of
+            # unit location anyway.
+            if not self.is_sequence_model:
+                return original_output
             # gather subcomponent
             original_output = output_to_subcomponent(
                 original_output,
@@ -598,6 +618,11 @@ class IntervenableModel(nn.Module):
             original_output = output[0]
         else:
             original_output = output
+        # for non-sequence-based models, we simply replace
+        # all the activations.
+        if not self.is_sequence_model:
+            original_output[:] = intervened_representation[:]
+            return original_output
         
         component = self.representations[
             representations_key
@@ -814,14 +839,27 @@ class IntervenableModel(nn.Module):
                     # no-op to the output
                     
                 else:
-                    if intervention.is_source_constant:
-                        intervened_representation = do_intervention(
-                            selected_output,
-                            None,
-                            intervention,
-                            subspaces[key_i] if subspaces is not None else None,
-                        )
-                    else:
+                    try:
+                        if intervention.is_source_constant:
+                            intervened_representation = do_intervention(
+                                selected_output,
+                                None,
+                                intervention,
+                                subspaces[key_i] if subspaces is not None else None,
+                            )
+                        else:
+                            intervened_representation = do_intervention(
+                                selected_output,
+                                self._reconcile_stateful_cached_activations(
+                                    key,
+                                    selected_output,
+                                    unit_locations_base[key_i],
+                                ),
+                                intervention,
+                                subspaces[key_i] if subspaces is not None else None,
+                            )
+                    except:
+                        # highly unlikely it's a primitive intervention type
                         intervened_representation = do_intervention(
                             selected_output,
                             self._reconcile_stateful_cached_activations(
@@ -832,7 +870,6 @@ class IntervenableModel(nn.Module):
                             intervention,
                             subspaces[key_i] if subspaces is not None else None,
                         )
-                
                     # setter can produce hot activations for shared subspace interventions if linked
                     if key in self._intervention_reverse_link:
                         self.hot_activations[
@@ -941,6 +978,7 @@ class IntervenableModel(nn.Module):
         all_set_handlers = HandlerList([])
         unit_locations_sources = unit_locations["sources->base"][0]
         unit_locations_base = unit_locations["sources->base"][1]
+
         # for each source, we hook in getters to cache activations
         # at each aligning representations
         if activations_sources is None:
@@ -1065,6 +1103,10 @@ class IntervenableModel(nn.Module):
         batch_size,
         unit_locations
     ):
+        # if unit_locations is false, then we assume it is non-sequence model
+        if unit_locations is None:
+            unit_locations = {"sources->base": 0}
+
         if self.mode == "parallel":
             _unit_locations = {}
             for k, v in unit_locations.items():
@@ -1201,6 +1243,8 @@ class IntervenableModel(nn.Module):
         unit_locations: Optional[Dict] = None,
         source_representations: Optional[Dict] = None,
         subspaces: Optional[List] = None,
+        output_original_output: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
     ):
         """
         Main forward function that serves a wrapper to
@@ -1274,9 +1318,9 @@ class IntervenableModel(nn.Module):
         
         self._cleanup_states()
 
-        # if no source inputs, we are calling a simple forward
+        # if no source input or intervention, we return base
         if sources is None and activations_sources is None \
-            and unit_locations is None:
+            and unit_locations is None and len(self.interventions) == 0:
             return self.model(**base), None
         
         # broadcast
@@ -1344,8 +1388,22 @@ class IntervenableModel(nn.Module):
             )
         
         if self.return_collect_activations:
+            if return_dict:
+                return IntervenableModelOutput(
+                    original_outputs=base_outputs,
+                    intervened_outputs=counterfactual_outputs,
+                    collected_activations=collected_activations
+                )
+            
             return (base_outputs, collected_activations), counterfactual_outputs
         
+        if return_dict:
+            return IntervenableModelOutput(
+                original_outputs=base_outputs,
+                intervened_outputs=counterfactual_outputs,
+                collected_activations=None
+            )
+
         return base_outputs, counterfactual_outputs
 
     def generate(

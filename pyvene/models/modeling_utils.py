@@ -130,6 +130,7 @@ def get_dimension_by_component(model_type, model_config, component) -> int:
 def get_module_hook(model, representation) -> nn.Module:
     """Render the intervening module with a hook."""
     if (
+        get_internal_model_type(model) in type_to_module_mapping and
         representation.component
         in type_to_module_mapping[get_internal_model_type(model)]
     ):
@@ -439,10 +440,15 @@ def do_intervention(
         source_representation_f = bhsd_to_bs_hd(source_representation)
     else:
         assert False  # what's going on?
-
-    intervened_representation = intervention(
-        base_representation_f, source_representation_f, subspaces
-    )
+    
+    if subspaces is None:
+        intervened_representation = intervention(
+            base_representation_f, source_representation_f
+        )
+    else:
+        intervened_representation = intervention(
+            base_representation_f, source_representation_f, subspaces
+        )
 
     post_d = intervened_representation.shape[-1]
 
