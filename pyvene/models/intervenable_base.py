@@ -309,7 +309,8 @@ class IntervenableModel(nn.Module):
         Set temperature if needed
         """
         for k, v in self.interventions.items():
-            if isinstance(v[0], BoundlessRotatedSpaceIntervention):
+            if isinstance(v[0], BoundlessRotatedSpaceIntervention) or \
+                isinstance(v[0], SigmoidMaskIntervention):
                 v[0].set_temperature(temp)
 
     def enable_model_gradients(self):
