@@ -7,6 +7,7 @@ from pyvene.models.interventions import CollectIntervention
 
 
 class InterventionUtilsTestCase(unittest.TestCase):
+    
     @classmethod
     def setUpClass(self):
         print("=== Test Suite: InterventionUtilsTestCase ===")
