@@ -7,9 +7,10 @@ from pyvene.models.interventions import CollectIntervention
 
 
 class InterventionUtilsTestCase(unittest.TestCase):
+    
     @classmethod
     def setUpClass(self):
-        print("=== Test Suite: IntervenableUnitTestCase ===")
+        print("=== Test Suite: InterventionUtilsTestCase ===")
         self.config, self.tokenizer, self.gpt2 = create_gpt2_lm(
             config=GPT2Config(
                 n_embd=24,
