@@ -1,4 +1,4 @@
-import random, torch
+import random, torch, types
 import numpy as np
 from torch import nn
 from .intervenable_modelcard import *
@@ -420,6 +420,9 @@ def do_intervention(
 ):
     """Do the actual intervention."""
 
+    if isinstance(intervention, types.FunctionType):
+        return intervention(base_representation, source_representation)
+    
     num_unit = base_representation.shape[1]
 
     # flatten
@@ -441,14 +444,9 @@ def do_intervention(
     else:
         assert False  # what's going on?
     
-    if subspaces is None:
-        intervened_representation = intervention(
-            base_representation_f, source_representation_f
-        )
-    else:
-        intervened_representation = intervention(
-            base_representation_f, source_representation_f, subspaces
-        )
+    intervened_representation = intervention(
+        base_representation_f, source_representation_f, subspaces
+    )
 
     post_d = intervened_representation.shape[-1]
 

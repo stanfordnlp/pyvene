@@ -1,4 +1,4 @@
-import json, logging, torch
+import json, logging, torch, types
 import numpy as np
 from collections import OrderedDict
 from typing import List, Optional, Tuple, Union, Dict, Any
@@ -49,14 +49,7 @@ class IntervenableModel(nn.Module):
         self.is_model_stateless = is_stateless(model)
         self.config.model_type = type(model) # backfill
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
-        self.is_sequence_model = kwargs["is_sequence_model"] if "is_sequence_model" in kwargs else True
-        if not self.is_sequence_model:
-            logging.warn(
-                "Detected is_sequence_model=False means you are "
-                "intervening a non-sequence-based NNs (e.g., MLPs, "
-                "ConvNet and ResNet) where there is no second "
-                "dimension representing the sequence length."
-            )
+
         self.model_has_grad = False
         if self.use_fast:
             logging.warn(
@@ -579,7 +572,7 @@ class IntervenableModel(nn.Module):
                 original_output = output.clone()
             # for non-sequence models, there is no concept of
             # unit location anyway.
-            if not self.is_sequence_model:
+            if unit_locations is None:
                 return original_output
             # gather subcomponent
             original_output = output_to_subcomponent(
@@ -620,7 +613,7 @@ class IntervenableModel(nn.Module):
             original_output = output
         # for non-sequence-based models, we simply replace
         # all the activations.
-        if not self.is_sequence_model:
+        if unit_locations is None:
             original_output[:] = intervened_representation[:]
             return original_output
         
@@ -743,6 +736,9 @@ class IntervenableModel(nn.Module):
         intervening_unit_locations,
     ):
         """Based on the key, we consolidate activations based on key's state"""
+        if key not in self.activations:
+            return None
+
         cached_activations = self.activations[key]
         if self.is_model_stateless:
             # nothing to reconcile if stateless
@@ -796,9 +792,10 @@ class IntervenableModel(nn.Module):
         handlers = []
         for key_i, key in enumerate(keys):
             intervention, module_hook = self.interventions[key]
-            self._batched_setter_activation_select[key] = [
-                0 for _ in range(len(unit_locations_base[0]))
-            ]  # batch_size
+            if unit_locations_base[0] is not None:
+                self._batched_setter_activation_select[key] = [
+                    0 for _ in range(len(unit_locations_base[0]))
+                ]  # batch_size
 
             def hook_callback(model, args, kwargs, output=None):
                 if self._is_generation:
@@ -839,7 +836,7 @@ class IntervenableModel(nn.Module):
                     # no-op to the output
                     
                 else:
-                    try:
+                    if not isinstance(self.interventions[key][0], types.FunctionType):
                         if intervention.is_source_constant:
                             intervened_representation = do_intervention(
                                 selected_output,
@@ -858,7 +855,7 @@ class IntervenableModel(nn.Module):
                                 intervention,
                                 subspaces[key_i] if subspaces is not None else None,
                             )
-                    except:
+                    else:
                         # highly unlikely it's a primitive intervention type
                         intervened_representation = do_intervention(
                             selected_output,
@@ -870,6 +867,9 @@ class IntervenableModel(nn.Module):
                             intervention,
                             subspaces[key_i] if subspaces is not None else None,
                         )
+                    if intervened_representation is None:
+                        return
+
                     # setter can produce hot activations for shared subspace interventions if linked
                     if key in self._intervention_reverse_link:
                         self.hot_activations[
@@ -900,9 +900,9 @@ class IntervenableModel(nn.Module):
         subspaces,
     ):
         """Fail fast input validation"""
-        if self.mode == "parallel":
+        if self.mode == "parallel" and unit_locations is not None:
             assert "sources->base" in unit_locations or "base" in unit_locations
-        elif activations_sources is None and self.mode == "serial":
+        elif activations_sources is None and unit_locations is not None and self.mode == "serial":
             assert "sources->base" not in unit_locations
         
         # sources may contain None, but length should match
@@ -1011,6 +1011,7 @@ class IntervenableModel(nn.Module):
             for key in keys:
                 # skip in case smart jump
                 if key in self.activations or \
+                    isinstance(self.interventions[key][0], types.FunctionType) or \
                     self.interventions[key][0].is_source_constant:
                     set_handlers = self._intervention_setter(
                         [key],
@@ -1080,6 +1081,7 @@ class IntervenableModel(nn.Module):
             for key in keys:
                 # skip in case smart jump
                 if key in self.activations or \
+                    isinstance(self.interventions[key][0], types.FunctionType) or \
                     self.interventions[key][0].is_source_constant:
                     # set with intervened activation to source_i+1
                     set_handlers = self._intervention_setter(
@@ -1103,10 +1105,10 @@ class IntervenableModel(nn.Module):
         batch_size,
         unit_locations
     ):
-        # if unit_locations is false, then we assume it is non-sequence model
         if unit_locations is None:
-            unit_locations = {"sources->base": 0}
-
+            # this means, we don't filter based on location at all.
+            return {"sources->base": ([None]*len(self.interventions), [None]*len(self.interventions))}
+        
         if self.mode == "parallel":
             _unit_locations = {}
             for k, v in unit_locations.items():
