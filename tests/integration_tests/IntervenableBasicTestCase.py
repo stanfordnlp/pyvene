@@ -1,6 +1,7 @@
 import unittest
 from ..utils import *
 
+import copy
 import torch
 import pyvene as pv
 
@@ -603,7 +604,66 @@ class IntervenableBasicTestCase(unittest.TestCase):
             # on different subspaces
             subspaces=[[[0]], [[1]]],
         )
+        
+    def test_customized_intervention_function_get(self):
 
+        _, tokenizer, gpt2 = pv.create_gpt2()
+
+        pv_gpt2 = pv.IntervenableModel({
+            "layer": 10,
+            "component": "attention_weight",
+            "intervention_type": pv.CollectIntervention}, model=gpt2)
+
+        base = "When John and Mary went to the shops, Mary gave the bag to"
+        collected_attn_w = pv_gpt2(
+            base = tokenizer(base, return_tensors="pt"
+            ), unit_locations={"base": [h for h in range(12)]}
+        )[0][-1][0]
+
+        cached_w = {}
+        def pv_patcher(b, s): cached_w["attn_w"] = copy.deepcopy(b.data)
+
+        pv_gpt2 = pv.IntervenableModel({
+            "component": "h[10].attn.attn_dropout.input", 
+            "intervention": pv_patcher}, model=gpt2)
+
+        base = "When John and Mary went to the shops, Mary gave the bag to"
+        _ = pv_gpt2(tokenizer(base, return_tensors="pt"))
+        torch.allclose(collected_attn_w, cached_w["attn_w"].unsqueeze(dim=0))
+      
+    def test_customized_intervention_function_zeroout(self):
+        
+        _, tokenizer, gpt2 = pv.create_gpt2()
+
+        # define the component to zero-out
+        pv_gpt2 = pv.IntervenableModel({
+            "layer": 0, "component": "mlp_output",
+            "source_representation": torch.zeros(gpt2.config.n_embd)
+        }, model=gpt2)
+        # run the intervened forward pass
+        intervened_outputs = pv_gpt2(
+            base = tokenizer("The capital of Spain is", return_tensors="pt"), 
+            # we define the intervening token dynamically
+            unit_locations={"base": 3}
+        )
+        
+        # indices are specified in the intervention
+        mask = torch.ones(1, 5, 768)
+        mask[:,3,:] = 0.
+        # define the component to zero-out
+        pv_gpt2 = pv.IntervenableModel({
+            "component": "h[0].mlp.output",
+            "intervention": lambda b, s: b*mask
+        }, model=gpt2)
+        # run the intervened forward pass
+        intervened_outputs_fn = pv_gpt2(
+            base = tokenizer("The capital of Spain is", return_tensors="pt")
+        )
+        torch.allclose(
+            intervened_outputs[1].last_hidden_state, 
+            intervened_outputs_fn[1].last_hidden_state
+        )
+    
     @classmethod
     def tearDownClass(self):
         print(f"Removing testing dir {self._test_dir}")
