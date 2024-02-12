@@ -100,7 +100,7 @@ blip_wrapper_type_to_dimension_mapping = blip_type_to_dimension_mapping
 
 
 def create_blip(name="Salesforce/blip-vqa-base", cache_dir=None):
-    """Creates a GPT2 model, config, and tokenizer from the given name and revision"""
+    """Creates a BLIP VQA model, config, and tokenizer from the given name and revision"""
     from transformers import BlipConfig, BlipProcessor, BlipForQuestionAnswering
 
     config = BlipConfig.from_pretrained(name)
