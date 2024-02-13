@@ -407,7 +407,7 @@ class SigmoidMaskIntervention(TrainableIntervention, LocalistRepresentationInter
         self.mask = torch.nn.Parameter(
             torch.zeros(self.embed_dim), requires_grad=True)
         
-        self.temperature = torch.nn.Parameter(torch.tensor(50.0))
+        self.temperature = torch.nn.Parameter(torch.tensor(0.01))
 
     def get_temperature(self):
         return self.temperature
