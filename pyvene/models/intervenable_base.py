@@ -1340,9 +1340,8 @@ class IntervenableModel(nn.Module):
             subspaces,
         )
 
-        # returning un-intervened output without gradients
-        with torch.inference_mode():
-            base_outputs = self.model(**base)
+        # returning un-intervened output with gradients
+        base_outputs = self.model(**base)
 
         try:
             # intervene
