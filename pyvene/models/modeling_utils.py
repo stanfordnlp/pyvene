@@ -102,7 +102,9 @@ def get_dimension_by_component(model_type, model_config, component) -> int:
 
     dimension_proposals = type_to_dimension_mapping[model_type][component]
     for proposal in dimension_proposals:
-        if "*" in proposal:
+        if proposal.isnumeric():
+            dimension = int(proposal)
+        elif "*" in proposal:
             # often constant multiplier with MLP
             dimension = getattr_for_torch_module(
                 model_config, proposal.split("*")[0]
