@@ -143,7 +143,7 @@ class InterventionWithMLPTestCase(unittest.TestCase):
         assert our_out[0].shape[-1] == 5
         self.assertTrue(torch.allclose(golden_out, our_out[0]))
 
-    def test_with_subspace_broadcast_positive(self):
+    def test_with_subspace_negative(self):
         """
         Negative test case to check input length.
         """
@@ -156,12 +156,17 @@ class InterventionWithMLPTestCase(unittest.TestCase):
         source_1 = {"inputs_embeds": torch.rand(b_s, 1, 3)}
         source_2 = {"inputs_embeds": torch.rand(b_s, 1, 3)}
 
-        intervenable(
-            base,
-            [source_1],
-            {"sources->base": ([[[0]] * b_s], [[[0]] * b_s])},
-            subspaces=0,
-        )
+        try:
+            intervenable(
+                base,
+                [source_1],
+                {"sources->base": ([[[0]] * b_s], [[[0]] * b_s])},
+                subspaces=0,
+            )
+        except IndexError:
+            pass
+        else:
+            raise AssertionError("IndexError was not raised")
 
     def test_intervention_link_positive(self):
         """
