@@ -1215,7 +1215,7 @@ class IntervenableModel(nn.Module):
         """Broadcast simple inputs to a dict"""
         _sources = sources
         if len(sources) == 1 and len(self._intervention_group) > 1:
-            for _ in range(len(self._intervention_group)):
+            for _ in range(len(self._intervention_group)-1):
                 _sources += [sources[0]]
         else:
             _sources = sources
@@ -1324,7 +1324,6 @@ class IntervenableModel(nn.Module):
         if sources is None and activations_sources is None \
             and unit_locations is None and len(self.interventions) == 0:
             return self.model(**base), None
-        
         # broadcast
         unit_locations = self._broadcast_unit_locations(get_batch_size(base), unit_locations)
         sources = [None]*len(self._intervention_group) if sources is None else sources
