@@ -587,7 +587,6 @@ class IntervenableBasicTestCase(unittest.TestCase):
             {"layer": 2, "component": "block_output",
              "subspace_partition": [[0, 128], [128, 256]]}],
             intervention_types=pv.VanillaIntervention,
-            # act in parallel
             mode="serial"
         )
         pv_gpt2 = pv.IntervenableModel(config, model=gpt2)

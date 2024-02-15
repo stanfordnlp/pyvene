@@ -6,17 +6,17 @@ class InterventionState(object):
         self.key = key
         self.reset()
 
-    def inc_getter_version(self):
-        self.state_dict["getter_version"] += 1
+    def inc_getter_timestep(self):
+        self.state_dict["getter_timestep"] += 1
 
-    def inc_setter_version(self):
-        self.state_dict["setter_version"] += 1
+    def inc_setter_timestep(self):
+        self.state_dict["setter_timestep"] += 1
 
-    def getter_version(self):
-        return self.state_dict["getter_version"]
+    def getter_timestep(self):
+        return self.state_dict["getter_timestep"]
 
-    def setter_version(self):
-        return self.state_dict["setter_version"]
+    def setter_timestep(self):
+        return self.state_dict["setter_timestep"]
 
     def get_states(self):
         return self.state_dict
@@ -27,8 +27,8 @@ class InterventionState(object):
     def reset(self):
         self.state_dict = {
             "key": self.key,
-            "getter_version": 0,
-            "setter_version": 0,
+            "getter_timestep": 0,
+            "setter_timestep": 0,
         }
 
     def __repr__(self):
