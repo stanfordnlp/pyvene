@@ -653,7 +653,7 @@ class IntervenableModel(nn.Module):
             def hook_callback(model, args, kwargs, output=None):
                 if self._is_generation:
                     pass
-                    # for activation recording, we allow
+                    # for getter, there is no restriction.
                     # is_prompt = self._key_getter_call_counter[key] == 0
                     # if not self._intervene_on_prompt or is_prompt:
                     #     self._key_getter_call_counter[key] += 1
