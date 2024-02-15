@@ -370,3 +370,72 @@ def midpoint_alignment_sampler(
         
     return all_base_input_ids, all_source_input_ids, all_ctf_output_ids, all_intervention_ids
 
+
+def bracket_alignment_sampler(
+    tokenizer,
+    max_n_training_examples,
+    amount=None,
+    lower_bound=None,
+    bound_width=None,
+):
+
+    all_base_input_ids = []
+    all_source_input_ids = []
+    all_ctf_output_ids = [] # this one does not have input ids, etc..
+    all_intervention_ids = []
+    
+    for _ in range(max_n_training_examples):
+        
+        base_lower_bound_sample, base_upper_bound_sample, base_amount_sample = \
+            pricing_tag_game_config_sampler(
+                amount,
+                lower_bound,
+                bound_width
+            )
+        source_lower_bound_sample, source_upper_bound_sample, source_amount_sample = \
+            pricing_tag_game_config_sampler(
+                amount,
+                lower_bound,
+                bound_width
+            )
+        ctf_label = None
+        ctf_label_str = None
+        if base_amount_sample <= source_upper_bound_sample and base_amount_sample >= source_lower_bound_sample:
+            ctf_label = tokenizer.convert_tokens_to_ids("Yes")
+            ctf_label_str = "Yes"
+        else:
+            ctf_label = tokenizer.convert_tokens_to_ids("No")
+            ctf_label_str = "No"
+            
+        base_amount_str = "%.2f dollars" % base_amount_sample
+        source_amount_str = "%.2f dollars" % source_amount_sample
+        base_lower_bound_str = "%.2f" % base_lower_bound_sample
+        base_upper_bound_str = "%.2f" % base_upper_bound_sample
+        source_lower_bound_str = "%.2f" % source_lower_bound_sample
+        source_upper_bound_str = "%.2f" % source_upper_bound_sample
+        
+        # print(f"base: [{base_lower_bound_str}, {base_upper_bound_str}], {base_amount_str}")
+        # print(f"source: [{source_lower_bound_str}, {source_upper_bound_str}], {source_amount_str}")
+        # print(f"ctf label: {ctf_label_str}")
+        
+        base_instruction = f"Please say yes only if it costs between {base_lower_bound_str} and {base_upper_bound_str} dollars, otherwise no."
+        source_instruction = f"Please say yes only if it costs between {source_lower_bound_str} and {source_upper_bound_str} dollars, otherwise no."
+        
+        base_alpaca_prompt = alpaca_prompt_template % (base_instruction, base_amount_str)
+        source_alpaca_prompt = alpaca_prompt_template % (source_instruction, source_amount_str)
+        
+        base_input_ids = tokenizer(base_alpaca_prompt, return_tensors="pt").input_ids[0]
+        source_input_ids = tokenizer(source_alpaca_prompt, return_tensors="pt").input_ids[0]
+        base_input_ids = base_input_ids.tolist()
+        source_input_ids = source_input_ids.tolist()
+        ctf_output_ids = (torch.ones(len(base_input_ids))*-100).long().tolist()
+        ctf_output_ids[-1] = ctf_label
+        
+        all_base_input_ids += [base_input_ids]
+        all_source_input_ids += [source_input_ids]
+        all_ctf_output_ids += [ctf_output_ids]
+        all_intervention_ids += [0]
+        assert len(base_input_ids) == 82
+        assert len(source_input_ids) == 82
+        
+    return all_base_input_ids, all_source_input_ids, all_ctf_output_ids, all_intervention_ids
