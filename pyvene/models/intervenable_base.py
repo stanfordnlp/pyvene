@@ -652,11 +652,13 @@ class IntervenableModel(nn.Module):
 
             def hook_callback(model, args, kwargs, output=None):
                 if self._is_generation:
-                    is_prompt = self._key_getter_call_counter[key] == 0
-                    if not self._intervene_on_prompt or is_prompt:
-                        self._key_getter_call_counter[key] += 1
-                    if self._intervene_on_prompt ^ is_prompt:
-                        return  # no-op
+                    pass
+                    # for getter, there is no restriction.
+                    # is_prompt = self._key_getter_call_counter[key] == 0
+                    # if not self._intervene_on_prompt or is_prompt:
+                    #     self._key_getter_call_counter[key] += 1
+                    # if self._intervene_on_prompt ^ is_prompt:
+                    #     return  # no-op
                 if output is None:
                     if len(args) == 0:  # kwargs based calls
                         # PR: https://github.com/frankaging/align-transformers/issues/11
@@ -1509,7 +1511,6 @@ class IntervenableModel(nn.Module):
                         CollectIntervention
                     ):
                         collected_activations += self.activations[key]
-            
         except Exception as e:
             raise e
         finally:
