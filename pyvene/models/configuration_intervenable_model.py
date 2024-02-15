@@ -5,7 +5,7 @@ from typing import Any, List, Mapping, Optional
 from transformers import PreTrainedTokenizer, TensorType, is_torch_available
 from transformers.configuration_utils import PretrainedConfig
 
-from .interventions import VanillaIntervention
+from .interventions import VanillaIntervention, Intervention
 
 
 RepresentationConfig = namedtuple(
@@ -25,7 +25,7 @@ class IntervenableConfig(PretrainedConfig):
     def __init__(
         self,
         representations=[RepresentationConfig()],
-        intervention_types=VanillaIntervention,
+        intervention_types:type[Intervention] | List[type[Intervention]]=VanillaIntervention,
         mode="parallel",
         sorted_keys=None,
         model_type=None, # deprecating

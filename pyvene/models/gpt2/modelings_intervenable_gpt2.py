@@ -79,7 +79,9 @@ def create_gpt2(name="gpt2", cache_dir=None):
     config = GPT2Config.from_pretrained(name)
     tokenizer = GPT2Tokenizer.from_pretrained(name)
     gpt = GPT2Model.from_pretrained(name, config=config, cache_dir=cache_dir)
-    print("loaded model")
+    assert isinstance(gpt, GPT2Model)
+
+    print(f"loaded GPT2 model {name}")
     return config, tokenizer, gpt
 
 
@@ -93,7 +95,10 @@ def create_gpt2_lm(name="gpt2", config=None, cache_dir=None):
         gpt = GPT2LMHeadModel.from_pretrained(name, config=config, cache_dir=cache_dir)
     else:
         gpt = GPT2LMHeadModel(config=config)
-    print("loaded model")
+
+    assert isinstance(gpt, GPT2LMHeadModel)
+
+    print(f"loaded GPT2 model {name}")
     return config, tokenizer, gpt
 
 def create_gpt2_classifier(name="gpt2", config=None, cache_dir=None):

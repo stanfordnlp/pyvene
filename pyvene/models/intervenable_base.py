@@ -60,7 +60,7 @@ class IntervenableModel(nn.Module):
                 "be considered"
             )
         # each representation can get a different intervention type
-        if type(intervention_type) == list:
+        if isinstance(intervention_type, list):
             assert len(intervention_type) == len(config.representations)
 
         ###
@@ -106,7 +106,7 @@ class IntervenableModel(nn.Module):
             else:
                 intervention_function = (
                     intervention_type
-                    if type(intervention_type) != list
+                    if not isinstance(intervention_type, list)
                     else intervention_type[i]
                 )
                 all_metadata = representation._asdict()
@@ -837,7 +837,7 @@ class IntervenableModel(nn.Module):
         keys,
         unit_locations_base,
         subspaces,
-        timestep_selector: Optional[Callable[Any, bool]] = None,
+        timestep_selector: Optional[TIMESTEP_SELECTOR_TYPE] = None,
     ) -> HandlerList:
         """
         Create a list of setter handlers that will set activations

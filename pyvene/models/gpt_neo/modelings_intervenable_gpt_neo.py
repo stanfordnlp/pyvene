@@ -67,11 +67,13 @@ gpt_neo_lm_type_to_dimension_mapping = gpt_neo_type_to_dimension_mapping
 def create_gpt_neo(
     name="roneneldan/TinyStories-33M", cache_dir=None
 ):
-    """Creates a GPT2 model, config, and tokenizer from the given name and revision"""
+    """Creates a GPTNeo model, config, and tokenizer from the given name and revision"""
     from transformers import GPTNeoForCausalLM, GPT2Tokenizer, GPTNeoConfig
 
     config = GPTNeoConfig.from_pretrained(name)
     tokenizer = GPT2Tokenizer.from_pretrained("EleutherAI/gpt-neo-125M")  # not sure
     gpt_neo = GPTNeoForCausalLM.from_pretrained(name)
-    print("loaded model")
+    assert isinstance(gpt_neo, GPTNeoForCausalLM)
+
+    print(f"loaded GPTNeo model {name}")
     return config, tokenizer, gpt_neo
