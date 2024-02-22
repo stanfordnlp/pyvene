@@ -423,8 +423,11 @@ def do_intervention(
     """Do the actual intervention."""
 
     if isinstance(intervention, types.FunctionType):
-        return intervention(base_representation, source_representation)
-    
+        if subspaces is None:
+            return intervention(base_representation, source_representation)
+        else:
+            return intervention(base_representation, source_representation, subspaces)
+
     num_unit = base_representation.shape[1]
 
     # flatten
