@@ -17,6 +17,22 @@ Interventions on model-internal states are fundamental operations in many areas 
 **Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb) [**Main _pyvene_ 101**]  
 
 ## Installation
+Since we are currently beta-testing, it is recommended to install pyvene by,
+```bash
+git clone git@github.com:stanfordnlp/pyvene.git
+```
+and add pyvene into your system path in python via,
+```py
+import sys
+sys.path.append("<Your Path to Pyvene>")
+
+import pyvene as pv
+```
+Alternatively, you can do
+```bash
+pip install git+https://github.com/stanfordnlp/pyvene.git
+```
+or 
 ```bash
 pip install pyvene
 ```
@@ -166,23 +182,6 @@ pv_gpt2 = pv.IntervenableModel.load(
 Please see [our guidelines](CONTRIBUTING.md) about how to contribute to this repository.         
 
 *Pull requests, bug reports, and all other forms of contribution are welcomed and highly encouraged!* :octocat:  
-
-### Other Ways of Installation
-
-**Method 2: Install from the Repo**
-```bash
-pip install git+https://github.com/stanfordnlp/pyvene.git
-```
-
-**Method 3: Clone and Import**
-```bash
-git clone https://github.com/stanfordnlp/pyvene.git
-```
-and in parallel folder, import to your project as,
-```python
-from pyvene import pyvene
-_, tokenizer, gpt2 = pyvene.create_gpt2()
-```
 
 ## A Little Guide for Causal Abstraction: From Interventions to Gain Interpretability Insights
 Basic interventions are fun but we cannot make any causal claim systematically. To gain actual interpretability insights, we want to measure the counterfactual behaviors of a model in a data-driven fashion. In other words, if the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. We also call this alignment search process with model internals.

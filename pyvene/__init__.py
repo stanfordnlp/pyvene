@@ -26,6 +26,7 @@ from .models.interventions import LocalistRepresentationIntervention
 from .models.interventions import DistributedRepresentationIntervention
 from .models.interventions import SourcelessIntervention
 from .models.interventions import NoiseIntervention
+from .models.interventions import SigmoidMaskIntervention
 
 
 # Utils
@@ -34,6 +35,7 @@ from .models.intervenable_modelcard import type_to_module_mapping, type_to_dimen
 from .models.gpt2.modelings_intervenable_gpt2 import create_gpt2
 from .models.gpt2.modelings_intervenable_gpt2 import create_gpt2_lm
 from .models.blip.modelings_intervenable_blip import create_blip
+from .models.blip.modelings_intervenable_blip_itm import create_blip_itm
 from .models.gpt_neo.modelings_intervenable_gpt_neo import create_gpt_neo
 from .models.gpt_neox.modelings_intervenable_gpt_neox import create_gpt_neox
 from .models.gru.modelings_intervenable_gru import create_gru

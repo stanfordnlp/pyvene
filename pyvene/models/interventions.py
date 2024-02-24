@@ -362,7 +362,7 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention, DistributedRepr
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
         # boundary masks are initialized to close to 1
         self.masks = torch.nn.Parameter(
-            torch.tensor([100] * self.embed_dim), requires_grad=True
+            torch.tensor([100.0] * self.embed_dim), requires_grad=True
         )
         self.temperature = torch.nn.Parameter(torch.tensor(50.0))
 
@@ -397,6 +397,39 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention, DistributedRepr
     def __str__(self):
         return f"SigmoidMaskRotatedSpaceIntervention()"
 
+
+class SigmoidMaskIntervention(TrainableIntervention, LocalistRepresentationIntervention):
+
+    """Intervention in the original basis with binary mask."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.mask = torch.nn.Parameter(
+            torch.zeros(self.embed_dim), requires_grad=True)
+        
+        self.temperature = torch.nn.Parameter(torch.tensor(0.01))
+
+    def get_temperature(self):
+        return self.temperature
+
+    def set_temperature(self, temp: torch.Tensor):
+        self.temperature.data = temp
+
+    def forward(self, base, source, subspaces=None):
+        batch_size = base.shape[0]
+        # get boundary mask between 0 and 1 from sigmoid
+        mask_sigmoid = torch.sigmoid(self.mask / torch.tensor(self.temperature)) 
+        
+        # interchange
+        intervened_output = (
+            1.0 - mask_sigmoid
+        ) * base + mask_sigmoid * source
+
+        return intervened_output
+
+    def __str__(self):
+        return f"SigmoidMaskIntervention()"
+    
 
 class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 

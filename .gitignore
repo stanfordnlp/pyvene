@@ -11,6 +11,7 @@ _hidden_local_dev*
 tmp_dir_new*/
 tmp/
 tmp_*/
+tutorial*/*/*/*.bin
 notebooks/figures/
 *.tsv
 *.csv
