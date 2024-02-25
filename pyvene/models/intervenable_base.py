@@ -1472,9 +1472,8 @@ class IntervenableModel(nn.Module):
             subspaces,
         )
 
-        # returning un-intervened output without gradients
-        with torch.inference_mode():
-            base_outputs = self.model.generate(inputs=base["input_ids"], **kwargs)
+        # returning un-intervened output
+        base_outputs = self.model.generate(inputs=base["input_ids"], **kwargs)
 
         set_handlers_to_remove = None
         try:
