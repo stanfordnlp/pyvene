@@ -1,8 +1,9 @@
-import random, torch
+import random, torch, types
 import numpy as np
 from torch import nn
 from .intervenable_modelcard import *
 from .interventions import *
+from .constants import *
 
 
 def get_internal_model_type(model):
@@ -93,50 +94,33 @@ def getattr_for_torch_module(model, parameter_name):
     return current_module
 
 
-def get_dimension(model_type, model_config, representation) -> int:
+def get_dimension_by_component(model_type, model_config, component) -> int:
     """Based on the representation, get the aligning dimension size."""
 
-    dimension_proposals = type_to_dimension_mapping[model_type][
-        representation.component
-    ]
+    if component not in type_to_dimension_mapping[model_type]:
+        return None
+
+    dimension_proposals = type_to_dimension_mapping[model_type][component]
     for proposal in dimension_proposals:
-        if "*" in proposal:
+        if proposal.isnumeric():
+            dimension = int(proposal)
+        elif "*" in proposal:
             # often constant multiplier with MLP
             dimension = getattr_for_torch_module(
                 model_config, proposal.split("*")[0]
             ) * int(proposal.split("*")[1])
         elif "/" in proposal:
             # often split by head number
-            dimension = int(
-                getattr_for_torch_module(model_config, proposal.split("/")[0])
-                / getattr_for_torch_module(model_config, proposal.split("/")[1])
-            )
-        else:
-            dimension = getattr_for_torch_module(model_config, proposal)
-        if dimension is not None:
-            return dimension * int(representation.max_number_of_units)
+            if proposal.split("/")[0].isnumeric():
+                numr = int(proposal.split("/")[0])
+            else:
+                numr = getattr_for_torch_module(model_config, proposal.split("/")[0])
 
-    assert False
-
-
-def get_representation_dimension_by_type(
-    model_type, model_config, representation_type
-) -> int:
-    """Based on the representation, get the aligning dimension size."""
-
-    dimension_proposals = type_to_dimension_mapping[model_type][representation_type]
-    for proposal in dimension_proposals:
-        if "*" in proposal:
-            # often constant multiplier with MLP
-            dimension = getattr_for_torch_module(
-                model_config, proposal.split("*")[0]
-            ) * int(proposal.split("*")[1])
-        elif "/" in proposal:
-            # often split by head number
-            dimension = int(
-                getattr_for_torch_module(model_config, proposal.split("/")[0])
-                / getattr_for_torch_module(model_config, proposal.split("/")[1])
-            )
+            if proposal.split("/")[1].isnumeric():
+                denr = int(proposal.split("/")[1])
+            else:
+                denr = getattr_for_torch_module(model_config, proposal.split("/")[1])
+            dimension = int(numr / denr)
         else:
             dimension = getattr_for_torch_module(model_config, proposal)
         if dimension is not None:
@@ -147,47 +131,35 @@ def get_representation_dimension_by_type(
 
 def get_module_hook(model, representation) -> nn.Module:
     """Render the intervening module with a hook."""
-    type_info = type_to_module_mapping[get_internal_model_type(model)][
+    if (
+        get_internal_model_type(model) in type_to_module_mapping and
         representation.component
-    ]
-    parameter_name = type_info[0]
-    hook_type = type_info[1]
-    if "%s" in parameter_name and representation.moe_key is None:
-        # we assume it is for the layer.
-        parameter_name = parameter_name % (representation.layer)
-    elif "%s" in parameter_name and representation.moe_key is not None:
-        parameter_name = parameter_name % (
-            int(representation.layer),
-            int(representation.moe_key),
-        )
+        in type_to_module_mapping[get_internal_model_type(model)]
+    ):
+        type_info = type_to_module_mapping[get_internal_model_type(model)][
+            representation.component
+        ]
+        parameter_name = type_info[0]
+        hook_type = type_info[1]
+        if "%s" in parameter_name and representation.moe_key is None:
+            # we assume it is for the layer.
+            parameter_name = parameter_name % (representation.layer)
+        elif "%s" in parameter_name and representation.moe_key is not None:
+            parameter_name = parameter_name % (
+                int(representation.layer),
+                int(representation.moe_key),
+            )
+    else:
+        parameter_name = ".".join(representation.component.split(".")[:-1])
+        if representation.component.split(".")[-1] == "input":
+            hook_type = CONST_INPUT_HOOK
+        elif representation.component.split(".")[-1] == "output":
+            hook_type = CONST_OUTPUT_HOOK
 
     module = getattr_for_torch_module(model, parameter_name)
     module_hook = getattr(module, hook_type)
 
     return module_hook
-
-
-def check_sorted_intervenables_by_topological_order(
-    model, representations, sorted_keys
-):
-    """Sort the intervention with topology in transformer arch."""
-    if is_transformer(model):
-        TOPOLOGICAL_ORDER = CONST_TRANSFORMER_TOPOLOGICAL_ORDER
-    elif is_mlp(model):
-        TOPOLOGICAL_ORDER = CONST_MLP_TOPOLOGICAL_ORDER
-    elif is_gru(model):
-        TOPOLOGICAL_ORDER = CONST_GRU_TOPOLOGICAL_ORDER
-
-    scores = {}
-    for k, _ in representations.items():
-        l = 100 * (int(k.split(".")[1]) + 1)
-        r = 10 * TOPOLOGICAL_ORDER.index(k.split(".")[3])
-        # incoming order in case they are ordered
-        o = 1 * (int(k.split("#")[1]) + 1)
-        scores[k] = l + r + o
-    sorted_keys_by_topological_order = sorted(scores.keys(), key=lambda x: scores[x])
-
-    return sorted_keys == sorted_keys_by_topological_order
 
 
 class HandlerList:
@@ -244,6 +216,28 @@ def bs_hd_to_bhsd(tensor, h):
     return tensor.reshape(b, s, h, d).permute(0, 2, 1, 3)
 
 
+def output_to_subcomponent(output, component, model_type, model_config):
+    """Split the raw output to subcomponents if specified in the config.
+
+    :param output: the original output from the model component.
+    :param component: types of model component, such as
+    "block_output" and "query_output" or it can be direct referece, such as
+    "h[0].mlp.act" which we will not splice into any subcomponent.
+    :param model_type: Hugging Face Model Type
+    :param model_config: Hugging Face Model Config
+    """
+    subcomponent = output
+    if component in type_to_module_mapping[model_type]:
+        split_last_dim_by = type_to_module_mapping[model_type][component][2:]
+        if len(split_last_dim_by) != 0 and len(split_last_dim_by) > 2:
+            raise ValueError(f"Unsupported {split_last_dim_by}.")
+        for i, (split_fn, param) in enumerate(split_last_dim_by):
+            if isinstance(param, str):
+                param = get_dimension_by_component(model_type, model_config, param)
+            subcomponent = split_fn(subcomponent, param)
+    return subcomponent
+
+
 def gather_neurons(tensor_input, unit, unit_locations_as_list):
     """Gather intervening neurons.
 
@@ -258,27 +252,14 @@ def gather_neurons(tensor_input, unit, unit_locations_as_list):
     in tensor_input, according to the unit.
     :return the gathered tensor as tensor_output
     """
+    if unit in {"t"}:
+        return tensor_input
+
     if "." in unit:
         unit_locations = (
             torch.tensor(unit_locations_as_list[0], device=tensor_input.device),
             torch.tensor(unit_locations_as_list[1], device=tensor_input.device),
         )
-    else:
-        unit_locations = torch.tensor(
-            unit_locations_as_list, device=tensor_input.device
-        )
-
-    if unit in {"pos", "h"}:
-        tensor_output = torch.gather(
-            tensor_input,
-            1,
-            unit_locations.reshape(
-                *unit_locations.shape, *(1,) * (len(tensor_input.shape) - 2)
-            ).expand(-1, -1, *tensor_input.shape[2:]),
-        )
-
-        return tensor_output
-    elif unit in {"h.pos"}:
         # we assume unit_locations is a tuple
         head_unit_locations = unit_locations[0]
         pos_unit_locations = unit_locations[1]
@@ -302,98 +283,24 @@ def gather_neurons(tensor_input, unit, unit_locations_as_list):
         tensor_output = bs_hd_to_bhsd(pos_tensor_output, d)
 
         return tensor_output  # b, num_unit (h), num_unit (pos), d
-    elif unit in {"t"}:
-        # for stateful models, intervention location is guarded outside gather
-        return tensor_input
-    elif unit in {"dim", "pos.dim", "h.dim", "h.pos.dim"}:
-        assert False, f"Not Implemented Gathering with Unit = {unit}"
-
-
-def split_heads(tensor, num_heads, attn_head_size):
-    """Splits hidden_size dim into attn_head_size and num_heads."""
-    new_shape = tensor.size()[:-1] + (num_heads, attn_head_size)
-    tensor = tensor.view(new_shape)
-    return tensor.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
-
-
-def output_to_subcomponent(output, representation_type, model_type, model_config):
-    if "head" in representation_type or representation_type in {
-        "query_output",
-        "key_output",
-        "value_output",
-    }:
-        n_embd = get_representation_dimension_by_type(
-            model_type, model_config, "block_output"
-        )
-        attn_head_size = get_representation_dimension_by_type(
-            model_type, model_config, "head_attention_value_output"
-        )
-        num_heads = int(n_embd / attn_head_size)
     else:
-        pass  # this is likely to be non-transformer model for advance usages
-
-    # special handling when QKV are not separated by the model
-    if model_type in {
-        hf_models.gpt2.modeling_gpt2.GPT2Model,
-        hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel,
-    }:
-        if representation_type in {
-            "query_output",
-            "key_output",
-            "value_output",
-            "head_query_output",
-            "head_key_output",
-            "head_value_output",
-        }:
-            qkv = output.split(n_embd, dim=2)
-            if representation_type in {
-                "head_query_output",
-                "head_key_output",
-                "head_value_output",
-            }:
-                qkv = (
-                    split_heads(qkv[0], num_heads, attn_head_size),
-                    split_heads(qkv[1], num_heads, attn_head_size),
-                    split_heads(qkv[2], num_heads, attn_head_size),
-                )  # each with (batch, head, seq_length, head_features)
-            return qkv[CONST_QKV_INDICES[representation_type]]
-        elif representation_type in {"head_attention_value_output"}:
-            return split_heads(output, num_heads, attn_head_size)
-        else:
-            return output
-    elif model_type in {GRUModel, GRULMHeadModel, GRUForClassification}:
-        if representation_type in {
-            "reset_x2h_output",
-            "new_x2h_output",
-            "reset_h2h_output",
-            "reset_h2h_output",
-            "update_h2h_output",
-            "new_h2h_output",
-        }:
-            n_embd = get_representation_dimension_by_type(
-                model_type, model_config, "cell_output"
-            )
-            start_index = CONST_RUN_INDICES[representation_type] * n_embd
-            end_index = (CONST_RUN_INDICES[representation_type] + 1) * n_embd
-            return output[..., start_index:end_index]
-        else:
-            return output
-    else:
-        if representation_type in {
-            "head_query_output",
-            "head_key_output",
-            "head_value_output",
-            "head_attention_value_output",
-        }:
-            return split_heads(output, num_heads, attn_head_size)
-        else:
-            return output
+        unit_locations = torch.tensor(
+            unit_locations_as_list, device=tensor_input.device
+        )
+        tensor_output = torch.gather(
+            tensor_input,
+            1,
+            unit_locations.reshape(
+                *unit_locations.shape, *(1,) * (len(tensor_input.shape) - 2)
+            ).expand(-1, -1, *tensor_input.shape[2:]),
+        )
+        return tensor_output
 
 
 def scatter_neurons(
     tensor_input,
     replacing_tensor_input,
-    representation_type,
+    component,
     unit,
     unit_locations_as_list,
     model_type,
@@ -409,7 +316,7 @@ def scatter_neurons(
     ...) if `unit` is "pos" or
     "h", tensors of shape (batch_size, num_heads, sequence_length, ...) if
     `unit` is "h.pos".
-    :param representation_type: types of intervention representations, such as
+    :param component: types of intervention representations, such as
     "block_output" and "query_output"
     :param unit: the intervention units to gather. Units could be "h" - head
     number, "pos" - position in the sequence, or "dim" - a particular dimension in
@@ -433,133 +340,93 @@ def scatter_neurons(
             unit_locations_as_list, device=tensor_input.device
         )
 
-    if "head" in representation_type or representation_type in {
-        "query_output",
-        "key_output",
-        "value_output",
-    }:
-        n_embd = get_representation_dimension_by_type(
-            model_type, model_config, "block_output"
-        )
-        attn_head_size = get_representation_dimension_by_type(
-            model_type, model_config, "head_attention_value_output"
-        )
-        num_heads = int(n_embd / attn_head_size)
-    elif "sense" in representation_type:
-        n_embd = get_representation_dimension_by_type(
-            model_type, model_config, "sense_output"
-        )
-        attn_head_size = get_representation_dimension_by_type(
-            model_type, model_config, "sense_output"
-        )
-        num_heads = get_representation_dimension_by_type(
-            model_type, model_config, "num_senses"
-        )
-    else:
-        pass  # this is likely to be non-transformer model for advance usages
+    # if tensor is splitted, we need to get the start and end indices
+    meta_component = output_to_subcomponent(
+        torch.arange(tensor_input.shape[-1]).unsqueeze(dim=0).unsqueeze(dim=0),
+        component,
+        model_type,
+        model_config,
+    )
+    start_index, end_index = (
+        meta_component.min().tolist(),
+        meta_component.max().tolist() + 1,
+    )
+    last_dim = meta_component.shape[-1]
+    _batch_idx = torch.arange(tensor_input.shape[0]).unsqueeze(1)
 
-    # special handling when QKV are not separated by the model.
-    if model_type in {
-        hf_models.gpt2.modeling_gpt2.GPT2Model,
-        hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel,
-    }:
-        if (
-            "query" in representation_type
-            or "key" in representation_type
-            or "value" in representation_type
-        ) and "attention" not in representation_type:
-            start_index = CONST_QKV_INDICES[representation_type] * n_embd
-            end_index = (CONST_QKV_INDICES[representation_type] + 1) * n_embd
-        else:
-            start_index, end_index = None, None
-    elif model_type in {GRUModel, GRULMHeadModel, GRUForClassification}:
-        if representation_type in {
-            "reset_x2h_output",
-            "new_x2h_output",
-            "reset_h2h_output",
-            "reset_h2h_output",
-            "update_h2h_output",
-            "new_h2h_output",
-        }:
-            n_embd = get_representation_dimension_by_type(
-                model_type, model_config, "cell_output"
-            )
-            start_index = CONST_RUN_INDICES[representation_type] * n_embd
-            end_index = (CONST_RUN_INDICES[representation_type] + 1) * n_embd
-        else:
-            start_index, end_index = None, None
-    else:
-        start_index, end_index = None, None
-
-    if unit == "t":
+    # in case it is time step, there is no sequence-related index
+    if unit in {"t"}:
         # time series models, e.g., gru
-        for batch_i, _ in enumerate(unit_locations):
-            tensor_input[batch_i, start_index:end_index] = replacing_tensor_input[
-                batch_i
-            ]
-    else:
-        if "head" in representation_type:
-            start_index = 0 if start_index is None else start_index
-            end_index = 0 if end_index is None else end_index
-            # head-based scattering
-            if unit in {"h.pos"}:
-                # we assume unit_locations is a tuple
-                for head_batch_i, head_locations in enumerate(unit_locations[0]):
-                    for head_loc_i, head_loc in enumerate(head_locations):
-                        for pos_loc_i, pos_loc in enumerate(
-                            unit_locations[1][head_batch_i]
-                        ):
-                            h_start_index = start_index + head_loc * attn_head_size
-                            h_end_index = start_index + (head_loc + 1) * attn_head_size
-                            tensor_input[
-                                head_batch_i, pos_loc, h_start_index:h_end_index
-                            ] = replacing_tensor_input[
-                                head_batch_i, head_loc_i, pos_loc_i
-                            ]  # [dh]
-            else:
-                for batch_i, locations in enumerate(unit_locations):
-                    for loc_i, loc in enumerate(locations):
-                        h_start_index = start_index + loc * attn_head_size
-                        h_end_index = start_index + (loc + 1) * attn_head_size
-                        tensor_input[
-                            batch_i, :, h_start_index:h_end_index
-                        ] = replacing_tensor_input[
-                            batch_i, loc_i
-                        ]  # [s, dh]
-        elif unit in {"h.pos"} and "sense" in representation_type:
-            start_index = 0 if start_index is None else start_index
-            end_index = 0 if end_index is None else end_index
-            # we assume unit_locations is a tuple
-            for head_batch_i, head_locations in enumerate(unit_locations[0]):
-                for head_loc_i, head_loc in enumerate(head_locations):
-                    for pos_loc_i, pos_loc in enumerate(
-                        unit_locations[1][head_batch_i]
-                    ):
-                        h_start_index = start_index + head_loc * attn_head_size
-                        h_end_index = start_index + (head_loc + 1) * attn_head_size
-                        tensor_input[
-                            head_batch_i, head_loc, pos_loc
-                        ] = replacing_tensor_input[
-                            head_batch_i, head_loc_i, pos_loc_i
-                        ]  # [dh]
+        tensor_input[_batch_idx, start_index:end_index] = replacing_tensor_input
+        return tensor_input
+    elif unit in {"pos"}:
+        if use_fast:
+            # maybe this is all redundant, but maybe faster slightly?
+            tensor_input[
+                _batch_idx, unit_locations[0], start_index:end_index
+            ] = replacing_tensor_input
         else:
-            if use_fast:
+            tensor_input[
+                _batch_idx, unit_locations, start_index:end_index
+            ] = replacing_tensor_input
+        return tensor_input
+    elif unit in {"h", "h.pos"}:
+        # head-based scattering is only special for transformer-based model
+        # replacing_tensor_input: b_s, num_h, s, h_dim -> b_s, s, num_h*h_dim
+        old_shape = tensor_input.size()  # b_s, s, -1*num_h*d
+        new_shape = tensor_input.size()[:-1] + (
+            -1,
+            meta_component.shape[1],
+            last_dim,
+        )  # b_s, s, -1, num_h, d
+        # get whether split by QKV
+        if (
+            component in type_to_module_mapping[model_type]
+            and len(type_to_module_mapping[model_type][component]) > 2
+            and type_to_module_mapping[model_type][component][2][0] == split_three
+        ):
+            _slice_idx = type_to_module_mapping[model_type][component][2][1]
+        else:
+            _slice_idx = 0
+        tensor_permute = tensor_input.view(new_shape)  # b_s, s, -1, num_h, d
+        tensor_permute = tensor_permute.permute(0, 3, 2, 1, 4)  # b_s, num_h, -1, s, d
+        if "." in unit:
+            # cannot advance indexing on two columns, thus a single for loop is unavoidable.
+            for i in range(unit_locations[0].shape[-1]):
+                tensor_permute[
+                    _batch_idx, unit_locations[0][:, [i]], _slice_idx, unit_locations[1]
+                ] = replacing_tensor_input[:, i]
+        else:
+            tensor_permute[
+                _batch_idx, unit_locations, _slice_idx
+            ] = replacing_tensor_input
+        # permute back and reshape
+        tensor_output = tensor_permute.permute(0, 3, 2, 1, 4)  # b_s, s, -1, num_h, d
+        tensor_output = tensor_output.view(old_shape)  # b_s, s, -1*num_h*d
+        return tensor_output
+    else:
+        if "." in unit:
+            # cannot advance indexing on two columns, thus a single for loop is unavoidable.
+            for i in range(unit_locations[0].shape[-1]):
                 tensor_input[
-                    :, unit_locations[0], start_index:end_index
-                ] = replacing_tensor_input[:]
-            else:
-                # pos-based scattering
-                for batch_i, locations in enumerate(unit_locations):
-                    tensor_input[
-                        batch_i, locations, start_index:end_index
-                    ] = replacing_tensor_input[batch_i]
-    return tensor_input
+                    _batch_idx, unit_locations[0][:, [i]], unit_locations[1]
+                ] = replacing_tensor_input[:, i]
+        else:
+            tensor_input[_batch_idx, unit_locations] = replacing_tensor_input
+        return tensor_input
+    assert False
 
 
 def do_intervention(
     base_representation, source_representation, intervention, subspaces
 ):
     """Do the actual intervention."""
+
+    if isinstance(intervention, types.FunctionType):
+        if subspaces is None:
+            return intervention(base_representation, source_representation)
+        else:
+            return intervention(base_representation, source_representation, subspaces)
 
     num_unit = base_representation.shape[1]
 
@@ -581,7 +448,7 @@ def do_intervention(
         source_representation_f = bhsd_to_bs_hd(source_representation)
     else:
         assert False  # what's going on?
-
+    
     intervened_representation = intervention(
         base_representation_f, source_representation_f, subspaces
     )

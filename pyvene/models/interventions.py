@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 from .layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotateLayer
 from .basic_utils import sigmoid_boundary
-from .intervention_utils import _do_intervention_by_swap
+from .intervention_utils import _can_use_fast, _do_intervention_by_swap
 
 
 class Intervention(torch.nn.Module):
@@ -13,14 +13,24 @@ class Intervention(torch.nn.Module):
 
     def __init__(self, **kwargs):
         super().__init__()
-        self.trainble = False
+        self.trainable = False
         self.is_source_constant = False
         
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
         self.subspace_partition = (
             kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
         )
-        
+        # we turn the partition into list indices
+        if self.subspace_partition is not None:
+            expanded_subspace_partition = []
+            for subspace in self.subspace_partition:
+                if len(subspace) == 2 and isinstance(subspace[0], int):
+                    expanded_subspace_partition.append([i for i in range(subspace[0],subspace[1])])
+                else:
+                    # it could be discrete indices.
+                    expanded_subspace_partition.append(subspace)
+            self.subspace_partition = expanded_subspace_partition
+            
         if "embed_dim" in kwargs and kwargs["embed_dim"] is not None:
             self.register_buffer('embed_dim', torch.tensor(kwargs["embed_dim"]))
             self.register_buffer('interchange_dim', torch.tensor(kwargs["embed_dim"]))
@@ -38,6 +48,9 @@ class Intervention(torch.nn.Module):
             else:
                 self.source_representation = None
                 
+    def set_source_representation(self, source_representation):
+        self.is_source_constant = True
+        self.register_buffer('source_representation', source_representation)
                 
     def set_interchange_dim(self, interchange_dim):
         if isinstance(interchange_dim, int):
@@ -74,7 +87,7 @@ class TrainableIntervention(Intervention):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.trainble = True
+        self.trainable = True
         self.is_source_constant = False
         
     def tie_weight(self, linked_intervention):
@@ -191,7 +204,7 @@ class VanillaIntervention(Intervention, LocalistRepresentationIntervention):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def forward(self, base, source, subspaces=None):
+    def forward(self, base, source, subspaces=None): 
         return _do_intervention_by_swap(
             base,
             source if self.source_representation is None else self.source_representation,
@@ -349,7 +362,7 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention, DistributedRepr
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
         # boundary masks are initialized to close to 1
         self.masks = torch.nn.Parameter(
-            torch.tensor([100] * self.embed_dim), requires_grad=True
+            torch.tensor([100.0] * self.embed_dim), requires_grad=True
         )
         self.temperature = torch.nn.Parameter(torch.tensor(50.0))
 
@@ -385,6 +398,39 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention, DistributedRepr
         return f"SigmoidMaskRotatedSpaceIntervention()"
 
 
+class SigmoidMaskIntervention(TrainableIntervention, LocalistRepresentationIntervention):
+
+    """Intervention in the original basis with binary mask."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.mask = torch.nn.Parameter(
+            torch.zeros(self.embed_dim), requires_grad=True)
+        
+        self.temperature = torch.nn.Parameter(torch.tensor(0.01))
+
+    def get_temperature(self):
+        return self.temperature
+
+    def set_temperature(self, temp: torch.Tensor):
+        self.temperature.data = temp
+
+    def forward(self, base, source, subspaces=None):
+        batch_size = base.shape[0]
+        # get boundary mask between 0 and 1 from sigmoid
+        mask_sigmoid = torch.sigmoid(self.mask / torch.tensor(self.temperature)) 
+        
+        # interchange
+        intervened_output = (
+            1.0 - mask_sigmoid
+        ) * base + mask_sigmoid * source
+
+        return intervened_output
+
+    def __str__(self):
+        return f"SigmoidMaskIntervention()"
+    
+
 class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 
     """Intervention in the rotated space."""
@@ -398,20 +444,14 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresen
         rotated_base = self.rotate_layer(base)
         rotated_source = self.rotate_layer(source)
         if subspaces is not None:
-            if self.use_fast:
+            if self.use_fast or _can_use_fast(subspaces):
                 if self.subspace_partition is None:
                     sel_subspace_indices = subspaces[0]
                 else:
                     sel_subspace_indices = []
                     for subspace in subspaces[0]:
                         sel_subspace_indices.extend(
-                            [
-                                i
-                                for i in range(
-                                    self.subspace_partition[subspace][0],
-                                    self.subspace_partition[subspace][1],
-                                )
-                            ]
+                            self.subspace_partition[subspace]
                         )
                 diff = rotated_source - rotated_base
                 assert rotated_base.shape[0] == len(subspaces)
@@ -432,13 +472,7 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresen
                     sel_subspace_indices = []
                     for subspace in subspaces[example_i]:
                         sel_subspace_indices.extend(
-                            [
-                                i
-                                for i in range(
-                                    self.subspace_partition[subspace][0],
-                                    self.subspace_partition[subspace][1],
-                                )
-                            ]
+                            self.subspace_partition[subspace]
                         )
 
                     LHS = diff[example_i, sel_subspace_indices].unsqueeze(dim=0)
@@ -477,7 +511,7 @@ class PCARotatedSpaceIntervention(BasisAgnosticIntervention, DistributedRepresen
         self.pca_std = torch.nn.Parameter(
             torch.tensor(pca_std, dtype=torch.float32), requires_grad=False
         )
-        self.trainble = False
+        self.trainable = False
 
     def forward(self, base, source, subspaces=None):
         base_norm = (base - self.pca_mean) / self.pca_std

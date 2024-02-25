@@ -7,7 +7,7 @@ from transformers import PretrainedConfig, PreTrainedModel
 from transformers.activations import ACT2FN
 from transformers.utils import ModelOutput
 from transformers.modeling_outputs import SequenceClassifierOutput
-
+from dataclasses import dataclass
 
 class MLPConfig(PretrainedConfig):
     model_type = "mlp"
@@ -40,7 +40,7 @@ class MLPConfig(PretrainedConfig):
         self.squeeze_output = squeeze_output
         super().__init__(**kwargs)
 
-
+@dataclass
 class MLPModelOutput(ModelOutput):
     last_hidden_state: torch.FloatTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None

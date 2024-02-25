@@ -17,6 +17,22 @@ Interventions on model-internal states are fundamental operations in many areas 
 **Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb) [**Main _pyvene_ 101**]  
 
 ## Installation
+Since we are currently beta-testing, it is recommended to install pyvene by,
+```bash
+git clone git@github.com:stanfordnlp/pyvene.git
+```
+and add pyvene into your system path in python via,
+```py
+import sys
+sys.path.append("<Your Path to Pyvene>")
+
+import pyvene as pv
+```
+Alternatively, you can do
+```bash
+pip install git+https://github.com/stanfordnlp/pyvene.git
+```
+or 
 ```bash
 pip install pyvene
 ```
@@ -30,6 +46,7 @@ import pyvene as pv
 _, tokenizer, gpt2 = pv.create_gpt2()
 
 pv_gpt2 = pv.IntervenableModel({
+    "layer": 0, "component": "block_output",
     "source_representation": torch.zeros(gpt2.config.n_embd)
 }, model=gpt2)
 
@@ -47,15 +64,37 @@ tensor([[[ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
          [ 0.0483, -0.1212, -0.2816,  ...,  0.1958,  0.0830,  0.0784],
          [ 0.0519,  0.2547, -0.1631,  ...,  0.0050, -0.0453, -0.1624]]])
 ```
-You can share your interventions through Huggingface with others with a single call,
-```python
-pv_gpt2.save(
-    save_directory="./your_gpt2_mounting_point/",
-    save_to_hf_hub=True,
-    hf_repo_name="your_gpt2_mounting_point"
-)
-```
 
+## _IntervenableModel_ Loaded from HuggingFace Directly
+The following codeblock can reproduce [honest_llama-2 chat](https://github.com/likenneth/honest_llama/tree/master) from the paper [Inference-Time Intervention: Eliciting Truthful Answers from a Language Model](https://arxiv.org/abs/2306.03341). The added activations are only **~0.14MB** on disk!
+
+```python
+# others can download from huggingface and use it directly
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import pyvene as pv
+
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-2-7b-chat-hf",
+    torch_dtype=torch.bfloat16,
+).to("cuda")
+
+pv_model = pv.IntervenableModel.load(
+    "zhengxuanzenwu/intervenable_honest_llama2_chat_7B", # the activation diff ~0.14MB
+    model,
+)
+
+print("llama-2-chat loaded with interventions:")
+q = "What's a cure for insomnia that always works?"
+prompt = tokenizer(q, return_tensors="pt").to("cuda")
+_, iti_response_shared = pv_model.generate(prompt, max_new_tokens=64, do_sample=False)
+print(tokenizer.decode(iti_response_shared[0], skip_special_tokens=True))
+```
+With this, once you discover some clever intervention schemes, you can share with others quickly without sharing the actual base LMs or the intervention code!
+
+
+## _IntervenableModel_ as Regular _nn.Module_
 You can also use the `pv_gpt2` just like a regular torch model component inside another model, or another pipeline as,
 ```py
 import torch
@@ -143,23 +182,6 @@ pv_gpt2 = pv.IntervenableModel.load(
 Please see [our guidelines](CONTRIBUTING.md) about how to contribute to this repository.         
 
 *Pull requests, bug reports, and all other forms of contribution are welcomed and highly encouraged!* :octocat:  
-
-### Other Ways of Installation
-
-**Method 2: Install from the Repo**
-```bash
-pip install git+https://github.com/stanfordnlp/pyvene.git
-```
-
-**Method 3: Clone and Import**
-```bash
-git clone https://github.com/stanfordnlp/pyvene.git
-```
-and in parallel folder, import to your project as,
-```python
-from pyvene import pyvene
-_, tokenizer, gpt2 = pyvene.create_gpt2()
-```
 
 ## A Little Guide for Causal Abstraction: From Interventions to Gain Interpretability Insights
 Basic interventions are fun but we cannot make any causal claim systematically. To gain actual interpretability insights, we want to measure the counterfactual behaviors of a model in a data-driven fashion. In other words, if the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. We also call this alignment search process with model internals.
