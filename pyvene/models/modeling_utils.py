@@ -1,9 +1,12 @@
+from collections.abc import Sequence
 import random, torch, types
 import numpy as np
 from torch import nn
 from .intervenable_modelcard import *
 from .interventions import *
 from .constants import *
+
+UNIT_LOC_LIST_TYPE = Sequence[int | Sequence | torch.Tensor | None]
 
 
 def get_internal_model_type(model):
@@ -132,8 +135,8 @@ def get_dimension_by_component(model_type, model_config, component) -> int:
 def get_module_hook(model, representation) -> nn.Module:
     """Render the intervening module with a hook."""
     if (
-        get_internal_model_type(model) in type_to_module_mapping and
-        representation.component
+        get_internal_model_type(model) in type_to_module_mapping
+        and representation.component
         in type_to_module_mapping[get_internal_model_type(model)]
     ):
         type_info = type_to_module_mapping[get_internal_model_type(model)][
@@ -216,7 +219,9 @@ def bs_hd_to_bhsd(tensor, h):
     return tensor.reshape(b, s, h, d).permute(0, 2, 1, 3)
 
 
-def output_to_subcomponent(output, component, model_type, model_config):
+def output_to_subcomponent(
+    output: torch.Tensor, component, model_type, model_config
+) -> torch.Tensor:
     """Split the raw output to subcomponents if specified in the config.
 
     :param output: the original output from the model component.
@@ -230,8 +235,10 @@ def output_to_subcomponent(output, component, model_type, model_config):
     if model_type in type_to_module_mapping and \
         component in type_to_module_mapping[model_type]:
         split_last_dim_by = type_to_module_mapping[model_type][component][2:]
-        if len(split_last_dim_by) != 0 and len(split_last_dim_by) > 2:
+
+        if len(split_last_dim_by) > 2:
             raise ValueError(f"Unsupported {split_last_dim_by}.")
+
         for i, (split_fn, param) in enumerate(split_last_dim_by):
             if isinstance(param, str):
                 param = get_dimension_by_component(model_type, model_config, param)
@@ -239,7 +246,9 @@ def output_to_subcomponent(output, component, model_type, model_config):
     return subcomponent
 
 
-def gather_neurons(tensor_input, unit, unit_locations_as_list):
+def gather_neurons(
+    tensor_input: torch.Tensor, unit, unit_locations_as_list: UNIT_LOC_LIST_TYPE
+) -> torch.Tensor:
     """Gather intervening neurons.
 
     :param tensor_input: tensors of shape (batch_size, sequence_length, ...) if
@@ -285,6 +294,11 @@ def gather_neurons(tensor_input, unit, unit_locations_as_list):
 
         return tensor_output  # b, num_unit (h), num_unit (pos), d
     else:
+        # For now, when gathering neurons to set, we want to include the entire batch
+        # even if we are only intervening on some of them, just so there are no
+        # surprising changes in the base shape. I am setting all the None rows
+        # to 0 because the scatter function will filter these rows out anyways.
+        unit_locations_as_list = [(arr or [0]) for arr in unit_locations_as_list]
         unit_locations = torch.tensor(
             unit_locations_as_list, device=tensor_input.device
         )
@@ -299,15 +313,15 @@ def gather_neurons(tensor_input, unit, unit_locations_as_list):
 
 
 def scatter_neurons(
-    tensor_input,
-    replacing_tensor_input,
+    tensor_input: torch.Tensor,
+    replacing_tensor_input: torch.Tensor,
     component,
     unit,
-    unit_locations_as_list,
+    unit_locations_as_list: UNIT_LOC_LIST_TYPE,
     model_type,
     model_config,
-    use_fast,
-):
+    use_fast: bool,
+) -> torch.Tensor:
     """Replace selected neurons in `tensor_input` by `replacing_tensor_input`.
 
     :param tensor_input: tensors of shape (batch_size, sequence_length, ...) if
@@ -336,10 +350,22 @@ def scatter_neurons(
             torch.tensor(unit_locations_as_list[0], device=tensor_input.device),
             torch.tensor(unit_locations_as_list[1], device=tensor_input.device),
         )
-    else:
-        unit_locations = torch.tensor(
-            unit_locations_as_list, device=tensor_input.device
-        )
+
+    _batch_idx = torch.tensor(
+        [
+            i
+            for i in range(tensor_input.shape[0])
+            if unit_locations_as_list[i] is not None
+        ]
+    )
+
+    if not len(_batch_idx):
+        return tensor_input
+
+    unit_locations = torch.tensor(
+        [arr for arr in unit_locations_as_list if arr is not None],
+        device=tensor_input.device,
+    )
 
     # if tensor is splitted, we need to get the start and end indices
     meta_component = output_to_subcomponent(
@@ -350,10 +376,20 @@ def scatter_neurons(
     )
     start_index, end_index = (
         meta_component.min().tolist(),
-        meta_component.max().tolist() + 1,
+        (meta_component.max() + 1).tolist(),
     )
     last_dim = meta_component.shape[-1]
-    _batch_idx = torch.arange(tensor_input.shape[0]).unsqueeze(1)
+
+    # print(
+    #     f"Input shape: {tensor_input.shape}, Replacing shape: {replacing_tensor_input.shape}"
+    # )
+    # print(
+    #     f"Scatter neurons: {_batch_idx}, {unit_locations}, {start_index}, {end_index}"
+    # )
+
+    assert (
+        unit_locations.shape[0] == _batch_idx.shape[0]
+    ), f"unit_locations: {unit_locations.shape}, _batch_idx: {_batch_idx.shape}"
 
     # in case it is time step, there is no sequence-related index
     if unit in {"t"}:
@@ -361,15 +397,9 @@ def scatter_neurons(
         tensor_input[_batch_idx, start_index:end_index] = replacing_tensor_input
         return tensor_input
     elif unit in {"pos"}:
-        if use_fast:
-            # maybe this is all redundant, but maybe faster slightly?
-            tensor_input[
-                _batch_idx, unit_locations[0], start_index:end_index
-            ] = replacing_tensor_input
-        else:
-            tensor_input[
-                _batch_idx, unit_locations, start_index:end_index
-            ] = replacing_tensor_input
+        tensor_input[_batch_idx[:, None], unit_locations, start_index:end_index] = (
+            replacing_tensor_input[_batch_idx, :, start_index:end_index]
+        )
         return tensor_input
     elif unit in {"h", "h.pos"}:
         # head-based scattering is only special for transformer-based model
@@ -398,9 +428,9 @@ def scatter_neurons(
                     _batch_idx, unit_locations[0][:, [i]], _slice_idx, unit_locations[1]
                 ] = replacing_tensor_input[:, i]
         else:
-            tensor_permute[
-                _batch_idx, unit_locations, _slice_idx
-            ] = replacing_tensor_input
+            tensor_permute[_batch_idx[:, None], unit_locations, _slice_idx] = (
+                replacing_tensor_input[_batch_idx, :, _slice_idx]
+            )
         # permute back and reshape
         tensor_output = tensor_permute.permute(0, 3, 2, 1, 4)  # b_s, s, -1, num_h, d
         tensor_output = tensor_output.view(old_shape)  # b_s, s, -1*num_h*d
@@ -413,9 +443,10 @@ def scatter_neurons(
                     _batch_idx, unit_locations[0][:, [i]], unit_locations[1]
                 ] = replacing_tensor_input[:, i]
         else:
-            tensor_input[_batch_idx, unit_locations] = replacing_tensor_input
+            tensor_input[_batch_idx, unit_locations] = replacing_tensor_input[
+                _batch_idx
+            ]
         return tensor_input
-    assert False
 
 
 def do_intervention(
@@ -424,10 +455,7 @@ def do_intervention(
     """Do the actual intervention."""
 
     if isinstance(intervention, types.FunctionType):
-        if subspaces is None:
-            return intervention(base_representation, source_representation)
-        else:
-            return intervention(base_representation, source_representation, subspaces)
+        return intervention(base_representation, source_representation)
 
     num_unit = base_representation.shape[1]
 
@@ -449,7 +477,7 @@ def do_intervention(
         source_representation_f = bhsd_to_bs_hd(source_representation)
     else:
         assert False  # what's going on?
-    
+
     intervened_representation = intervention(
         base_representation_f, source_representation_f, subspaces
     )

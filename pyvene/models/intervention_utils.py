@@ -1,41 +1,33 @@
 import json
 import torch
+import pprint
 
 class InterventionState(object):
     def __init__(self, key, **kwargs):
         self.key = key
-        self.reset()
+        self._timestep = [0, 0]
 
-    def inc_getter_timestep(self):
-        self.state_dict["getter_timestep"] += 1
-
-    def inc_setter_timestep(self):
-        self.state_dict["setter_timestep"] += 1
-
+    @property
     def getter_timestep(self):
-        return self.state_dict["getter_timestep"]
-
+        return self._timestep[0]
+    
+    @getter_timestep.setter
+    def getter_timestep(self, value):
+        self._timestep[0] = value
+    
+    @property
     def setter_timestep(self):
-        return self.state_dict["setter_timestep"]
-
-    def get_states(self):
-        return self.state_dict
-
-    def set_state(self, state_dict):
-        self.state_dict = state_dict
+        return self._timestep[1]
+    
+    @setter_timestep.setter
+    def setter_timestep(self, value):
+        self._timestep[1] = value
 
     def reset(self):
-        self.state_dict = {
-            "key": self.key,
-            "getter_timestep": 0,
-            "setter_timestep": 0,
-        }
+        self._timestep = [0, 0]
 
     def __repr__(self):
-        return json.dumps(self.state_dict, indent=4)
-
-    def __str__(self):
-        return json.dumps(self.state_dict, indent=4)
+        pprint.pprint(self.__dict__, indent=4)
 
 def broadcast_tensor_v1(x, target_shape):
     # Ensure the last dimension of target_shape matches x's size

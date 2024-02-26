@@ -1,7 +1,7 @@
 import json, logging, torch, types
 import numpy as np
 from collections import OrderedDict
-from typing import Callable, List, Optional, Tuple, Union, Dict, Any
+from typing import Callable, List, Optional, Dict, Any, Tuple
 
 from .basic_utils import *
 from .modeling_utils import *
@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from transformers.utils import ModelOutput
 from tqdm import tqdm, trange
 
-TIMESTEP_SELECTOR_TYPE = Callable[[int, List[int], torch.Tensor], bool]
+TIMESTEP_SELECTOR_TYPE = List[Callable[[int, torch.Tensor], bool]]
 
 
 @dataclass
@@ -43,7 +43,7 @@ class IntervenableModel(nn.Module):
         super().__init__()
         if isinstance(config, dict) or isinstance(config, list):
             config = IntervenableConfig(representations=config)
-        self.config = config
+        self.config: IntervenableConfig = config
 
         self.mode = config.mode
         intervention_type = config.intervention_types
@@ -74,8 +74,8 @@ class IntervenableModel(nn.Module):
         # To support a new model type, you need to provide a
         # mapping between supported abstract type and module name.
         ###
-        self.representations = {}
-        self.interventions = {}
+        self.representations: Dict[str, RepresentationConfig] = {}
+        self.interventions: Dict[str, Tuple[Callable | Intervention, nn.Module]] = {}
         self._key_collision_counter = {}
         self.return_collect_activations = False
         # Flags and counters below are for interventions in the model.generate
@@ -610,7 +610,7 @@ class IntervenableModel(nn.Module):
             self.model.load_state_dict(saved_model_state_dict, strict=False)
 
     def _gather_intervention_output(
-        self, output, representations_key, unit_locations
+        self, output: torch.Tensor, representations_key: str, unit_locations
     ) -> torch.Tensor:
         """
         Gather intervening activations from the output based on indices
@@ -736,22 +736,18 @@ class IntervenableModel(nn.Module):
                     # assert key not in self.activations
                     self.activations[key] = selected_output
                 else:
-                    state_select_flag = []
-                    for unit_location in unit_locations[key_i]:
-                        if (
-                            self._intervention_state[key].getter_timestep()
-                            in unit_location
-                        ):
-                            state_select_flag += [True]
-                        else:
-                            state_select_flag += [False]
+                    state_select_flag = [
+                        (self._intervention_state[key].getter_timestep in loc)
+                        for loc in unit_locations[key_i]
+                    ]
+
                     # for stateful model (e.g., gru), we save extra activations and metadata to do
                     # stateful interventions.
                     self.activations.setdefault(key, []).append(
                         (selected_output, state_select_flag)
                     )
                 # set version for stateful models
-                self._intervention_state[key].inc_getter_timestep()
+                self._intervention_state[key].getter_timestep += 1
 
             handlers.append(module_hook(hook_callback, with_kwargs=True))
 
@@ -800,7 +796,7 @@ class IntervenableModel(nn.Module):
 
         state_select_flag = []
         for unit_location in intervening_unit_locations:
-            if self._intervention_state[key].setter_timestep() in unit_location:
+            if self._intervention_state[key].setter_timestep in unit_location:
                 state_select_flag += [True]
             else:
                 state_select_flag += [False]
@@ -845,22 +841,17 @@ class IntervenableModel(nn.Module):
         self._tidy_stateful_activations()
 
         handlers = []
+
         for key_i, key in enumerate(keys):
             intervention, module_hook = self.interventions[key]
-            if unit_locations_base[0] is not None:
+            state = self._intervention_state[key]
+
+            if unit_locations_base[0]:
                 self._batched_setter_activation_select[key] = [
                     0 for _ in range(len(unit_locations_base[0]))
                 ]  # batch_size
 
             def hook_callback(model, args, kwargs, output=None):
-                if timestep_selector and not timestep_selector(
-                    self._intervention_state[key].setter_timestep(),
-                    unit_locations_base[key_i],
-                    output,
-                ):
-                    self._intervention_state[key].inc_setter_timestep()
-                    return
-
                 if output is None:
                     if len(args) == 0:  # kwargs based calls
                         # PR: https://github.com/frankaging/align-transformers/issues/11
@@ -868,76 +859,75 @@ class IntervenableModel(nn.Module):
                         output = kwargs[list(kwargs.keys())[0]]
                     else:
                         output = args
+                
+                if isinstance(output, tuple):
+                    output = output[0]
+
+                # in this code we assume that output is batched along its first axis.
+                int_unit_loc = (
+                    unit_locations_base[key_i]
+                    if state.setter_timestep <= 0 or not timestep_selector
+                    else [
+                        (
+                            [0]
+                            if timestep_selector[key_i](
+                                state.setter_timestep, output[i]
+                            )
+                            else None
+                        )
+                        for i in range(len(output))
+                    ]
+                )
 
                 selected_output = self._gather_intervention_output(
-                    output, key, unit_locations_base[key_i]
+                    output, key, int_unit_loc
                 )
                 # TODO: need to figure out why clone is needed
                 if not self.is_model_stateless:
                     selected_output = selected_output.clone()
 
-                if isinstance(intervention, CollectIntervention):
-                    intervened_representation = do_intervention(
+                source = (
+                    None
+                    if isinstance(intervention, CollectIntervention)
+                    or isinstance(intervention, Intervention) and intervention.is_source_constant
+                    else self._reconcile_stateful_cached_activations(
+                        key,
                         selected_output,
-                        None,
-                        intervention,
-                        subspaces[key_i] if subspaces is not None else None,
+                        int_unit_loc,
                     )
+                )
+  
+                intervened_representation = do_intervention(
+                    selected_output,
+                    source,
+                    intervention,
+                    subspaces[key_i] if subspaces is not None else None,
+                )
+
+                if isinstance(intervention, CollectIntervention):
                     # fail if this is not a fresh collect
                     assert key not in self.activations
 
                     self.activations[key] = intervened_representation
-                    # no-op to the output
+                    return
 
-                else:
-                    if not isinstance(self.interventions[key][0], types.FunctionType):
-                        if intervention.is_source_constant:
-                            intervened_representation = do_intervention(
-                                selected_output,
-                                None,
-                                intervention,
-                                subspaces[key_i] if subspaces is not None else None,
-                            )
-                        else:
-                            intervened_representation = do_intervention(
-                                selected_output,
-                                self._reconcile_stateful_cached_activations(
-                                    key,
-                                    selected_output,
-                                    unit_locations_base[key_i],
-                                ),
-                                intervention,
-                                subspaces[key_i] if subspaces is not None else None,
-                            )
-                    else:
-                        # highly unlikely it's a primitive intervention type
-                        intervened_representation = do_intervention(
-                            selected_output,
-                            self._reconcile_stateful_cached_activations(
-                                key,
-                                selected_output,
-                                unit_locations_base[key_i],
-                            ),
-                            intervention,
-                            subspaces[key_i] if subspaces is not None else None,
-                        )
-                    if intervened_representation is None:
-                        return
+                if intervened_representation is None:
+                    return
 
-                    # setter can produce hot activations for shared subspace interventions if linked
-                    if key in self._intervention_reverse_link:
-                        self.hot_activations[self._intervention_reverse_link[key]] = (
-                            intervened_representation.clone()
-                        )
-
-                    _ = self._scatter_intervention_output(
-                        output[0] if isinstance(output, tuple) else output,
-                        intervened_representation,
-                        key,
-                        unit_locations_base[key_i],
+                # setter can produce hot activations for shared subspace interventions if linked
+                if key in self._intervention_reverse_link:
+                    self.hot_activations[self._intervention_reverse_link[key]] = (
+                        intervened_representation.clone()
                     )
 
-                    self._intervention_state[key].inc_setter_timestep()
+                self._scatter_intervention_output(
+                    output,
+                    intervened_representation,
+                    key,
+                    int_unit_loc,
+                )
+
+                state.setter_timestep += 1
 
             handlers.append(module_hook(hook_callback, with_kwargs=True))
 
@@ -953,7 +943,7 @@ class IntervenableModel(nn.Module):
     ):
         """Fail fast input validation"""
         if self.mode == "parallel" and unit_locations is not None:
-            assert "sources->base" in unit_locations or "base" in unit_locations
+            assert "sources->base" in unit_locations
         elif (
             activations_sources is None
             and unit_locations is not None
@@ -981,7 +971,7 @@ class IntervenableModel(nn.Module):
                 if (
                     isinstance(v, list)
                     and isinstance(v[0], tuple)
-                    and isinstance(v[0][1], list) != True
+                    and not isinstance(v[0][1], list)
                 ):
                     raise ValueError(
                         f"Stateful models need nested activations. See our documentions."
@@ -993,7 +983,7 @@ class IntervenableModel(nn.Module):
         """Safe guarding the execution by checking memory states"""
         if self.is_model_stateless:
             for k, v in self._intervention_state.items():
-                if v.getter_timestep() > 1 or v.setter_timestep() > 1:
+                if v.getter_timestep > 1 or v.setter_timestep > 1:
                     raise Exception(
                         f"For stateless model, each getter and setter "
                         f"should be called only once: {self._intervention_state}"
@@ -1056,7 +1046,9 @@ class IntervenableModel(nn.Module):
             # simply patch in the ones passed in
             self.activations = activations_sources
             for _, passed_in_key in enumerate(self.activations):
-                assert passed_in_key in self.sorted_keys, f'{passed_in_key} not in {self.sorted_keys}, {unit_locations}'
+                assert (
+                    passed_in_key in self.sorted_keys
+                ), f"{passed_in_key} not in {self.sorted_keys}, {unit_locations}"
 
         # in parallel mode, we swap cached activations all into
         # base at once
@@ -1140,13 +1132,15 @@ class IntervenableModel(nn.Module):
                             if subspaces is not None
                             else None
                         ),
-                        timestep_selector
+                        timestep_selector,
                     )
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)
         return all_set_handlers
 
-    def _broadcast_unit_locations(self, batch_size, unit_locations):
+    def _broadcast_unit_locations(
+        self, batch_size, unit_locations: Optional[Dict[str, int | Sequence]]
+    ) -> Dict[str, Tuple[Sequence, Sequence]]:
         if unit_locations is None:
             # this means, we don't filter based on location at all.
             return {
@@ -1156,109 +1150,85 @@ class IntervenableModel(nn.Module):
                 )
             }
 
-        if self.mode == "parallel":
-            _unit_locations = {}
-            for k, v in unit_locations.items():
-                # special broadcast for base-only interventions
-                is_base_only = False
-                if k == "base":
-                    is_base_only = True
-                    k = "sources->base"
-                if isinstance(v, int):
-                    if is_base_only:
-                        _unit_locations[k] = (
-                            None,
-                            [[[v]] * batch_size] * len(self.interventions),
-                        )
-                    else:
-                        _unit_locations[k] = (
-                            [[[v]] * batch_size] * len(self.interventions),
-                            [[[v]] * batch_size] * len(self.interventions),
-                        )
-                    self.use_fast = True
-                elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
-                    _unit_locations[k] = (
-                        [[[v[0]]] * batch_size] * len(self.interventions),
-                        [[[v[1]]] * batch_size] * len(self.interventions),
-                    )
-                    self.use_fast = True
-                elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
-                    _unit_locations[k] = (
-                        None,
-                        [[[v[1]]] * batch_size] * len(self.interventions),
-                    )
-                    self.use_fast = True
-                elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
-                    _unit_locations[k] = (
-                        [[[v[0]]] * batch_size] * len(self.interventions),
-                        None,
-                    )
-                    self.use_fast = True
-                elif isinstance(v, list) and get_list_depth(v) == 1:
-                    # [0,1,2,3] -> [[[0,1,2,3]]], ...
-                    if is_base_only:
-                        _unit_locations[k] = (
-                            None,
-                            [[v] * batch_size] * len(self.interventions),
-                        )
-                    else:
-                        _unit_locations[k] = (
-                            [[v] * batch_size] * len(self.interventions),
-                            [[v] * batch_size] * len(self.interventions),
-                        )
-                    self.use_fast = True
-                else:
-                    if is_base_only:
-                        _unit_locations[k] = (None, v)
-                    else:
-                        _unit_locations[k] = v
-        elif self.mode == "serial":
-            _unit_locations = {}
-            for k, v in unit_locations.items():
-                if isinstance(v, int):
-                    _unit_locations[k] = (
-                        [[[v]] * batch_size] * len(self.interventions),
-                        [[[v]] * batch_size] * len(self.interventions),
-                    )
-                    self.use_fast = True
-                elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
-                    _unit_locations[k] = (
-                        [[[v[0]]] * batch_size] * len(self.interventions),
-                        [[[v[1]]] * batch_size] * len(self.interventions),
-                    )
-                    self.use_fast = True
-                elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
-                    _unit_locations[k] = (
-                        None,
-                        [[[v[1]]] * batch_size] * len(self.interventions),
-                    )
-                    self.use_fast = True
-                elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
-                    _unit_locations[k] = (
-                        [[[v[0]]] * batch_size] * len(self.interventions),
-                        None,
-                    )
-                    self.use_fast = True
-                elif isinstance(v, list) and get_list_depth(v) == 1:
-                    # [0,1,2,3] -> [[[0,1,2,3]]], ...
-                    _unit_locations[k] = (
-                        [[v] * batch_size] * len(self.interventions),
-                        [[v] * batch_size] * len(self.interventions),
-                    )
-                    self.use_fast = True
-                else:
-                    _unit_locations[k] = v
-        else:
+        self.use_fast = True
+
+        if self.mode not in {"parallel", "serial"}:
             raise ValueError(f"The mode {self.mode} is not supported.")
+
+        _unit_locations = {}
+
+        for k, v in unit_locations.items():
+            # special broadcast for base-only interventions
+            is_base_only = k == "base" or self.mode == "serial"
+            k = "sources->base" if is_base_only else k
+
+            if not isinstance(v, Sequence) or len(v) != 2:
+                v = (copy.deepcopy(v) if not is_base_only else None, copy.deepcopy(v))
+
+            _v = []
+
+            for el in v:
+                if el == None:
+                    continue
+
+                if isinstance(el, int):
+                    el = [el]
+
+                if get_list_depth(el) == 1:
+                    el = [el for _ in range(batch_size)]
+
+                if get_list_depth(el) == 2:
+                    el = [el for _ in range(len(self.interventions))]
+
+                _v.append(el)
+            
+            _unit_locations[k] = _v[0], _v[1]
+
+            # if isinstance(v, int):
+            #     _unit_locations[k] = (
+            #         (
+            #             [[[v]] * batch_size] * len(self.interventions)
+            #             if not is_base_only
+            #             else None
+            #         ),
+            #         [[[v]] * batch_size] * len(self.interventions),
+            #     )
+            # elif (
+            #     len(v) == 2
+            #     and isinstance(v[0], int | None)
+            #     and isinstance(v[1], int | None)
+            # ):
+            #     _unit_locations[k] = (
+            #         [[[v[0]]] * batch_size] * len(self.interventions) if v[0] else None,
+            #         [[[v[1]]] * batch_size] * len(self.interventions) if v[1] else None,
+            #     )
+            #     print(_unit_locations)
+            # elif isinstance(v, list) and get_list_depth(v) == 1:
+            #     # [0,1,2,3] -> [[[0,1,2,3]]], ...
+            #     _unit_locations[k] = (
+            #         (
+            #             None
+            #             if is_base_only
+            #             else [[v] * batch_size] * len(self.interventions)
+            #         ),
+            #         [[v] * batch_size] * len(self.interventions),
+            #     )
+            # else:
+            #     _unit_locations[k] = (None, v) if is_base_only else v
+            #     self.use_fast = False
+
         return _unit_locations
 
-    def _broadcast_source_representations(self, source_representations):
+    def _broadcast_source_representations(
+        self, source_representations: Optional[Dict | List | torch.Tensor]
+    ) -> Dict[str, torch.Tensor] | None:
         """Broadcast simple inputs to a dict"""
-        _source_representations = {}
         if isinstance(source_representations, dict) or source_representations is None:
             # pass to broadcast for advance usage
-            _source_representations = source_representations
-        elif isinstance(source_representations, list):
+            return source_representations
+
+        _source_representations = {}
+        if isinstance(source_representations, list):
             for i, key in enumerate(self.sorted_keys):
                 _source_representations[key] = source_representations[i]
         elif isinstance(source_representations, torch.Tensor):
@@ -1270,15 +1240,12 @@ class IntervenableModel(nn.Module):
             )
         return _source_representations
 
-    def _broadcast_sources(self, sources):
+    def _broadcast_sources(self, sources: Sequence) -> List:
         """Broadcast simple inputs to a dict"""
-        _sources = sources
-        if len(sources) == 1 and len(self._intervention_group) > 1:
-            for _ in range(len(self._intervention_group) - 1):
-                _sources += [sources[0]]
-        else:
-            _sources = sources
-        return _sources
+        if len(sources) > 1:
+            return list(sources)
+
+        return [sources[0] for _ in range(len(self._intervention_group))]
 
     def _broadcast_subspaces(self, batch_size, subspaces):
         """Broadcast simple subspaces input"""
@@ -1310,7 +1277,7 @@ class IntervenableModel(nn.Module):
         actual model forward calls. It will use forward
         hooks to do interventions.
 
-        In essense, sources will lead to getter hooks to
+        In essence, sources will lead to getter hooks to
         get activations. We will use these activations to
         intervene on our base example.
 
@@ -1338,13 +1305,14 @@ class IntervenableModel(nn.Module):
 
         the shape can be
 
-        2 * num_intervention * batch_size * num_max_unit
+        2 * num_intervention * batch_size
 
         OR
 
-        2 * num_intervention * num_intervention_level * batch_size * num_max_unit
+        2 * num_intervention * num_intervention_level * batch_size
 
         if we intervene on h.pos which is a nested intervention location.
+        All the values will lie in the range [1, num_max_unit].
 
         2) subspaces
         subspaces is a list of indices indicating which subspace will
@@ -1483,11 +1451,10 @@ class IntervenableModel(nn.Module):
         unit_locations: Optional[Dict] = None,
         timestep_selector: Optional[TIMESTEP_SELECTOR_TYPE] = None,
         source_representations: Optional[Dict] = None,
-        intervene_on_prompt: bool = False,
         subspaces: Optional[List] = None,
         output_original_output: Optional[bool] = False,
         **kwargs,
-    ):
+    ) -> Tuple[ModelOutput | Tuple[ModelOutput, List[torch.Tensor]], ModelOutput]:
         """
         Intervenable generation function that serves a
         wrapper to regular model generate calls.
@@ -1496,22 +1463,22 @@ class IntervenableModel(nn.Module):
         prompt only**. We will support generation interventions
         in the next release.
 
-        TODO: Unroll sources and intervene in the generation step.
+        Args:
+            base: Base example encoding.
+            sources (Optional[List], optional): List of source encodings.
+            unit_locations (Optional[Dict], optional): Mapping from intervention edge to
+                locations of example pairs for every intervention along that edge. See forward() for
+                details of format. When the sources->base units are positions, this should only
+                contain indices within the length of the prompt.
+            timestep_selector (Optional[List[Callable[[int, torch.Tensor], bool]]], optional): list of length
+                num_interventions of selector functions for interventions on positions of generated text.
+                Each selector function takes input (idx, output): the i'th intervention intervenes on base value
+                output at position len(base) + idx if timestep_selector[i](idx, output) == True.
+            source_representations (Optional[Dict], optional): _description_.
+            subspaces (Optional[List], optional): _description_.
 
-        Parameters:
-        base:                The base example.
-        sources:             A list of source examples.
-        unit_locations:      The intervention locations on the base. When the units are positions, only locations on the prompt can be specified.
-        timestep_selector: a boolean function that takes in (timestep, unit_locations, module_output) and returns whether to intervene in that module at that timestep. Evaluated at every generation timestep, defaults to True if not specified.
-        activations_sources: A list of representations.
-        intervene_on_prompt: Whether only intervene on prompt.
-        **kwargs:            All other generation parameters.
-
-        Return:
-        base_output: the non-intervened output of the base
-        input.
-        counterfactual_outputs: the intervened output of the
-        base input.
+        Returns:
+            Tuple[ModelOutput | Tuple[ModelOutput, List[torch.Tensor]], ModelOutput]: _description_
         """
         # TODO: forgive me now, i will change this later.
         activations_sources = source_representations
@@ -1519,8 +1486,6 @@ class IntervenableModel(nn.Module):
             sources = [sources]
 
         self._cleanup_states()
-
-        self._intervene_on_prompt = intervene_on_prompt
         self._is_generation = True
 
         # broadcast
@@ -1560,7 +1525,7 @@ class IntervenableModel(nn.Module):
                         unit_locations,
                         activations_sources,
                         subspaces,
-                        timestep_selector
+                        timestep_selector,
                     )
                 )
             elif self.mode == "serial":
@@ -1570,7 +1535,7 @@ class IntervenableModel(nn.Module):
                         unit_locations,
                         activations_sources,
                         subspaces,
-                        timestep_selector
+                        timestep_selector,
                     )
                 )
 
