@@ -161,12 +161,12 @@ class InterventionWithMLPTestCase(unittest.TestCase):
                 base,
                 [source_1],
                 {"sources->base": ([[[0]] * b_s], [[[0]] * b_s])},
-                subspaces=[[[0]] * b_s],
+                subspaces=0,
             )
-        except ValueError:
+        except IndexError:
             pass
         else:
-            raise AssertionError("ValueError was not raised")
+            raise AssertionError("IndexError was not raised")
 
     def test_intervention_link_positive(self):
         """
