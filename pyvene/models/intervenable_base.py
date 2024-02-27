@@ -43,7 +43,7 @@ class IntervenableModel(nn.Module):
                 representations = config
             )
         self.config = config
-
+        
         self.mode = config.mode
         intervention_type = config.intervention_types
         self.is_model_stateless = is_stateless(model)
@@ -114,7 +114,7 @@ class IntervenableModel(nn.Module):
                 )
                 all_metadata = representation._asdict()
                 component_dim = get_dimension_by_component(
-                    get_internal_model_type(model), model.config,
+                    get_internal_model_type(model), model.config, 
                     representation.component
                 )
                 if component_dim is not None:
@@ -122,9 +122,9 @@ class IntervenableModel(nn.Module):
                 all_metadata["embed_dim"] = component_dim
                 all_metadata["use_fast"] = self.use_fast
                 intervention = intervention_function(
-                    **all_metadata
+                    **all_metadata 
                 )
-
+                
             if representation.intervention_link_key in self._intervention_pointers:
                 self._intervention_reverse_link[
                     _key
@@ -139,13 +139,13 @@ class IntervenableModel(nn.Module):
                 self._intervention_reverse_link[
                     _key
                 ] = f"link#{representation.intervention_link_key}"
-
+                    
             if isinstance(
                 intervention,
                 CollectIntervention
             ):
                 self.return_collect_activations = True
-
+            
             module_hook = get_module_hook(
                 model, representation
             )
@@ -197,7 +197,7 @@ class IntervenableModel(nn.Module):
             for i in range(len(_validate_group_keys) - 1):
                 if _validate_group_keys[i] > _validate_group_keys[i + 1]:
                     logging.info(
-                        f"This is not a valid group key order: {_validate_group_keys}"
+                        f"This is not a valid group key order: {_validate_group_keys}" 
                     )
                     raise ValueError(
                         "Must be ascending order. "
@@ -329,9 +329,9 @@ class IntervenableModel(nn.Module):
         # Unfreeze all model weights
         self.model.train()
         for param in self.model.parameters():
-            param.requires_grad = True
+            param.requires_grad = True 
         self.model_has_grad = True
-
+                
     def disable_model_gradients(self):
         """
         Disable gradient in the model
@@ -341,7 +341,7 @@ class IntervenableModel(nn.Module):
         for param in self.model.parameters():
             param.requires_grad = False
         self.model_has_grad = False
-
+            
     def disable_intervention_gradients(self):
         """
         Disable gradient in the trainable intervention
@@ -410,7 +410,7 @@ class IntervenableModel(nn.Module):
         saving_config.intervention_types = []
         saving_config.intervention_dimensions = []
         saving_config.intervention_constant_sources = []
-
+        
         # handle constant source reprs if passed in.
         serialized_representations = []
         for reprs in saving_config.representations:
@@ -434,7 +434,7 @@ class IntervenableModel(nn.Module):
             ]
         saving_config.representations = \
             serialized_representations
-
+        
         for k, v in self.interventions.items():
             intervention = v[0]
             saving_config.intervention_types += [str(type(intervention))]
@@ -467,7 +467,7 @@ class IntervenableModel(nn.Module):
             else:
                 saving_config.intervention_dimensions += [intervention.interchange_dim.tolist()]
             saving_config.intervention_constant_sources += [intervention.is_source_constant]
-
+            
         # save metadata config
         saving_config.save_pretrained(save_directory)
         if save_to_hf_hub:
@@ -493,7 +493,7 @@ class IntervenableModel(nn.Module):
         """
         if not os.path.exists(load_directory) or from_huggingface_hub:
             from_huggingface_hub = True
-
+            
             from huggingface_hub import snapshot_download
             load_directory = snapshot_download(
                 repo_id=load_directory,
@@ -616,14 +616,14 @@ class IntervenableModel(nn.Module):
         if unit_locations is None:
             original_output[:] = intervened_representation[:]
             return original_output
-
+        
         component = self.representations[
             representations_key
         ].component
         unit = self.representations[
             representations_key
         ].unit
-
+        
         # scatter in-place
         _ = scatter_neurons(
             original_output,
@@ -635,7 +635,7 @@ class IntervenableModel(nn.Module):
             self.model_config,
             self.use_fast,
         )
-
+        
         return original_output
 
     def _intervention_getter(
@@ -790,7 +790,7 @@ class IntervenableModel(nn.Module):
         Create a list of setter handlers that will set activations
         """
         self._tidy_stateful_activations()
-
+        
         handlers = []
         for key_i, key in enumerate(keys):
             intervention, module_hook = self.interventions[key]
@@ -813,14 +813,14 @@ class IntervenableModel(nn.Module):
                         output = kwargs[list(kwargs.keys())[0]]
                     else:
                         output = args
-
+                        
                 selected_output = self._gather_intervention_output(
                     output, key, unit_locations_base[key_i]
                 )
                 # TODO: need to figure out why clone is needed
                 if not self.is_model_stateless:
                     selected_output = selected_output.clone()
-
+                
                 if isinstance(
                     intervention,
                     CollectIntervention
@@ -833,10 +833,10 @@ class IntervenableModel(nn.Module):
                     )
                     # fail if this is not a fresh collect
                     assert key not in self.activations
-
+                    
                     self.activations[key] = intervened_representation
                     # no-op to the output
-
+                    
                 else:
                     if not isinstance(self.interventions[key][0], types.FunctionType):
                         if intervention.is_source_constant:
@@ -877,7 +877,7 @@ class IntervenableModel(nn.Module):
                         self.hot_activations[
                             self._intervention_reverse_link[key]
                         ] = intervened_representation.clone()
-
+                    
                     if isinstance(output, tuple):
                         _ = self._scatter_intervention_output(
                             output[0], intervened_representation, key, unit_locations_base[key_i]
@@ -886,7 +886,7 @@ class IntervenableModel(nn.Module):
                         _ = self._scatter_intervention_output(
                             output, intervened_representation, key, unit_locations_base[key_i]
                         )
-
+                            
                     self._intervention_state[key].inc_setter_version()
 
             handlers.append(module_hook(hook_callback, with_kwargs=True))
@@ -906,7 +906,7 @@ class IntervenableModel(nn.Module):
             assert "sources->base" in unit_locations or "base" in unit_locations
         elif activations_sources is None and unit_locations is not None and self.mode == "serial":
             assert "sources->base" not in unit_locations
-
+        
         # sources may contain None, but length should match
         if sources is not None and not (len(sources) == 1 and sources[0] == None):
             if len(sources) != len(self._intervention_group):
@@ -1006,7 +1006,7 @@ class IntervenableModel(nn.Module):
             self.activations = activations_sources
             for _, passed_in_key in enumerate(self.activations):
                 assert passed_in_key in self.sorted_keys
-
+        
         # in parallel mode, we swap cached activations all into
         # base at once
         for group_id, keys in self._intervention_group.items():
@@ -1101,7 +1101,7 @@ class IntervenableModel(nn.Module):
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)
         return all_set_handlers
-
+    
     def _broadcast_unit_locations(
         self,
         batch_size,
@@ -1110,7 +1110,7 @@ class IntervenableModel(nn.Module):
         if unit_locations is None:
             # this means, we don't filter based on location at all.
             return {"sources->base": ([None]*len(self.interventions), [None]*len(self.interventions))}
-
+        
         if self.mode == "parallel":
             _unit_locations = {}
             for k, v in unit_locations.items():
@@ -1124,13 +1124,13 @@ class IntervenableModel(nn.Module):
                         _unit_locations[k] = (None, [[[v]]*batch_size]*len(self.interventions))
                     else:
                         _unit_locations[k] = (
-                            [[[v]]*batch_size]*len(self.interventions),
+                            [[[v]]*batch_size]*len(self.interventions), 
                             [[[v]]*batch_size]*len(self.interventions)
                         )
                     self.use_fast = True
                 elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
                     _unit_locations[k] = (
-                        [[[v[0]]]*batch_size]*len(self.interventions),
+                        [[[v[0]]]*batch_size]*len(self.interventions), 
                         [[[v[1]]]*batch_size]*len(self.interventions)
                     )
                     self.use_fast = True
@@ -1146,7 +1146,7 @@ class IntervenableModel(nn.Module):
                         _unit_locations[k] = (None, [[v]*batch_size]*len(self.interventions))
                     else:
                         _unit_locations[k] = (
-                            [[v]*batch_size]*len(self.interventions),
+                            [[v]*batch_size]*len(self.interventions), 
                             [[v]*batch_size]*len(self.interventions)
                         )
                     self.use_fast = True
@@ -1160,13 +1160,13 @@ class IntervenableModel(nn.Module):
             for k, v in unit_locations.items():
                 if isinstance(v, int):
                     _unit_locations[k] = (
-                        [[[v]]*batch_size]*len(self.interventions),
+                        [[[v]]*batch_size]*len(self.interventions), 
                         [[[v]]*batch_size]*len(self.interventions)
                     )
                     self.use_fast = True
                 elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
                     _unit_locations[k] = (
-                        [[[v[0]]]*batch_size]*len(self.interventions),
+                        [[[v[0]]]*batch_size]*len(self.interventions), 
                         [[[v[1]]]*batch_size]*len(self.interventions)
                     )
                     self.use_fast = True
@@ -1179,7 +1179,7 @@ class IntervenableModel(nn.Module):
                 elif isinstance(v, list) and get_list_depth(v) == 1:
                     # [0,1,2,3] -> [[[0,1,2,3]]], ...
                     _unit_locations[k] = (
-                        [[v]*batch_size]*len(self.interventions),
+                        [[v]*batch_size]*len(self.interventions), 
                         [[v]*batch_size]*len(self.interventions)
                     )
                     self.use_fast = True
@@ -1188,7 +1188,7 @@ class IntervenableModel(nn.Module):
         else:
             raise ValueError(f"The mode {self.mode} is not supported.")
         return _unit_locations
-
+    
     def _broadcast_source_representations(
         self,
         source_representations
@@ -1209,7 +1209,7 @@ class IntervenableModel(nn.Module):
                 "Accept input type for source_representations is [Dict, List, torch.Tensor]"
             )
         return _source_representations
-
+            
     def _broadcast_sources(
         self,
         sources
@@ -1222,7 +1222,7 @@ class IntervenableModel(nn.Module):
         else:
             _sources = sources
         return _sources
-
+    
     def _broadcast_subspaces(
         self,
         batch_size,
@@ -1232,7 +1232,7 @@ class IntervenableModel(nn.Module):
         _subspaces = subspaces
         if isinstance(subspaces, int):
             _subspaces = [[[subspaces]]*batch_size]*len(self.interventions)
-
+            
         elif isinstance(subspaces, list) and isinstance(subspaces[0], int):
             _subspaces = [[subspaces]*batch_size]*len(self.interventions)
         else:
@@ -1319,7 +1319,7 @@ class IntervenableModel(nn.Module):
         activations_sources = source_representations
         if sources is not None and not isinstance(sources, list):
             sources = [sources]
-
+        
         self._cleanup_states()
 
         # if no source input or intervention, we return base
@@ -1332,7 +1332,7 @@ class IntervenableModel(nn.Module):
         sources = self._broadcast_sources(sources)
         activations_sources = self._broadcast_source_representations(activations_sources)
         subspaces = self._broadcast_subspaces(get_batch_size(base), subspaces)
-
+        
         self._input_validation(
             base,
             sources,
@@ -1341,7 +1341,7 @@ class IntervenableModel(nn.Module):
             subspaces,
         )
 
-        # returning un-intervened output
+        # returning un-intervened output with gradients
         base_outputs = self.model(**base)
 
         try:
@@ -1370,7 +1370,7 @@ class IntervenableModel(nn.Module):
             set_handlers_to_remove.remove()
 
             self._output_validation()
-
+            
             collected_activations = []
             if self.return_collect_activations:
                 for key in self.sorted_keys:
@@ -1388,7 +1388,7 @@ class IntervenableModel(nn.Module):
                     (sources is None and activations_sources is not None) or \
                     self.return_collect_activations
             )
-
+        
         if self.return_collect_activations:
             if return_dict:
                 return IntervenableModelOutput(
@@ -1396,9 +1396,9 @@ class IntervenableModel(nn.Module):
                     intervened_outputs=counterfactual_outputs,
                     collected_activations=collected_activations
                 )
-
+            
             return (base_outputs, collected_activations), counterfactual_outputs
-
+        
         if return_dict:
             return IntervenableModelOutput(
                 original_outputs=base_outputs,
@@ -1447,23 +1447,23 @@ class IntervenableModel(nn.Module):
         activations_sources = source_representations
         if sources is not None and not isinstance(sources, list):
             sources = [sources]
-
+            
         self._cleanup_states()
 
         self._intervene_on_prompt = intervene_on_prompt
         self._is_generation = True
-
+        
         if not intervene_on_prompt and unit_locations is None:
             # that means, we intervene on every generated tokens!
             unit_locations = {"base": 0}
-
+        
         # broadcast
         unit_locations = self._broadcast_unit_locations(get_batch_size(base), unit_locations)
         sources = [None]*len(self._intervention_group) if sources is None else sources
         sources = self._broadcast_sources(sources)
         activations_sources = self._broadcast_source_representations(activations_sources)
         subspaces = self._broadcast_subspaces(get_batch_size(base), subspaces)
-
+        
         self._input_validation(
             base,
             sources,
@@ -1496,12 +1496,12 @@ class IntervenableModel(nn.Module):
                         subspaces,
                     )
                 )
-
+            
             # run intervened generate
             counterfactual_outputs = self.model.generate(
                 inputs=base["input_ids"], **kwargs
             )
-
+            
             collected_activations = []
             if self.return_collect_activations:
                 for key in self.sorted_keys:
@@ -1521,10 +1521,10 @@ class IntervenableModel(nn.Module):
                     (sources is None and activations_sources is not None) or \
                     self.return_collect_activations
             )
-
+        
         if self.return_collect_activations:
             return (base_outputs, collected_activations), counterfactual_outputs
-
+        
         return base_outputs, counterfactual_outputs
 
     def _batch_process_unit_location(self, inputs):
