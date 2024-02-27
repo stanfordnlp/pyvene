@@ -35,6 +35,7 @@ global scatter_intervention_output_fn_mapping
 type_to_module_mapping = {
     hf_models.gpt2.modeling_gpt2.GPT2Model: gpt2_type_to_module_mapping,
     hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel: gpt2_lm_type_to_module_mapping,
+    hf_models.gpt2.modeling_gpt2.GPT2ForSequenceClassification: gpt2_classifier_type_to_module_mapping,
     hf_models.llama.modeling_llama.LlamaModel: llama_type_to_module_mapping,
     hf_models.llama.modeling_llama.LlamaForCausalLM: llama_lm_type_to_module_mapping,
     hf_models.gpt_neo.modeling_gpt_neo.GPTNeoModel: gpt_neo_type_to_module_mapping,
@@ -58,6 +59,7 @@ type_to_module_mapping = {
 type_to_dimension_mapping = {
     hf_models.gpt2.modeling_gpt2.GPT2Model: gpt2_type_to_dimension_mapping,
     hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel: gpt2_lm_type_to_dimension_mapping,
+    hf_models.gpt2.modeling_gpt2.GPT2ForSequenceClassification: gpt2_classifier_type_to_dimension_mapping,
     hf_models.llama.modeling_llama.LlamaModel: llama_type_to_dimension_mapping,
     hf_models.llama.modeling_llama.LlamaForCausalLM: llama_lm_type_to_dimension_mapping,
     hf_models.gpt_neo.modeling_gpt_neo.GPTNeoModel: gpt_neo_type_to_dimension_mapping,
