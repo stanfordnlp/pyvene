@@ -64,6 +64,13 @@ for k, v in gpt2_type_to_module_mapping.items():
 
 gpt2_lm_type_to_dimension_mapping = gpt2_type_to_dimension_mapping
 
+"""gpt2 model with classifier head"""
+gpt2_classifier_type_to_module_mapping = {}
+for k, v in gpt2_type_to_module_mapping.items():
+    gpt2_classifier_type_to_module_mapping[k] = (f"transformer.{v[0]}", ) + v[1:]
+
+gpt2_classifier_type_to_dimension_mapping = gpt2_type_to_dimension_mapping
+
 
 def create_gpt2(name="gpt2", cache_dir=None):
     """Creates a GPT2 model, config, and tokenizer from the given name and revision"""
@@ -86,5 +93,18 @@ def create_gpt2_lm(name="gpt2", config=None, cache_dir=None):
         gpt = GPT2LMHeadModel.from_pretrained(name, config=config, cache_dir=cache_dir)
     else:
         gpt = GPT2LMHeadModel(config=config)
+    print("loaded model")
+    return config, tokenizer, gpt
+
+def create_gpt2_classifier(name="gpt2", config=None, cache_dir=None):
+    """Creates a GPT2ForSequenceClassification, config, and tokenizer from the given name and revision"""
+    from transformers import GPT2LMForSequenceClassification, GPT2Tokenizer, GPT2Config
+
+    tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+    if config is None:
+        config = GPT2Config.from_pretrained(name)
+        gpt = GPT2LMForSequenceClassification.from_pretrained(name, config=config, cache_dir=cache_dir)
+    else:
+        gpt = GPT2LMForSequenceClassification(config=config)
     print("loaded model")
     return config, tokenizer, gpt
