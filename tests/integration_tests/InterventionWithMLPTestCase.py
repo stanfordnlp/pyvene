@@ -112,7 +112,8 @@ class InterventionWithMLPTestCase(unittest.TestCase):
         )
         base = {"inputs_embeds": torch.rand(10, 1, 3)}
         self.assertTrue(
-            torch.allclose(ONE_MLP_CLEAN_RUN(base, self.mlp), intervenable(base)[0][0])
+            torch.allclose(ONE_MLP_CLEAN_RUN(base, self.mlp), intervenable(
+                base, output_original_output=True)[0][0])
         )
 
     def test_with_subspace_positive(self):
