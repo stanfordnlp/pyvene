@@ -62,7 +62,7 @@ class ComplexInterventionWithGPT2TestCase(unittest.TestCase):
         intervenable.set_device(self.device)
         base = {"input_ids": torch.randint(0, 10, (10, 5)).to(self.device)}
         golden_out = self.gpt2(**base).logits
-        our_output = intervenable(base)[0][0]
+        our_output = intervenable(base, output_original_output=True)[0][0]
         self.assertTrue(torch.allclose(golden_out, our_output))
         # make sure the toolkit also works
         self.assertTrue(
