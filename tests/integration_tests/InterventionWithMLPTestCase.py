@@ -255,6 +255,7 @@ class InterventionWithMLPTestCase(unittest.TestCase):
             [source_1, source_2],
             {"sources->base": ([[[0]] * b_s, [[0]] * b_s], [[[0]] * b_s, [[0]] * b_s])},
             subspaces=[[[0]] * b_s, [[1]] * b_s],
+            output_original_output=True,
         )
 
         self.assertTrue(torch.allclose(golden_out_inplace, our_out_inplace[0]))
