@@ -201,7 +201,7 @@ The function solves a 3-digit sum problem. Let's say, we trained a neural networ
 
 To translate the above steps into API calls with the library, it will be a single call,
 ```py
-intervenable.evaluate(
+intervenable.eval_alignment(
     train_dataloader=test_dataloader,
     compute_metrics=compute_metrics,
     inputs_collator=inputs_collator
@@ -232,7 +232,7 @@ Instead of activation swapping in the original representation space, we first **
 
 You can now also make a single API call to train your intervention,
 ```py
-intervenable.train(
+intervenable.train_alignment(
     train_dataloader=train_dataloader,
     compute_loss=compute_loss,
     compute_metrics=compute_metrics,

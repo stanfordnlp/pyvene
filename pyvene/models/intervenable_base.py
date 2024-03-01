@@ -1640,8 +1640,14 @@ class IntervenableModel(nn.Module):
                 )
 
         return batched_location_dict
+    
+    def train(self):
+        self.model.train()
+    
+    def eval(self):
+        self.model.eval()
 
-    def train(
+    def train_alignment(
         self,
         train_dataloader,
         compute_loss,
@@ -1732,7 +1738,7 @@ class IntervenableModel(nn.Module):
                         self.set_temperature(temperature_schedule[total_step])
                 total_step += 1
 
-    def evaluate(
+    def eval_alignment(
         self,
         eval_dataloader,
         compute_metrics,
