@@ -301,7 +301,7 @@ class IntervenableModel(nn.Module):
                 ret_params += [p for p in v[0].parameters()]
         return ret_params
     
-    def named_parameters(self):
+    def named_parameters(self, recurse=True):
         """
         The above, but for HuggingFace.
         """
