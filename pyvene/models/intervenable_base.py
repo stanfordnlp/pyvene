@@ -1247,7 +1247,7 @@ class IntervenableModel(nn.Module):
         unit_locations: Optional[Dict] = None,
         source_representations: Optional[Dict] = None,
         subspaces: Optional[List] = None,
-        output_original_output: Optional[bool] = None,
+        output_original_output: Optional[bool] = False,
         return_dict: Optional[bool] = None,
     ):
         """
@@ -1340,9 +1340,11 @@ class IntervenableModel(nn.Module):
             activations_sources,
             subspaces,
         )
-
-        # returning un-intervened output with gradients
-        base_outputs = self.model(**base)
+        
+        base_outputs = None
+        if output_original_output:
+            # returning un-intervened output with gradients
+            base_outputs = self.model(**base)
 
         try:
             # intervene
@@ -1416,6 +1418,7 @@ class IntervenableModel(nn.Module):
         source_representations: Optional[Dict] = None,
         intervene_on_prompt: bool = False,
         subspaces: Optional[List] = None,
+        output_original_output: Optional[bool] = False,
         **kwargs,
     ):
         """
@@ -1471,9 +1474,10 @@ class IntervenableModel(nn.Module):
             activations_sources,
             subspaces,
         )
-
-        # returning un-intervened output without gradients
-        with torch.inference_mode():
+        
+        base_outputs = None
+        if output_original_output:
+            # returning un-intervened output
             base_outputs = self.model.generate(inputs=base["input_ids"], **kwargs)
 
         set_handlers_to_remove = None
