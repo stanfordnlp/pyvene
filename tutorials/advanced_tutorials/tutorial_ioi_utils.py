@@ -910,8 +910,6 @@ def with_path_patch_find_variable_at(
         names=NAMES[: len(NAMES) // 2],
         objects=OBJECTS[: len(OBJECTS) // 2],
         places=PLACES[: len(PLACES) // 2],
-        prefix_len=2,
-        prefixes=PREFIXES,
         templates=TEMPLATES[:2],
     )
 
@@ -919,8 +917,6 @@ def with_path_patch_find_variable_at(
         names=NAMES[len(NAMES) // 2 :],
         objects=OBJECTS[len(OBJECTS) // 2 :],
         places=PLACES[len(PLACES) // 2 :],
-        prefix_len=2,
-        prefixes=PREFIXES,
         templates=TEMPLATES[2:],
     )
 
