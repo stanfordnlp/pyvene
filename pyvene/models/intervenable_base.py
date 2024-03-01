@@ -300,6 +300,12 @@ class IntervenableModel(nn.Module):
             if isinstance(v[0], TrainableIntervention):
                 ret_params += [p for p in v[0].parameters()]
         return ret_params
+    
+    def named_parameters(self):
+        """
+        Alias for HuggingFace.
+        """
+        return self.get_trainable_parameters()
 
     def get_cached_activations(self):
         """
