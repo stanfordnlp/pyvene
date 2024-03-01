@@ -61,13 +61,11 @@ def is_single_token(s: str, tokenizer) -> bool:
 NAMES_PATH = "tutorial_data/names.json"
 OBJECTS_PATH = "tutorial_data/objects.json"
 PLACES_PATH = "tutorial_data/places.json"
-PREFIXES_PATH = "tutorial_data/prefixes.json"
 TEMPLATES_PATH = "tutorial_data/templates.json"
 
 NAMES = json.load(open(NAMES_PATH))
 OBJECTS = json.load(open(OBJECTS_PATH))
 PLACES = json.load(open(PLACES_PATH))
-PREFIXES = json.load(open(PREFIXES_PATH))
 TEMPLATES = json.load(open(TEMPLATES_PATH))
 
 
@@ -80,13 +78,11 @@ class Prompt:
     def __init__(
         self,
         names: Tuple[str, str, str],
-        prefix: str,
         template: str,
         obj: str,
         place: str,
     ):
         self.names = names
-        self.prefix = prefix
         self.template = template
         self.obj = obj
         self.place = place
@@ -109,7 +105,7 @@ class Prompt:
 
     @property
     def sentence(self) -> str:
-        return self.prefix + self.template.format(
+        return self.template.format(
             name_A=self.names[0],
             name_B=self.names[1],
             name_C=self.names[2],
@@ -162,7 +158,6 @@ class Prompt:
         """
         assert len(orig_pattern) == 3
         assert len(new_pattern) == 3
-        assert len(set(orig_pattern)) == len(set(new_pattern)) == 2
         assert self.matches_pattern(names=self.names, pattern=orig_pattern)
         orig_to_name = {orig_pattern[i]: self.names[i] for i in range(3)}
         new_names = [None for _ in range(3)]
@@ -188,7 +183,6 @@ class Prompt:
             template=self.template,
             obj=self.obj,
             place=self.place,
-            prefix=self.prefix,
         )
 
 
@@ -205,8 +199,6 @@ class PromptDataset(Dataset):
         self.prompts: Sequence[Prompt] = np.array(prompts)
         self.tokenizer = tokenizer
         ls = self.lengths
-        if not all(x == ls[0] for x in ls):
-            raise ValueError("Prompts must all have the same length")
 
     def __getitem__(self, idx: Union[int, Sequence, slice]) -> "PromptDataset":
         if isinstance(idx, int):
@@ -243,6 +235,7 @@ class PromptDataset(Dataset):
         return self.tokenizer(
             [x.sentence for x in self.prompts],
             return_tensors="pt",
+            padding=True,
         )
 
     @property
@@ -269,6 +262,12 @@ class PromptDataset(Dataset):
                 for x in self.prompts
             ]
         )
+
+
+def get_last_token(logits, attention_mask):
+    last_token_indices = attention_mask.sum(1) - 1
+    batch_indices = torch.arange(logits.size(0)).unsqueeze(1)
+    return logits[batch_indices, last_token_indices.unsqueeze(1)].squeeze(1)
 
 
 class PatchingDataset(Dataset):
@@ -337,16 +336,11 @@ class PromptDistribution:
     """
     A class to represent a distribution over prompts.
 
-    It uses a combination of names, places, objects, prefixes, and templates
+    It uses a combination of names, places, objects, and templates
     loaded from JSON files or provided lists.
 
     Each prompt is constructed using a selected template and a randomly selected
     name, object, and place.
-
-    Attributes
-    ----------
-    prefix_len : int
-        The length of the prefix to use when creating the prompts.
     """
 
     def __init__(
@@ -354,15 +348,11 @@ class PromptDistribution:
         names: Union[List[str], str, Path],
         places: Union[List[str], str, Path],
         objects: Union[List[str], str, Path],
-        prefixes: Union[List[str], str, Path],
         templates: Union[List[str], str, Path],
-        prefix_len: int = 2,
     ):
-        self.prefix_len = prefix_len
         self.names = load_data(names)
         self.places = load_data(places)
         self.objects = load_data(objects)
-        self.prefixes = load_data(prefixes)
         self.templates = load_data(templates)
 
     def sample_one(
@@ -379,9 +369,8 @@ class PromptDistribution:
         prompt_names = tuple([unique_names[unique_ids.index(i)] for i in pattern])
         obj = random.choice(self.objects)
         place = random.choice(self.places)
-        prefix = self.prefixes[self.prefix_len]
         return Prompt(
-            names=prompt_names, template=template, obj=obj, place=place, prefix=prefix
+            names=prompt_names, template=template, obj=obj, place=place
         )
 
     def sample_das(
@@ -558,8 +547,6 @@ def find_variable_at(
             names=NAMES[:20],
             objects=OBJECTS[: len(OBJECTS) // 2],
             places=PLACES[: len(PLACES) // 2],
-            prefix_len=2,
-            prefixes=PREFIXES,
             templates=TEMPLATES[:2],
         )
 
@@ -567,8 +554,6 @@ def find_variable_at(
             names=NAMES[:20],
             objects=OBJECTS[len(OBJECTS) // 2 :],
             places=PLACES[len(PLACES) // 2 :],
-            prefix_len=2,
-            prefixes=PREFIXES,
             templates=TEMPLATES[2:],
         )
     else:
@@ -576,8 +561,6 @@ def find_variable_at(
             names=NAMES[: len(NAMES) // 2],
             objects=OBJECTS[: len(OBJECTS) // 2],
             places=PLACES[: len(PLACES) // 2],
-            prefix_len=2,
-            prefixes=PREFIXES,
             templates=TEMPLATES[:2],
         )
 
@@ -585,8 +568,6 @@ def find_variable_at(
             names=NAMES[len(NAMES) // 2 :],
             objects=OBJECTS[len(OBJECTS) // 2 :],
             places=PLACES[len(PLACES) // 2 :],
-            prefix_len=2,
-            prefixes=PREFIXES,
             templates=TEMPLATES[2:],
         )
 
@@ -670,7 +651,7 @@ def find_variable_at(
                         low_rank_dimension=low_rank_dimension,
                     )
             intervenable = IntervenableModel(config, gpt2)
-            intervenable.set_device("cuda")
+            intervenable.set_device("cuda" if torch.cuda.is_available() else "cpu")
             intervenable.disable_model_gradients()
             total_step = 0
             if not do_vanilla_intervention:
@@ -690,7 +671,7 @@ def find_variable_at(
                             temperature_start, temperature_end, target_total_step
                         )
                         .to(torch.bfloat16)
-                        .to("cuda")
+                        .to("cuda" if torch.cuda.is_available() else "cpu")
                     )
                     intervenable.set_temperature(temperature_schedule[total_step])
                 else:
@@ -758,15 +739,16 @@ def find_variable_at(
                                     },
                                 )
 
+                        logits = get_last_token(counterfactual_outputs.logits, base_inputs["attention_mask"]).unsqueeze(1)
                         eval_metrics = compute_metrics(
-                            [counterfactual_outputs.logits], [labels]
+                            [logits], [labels]
                         )
                         if do_boundless_das:
                             loss = calculate_boundless_das_loss(
-                                counterfactual_outputs.logits, labels, intervenable
+                                logits, labels, intervenable
                             )
                         else:
-                            loss = calculate_loss(counterfactual_outputs.logits, labels)
+                            loss = calculate_loss(logits, labels)
                         loss_str = round(loss.item(), 2)
                         loss.backward()
                         optimizer.step()
@@ -840,7 +822,8 @@ def find_variable_at(
                                 },
                             )
                     eval_labels += [labels]
-                    eval_preds += [counterfactual_outputs.logits]
+                    logits = get_last_token(counterfactual_outputs.logits, base_inputs["attention_mask"]).unsqueeze(1)
+                    eval_preds += [logits]
             eval_metrics = compute_metrics(eval_preds, eval_labels)
 
             if do_boundless_das:
@@ -927,8 +910,6 @@ def with_path_patch_find_variable_at(
         names=NAMES[: len(NAMES) // 2],
         objects=OBJECTS[: len(OBJECTS) // 2],
         places=PLACES[: len(PLACES) // 2],
-        prefix_len=2,
-        prefixes=PREFIXES,
         templates=TEMPLATES[:2],
     )
 
@@ -936,8 +917,6 @@ def with_path_patch_find_variable_at(
         names=NAMES[len(NAMES) // 2 :],
         objects=OBJECTS[len(OBJECTS) // 2 :],
         places=PLACES[len(PLACES) // 2 :],
-        prefix_len=2,
-        prefixes=PREFIXES,
         templates=TEMPLATES[2:],
     )
 

@@ -1,5 +1,17 @@
 [
-    "{name_A} and {name_B} had a long and really crazy argument. Afterwards, {name_C} said to",
-    "{name_A} and {name_B} had lots of fun at the {place}. {name_C} gave a {object} to",
-    "{name_A} and {name_B} were working at the {place}. {name_C} decided to give a {object} to"
+    "Then, {name_A} and {name_B} went to the {place}. {name_C} gave a {object} to",
+    "Then, {name_A} and {name_B} had a lot of fun at the {place}. {name_C} gave a {object} to",
+    "Then, {name_A} and {name_B} were working at the {place}. {name_C} decided to give a {object} to",
+    "Then, {name_A} and {name_B} were thinking about going to the {place}. {name_C} wanted to give a {object} to",
+    "Then, {name_A} and {name_B} had a long argument, and afterwards {name_C} said to",
+    "After {name_A} and {name_B} went to the {place}, {name_C} gave a {object} to",
+    "When {name_A} and {name_B} got a {object} at the {place}, {name_C} decided to give it to",
+    "When {name_A} and {name_B} got a {object} at the {place}, {name_C} decided to give the {object} to",
+    "While {name_A} and {name_B} were working at the {place}, {name_C} gave a {object} to",
+    "While {name_A} and {name_B} were commuting to the {place}, {name_C} gave a {object} to",
+    "After the lunch, {name_A} and {name_B} went to the {place}. {name_C} gave a {object} to",
+    "Afterwards, {name_A} and {name_B} went to the {place}. {name_C} gave a {object} to",
+    "Then, {name_A} and {name_B} had a long argument. Afterwards {name_C} said to",
+    "The {place} {name_A} and {name_B} went to had a {object}. {name_C} gave it to",
+    "Friends {name_A} and {name_B} found a {object} at the {place}. {name_C} gave it to"
 ]
