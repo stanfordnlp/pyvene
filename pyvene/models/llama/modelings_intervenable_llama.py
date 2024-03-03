@@ -61,7 +61,7 @@ llama_lm_type_to_dimension_mapping = llama_type_to_dimension_mapping
 
 
 def create_llama(
-    name="sharpbai/alpaca-7b-merged", cache_dir=None
+    name="sharpbai/alpaca-7b-merged", cache_dir=None, dtype=torch.bfloat16
 ):
     """Creates a LLaMA Causal LM model, config, and tokenizer from the given name and revision"""
     from transformers import LlamaForCausalLM, LlamaTokenizer, LlamaConfig
@@ -72,7 +72,7 @@ def create_llama(
         name,
         config=config,
         cache_dir=cache_dir,
-        torch_dtype=torch.bfloat16,  # save memory
+        torch_dtype=dtype,  # save memory
     )
     print("loaded model")
     return config, tokenizer, llama
