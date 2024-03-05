@@ -1496,7 +1496,7 @@ class IntervenableModel(nn.Module):
         base_outputs = None
         if output_original_output:
             # returning un-intervened output
-            base_outputs = self.model.generate(inputs=base["input_ids"], **kwargs)
+            base_outputs = self.model.generate(**base, **kwargs)
 
         set_handlers_to_remove = None
         try:
@@ -1522,7 +1522,7 @@ class IntervenableModel(nn.Module):
             
             # run intervened generate
             counterfactual_outputs = self.model.generate(
-                inputs=base["input_ids"], **kwargs
+                **base, **kwargs
             )
             
             collected_activations = []
