@@ -35,7 +35,6 @@ class Intervention(torch.nn.Module):
             self.register_buffer('embed_dim', torch.tensor(kwargs["embed_dim"]))
             self.register_buffer('interchange_dim', torch.tensor(kwargs["embed_dim"]))
         else:
-            self.embed_dim = None
             self.interchange_dim = None
             
         if "source_representation" in kwargs and kwargs["source_representation"] is not None:
