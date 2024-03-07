@@ -310,7 +310,7 @@ class IntervenableModel(nn.Module):
             if isinstance(v[0], TrainableIntervention):
                 ret_params += [(k + '.' + n, p) for n, p in v[0].named_parameters()]
         return ret_params
-
+    
     def get_cached_activations(self):
         """
         Return the cached activations with keys
@@ -399,6 +399,14 @@ class IntervenableModel(nn.Module):
             if isinstance(v[0], TrainableIntervention):
                 v[0].zero_grad()
 
+    def zero_grad(self):
+        """
+        The above, but for HuggingFace.
+        """
+        for k, v in self.interventions.items():
+            if isinstance(v[0], TrainableIntervention):
+                v[0].zero_grad()
+    
     def save(
         self, save_directory, save_to_hf_hub=False, hf_repo_name="my-awesome-model"
     ):
@@ -553,6 +561,19 @@ class IntervenableModel(nn.Module):
 
         return intervenable
 
+    def load_intervention(self, load_directory):
+        """
+        Instead of creating an new object, this function loads existing weights onto
+        the current object. This is not a static method, and returns nothing.
+        """
+        # load binary files
+        for i, (k, v) in enumerate(self.interventions.items()):
+            intervention = v[0]
+            binary_filename = f"intkey_{k}.bin"
+            if isinstance(intervention, TrainableIntervention):
+                saved_state_dict = torch.load(os.path.join(load_directory, binary_filename))
+                intervention.load_state_dict(saved_state_dict)
+    
     def _gather_intervention_output(
         self, output, representations_key, unit_locations
     ) -> torch.Tensor:
@@ -1488,7 +1509,7 @@ class IntervenableModel(nn.Module):
         base_outputs = None
         if output_original_output:
             # returning un-intervened output
-            base_outputs = self.model.generate(inputs=base["input_ids"], **kwargs)
+            base_outputs = self.model.generate(**base, **kwargs)
 
         set_handlers_to_remove = None
         try:
@@ -1514,7 +1535,7 @@ class IntervenableModel(nn.Module):
             
             # run intervened generate
             counterfactual_outputs = self.model.generate(
-                inputs=base["input_ids"], **kwargs
+                **base, **kwargs
             )
             
             collected_activations = []
