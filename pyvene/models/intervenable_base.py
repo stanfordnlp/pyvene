@@ -228,7 +228,8 @@ class IntervenableModel(nn.Module):
         self.model_config = model.config
         self.model_type = get_internal_model_type(model)
         self.disable_model_gradients()
-
+        self.trainable_model_parameters = {}
+        
     def __str__(self):
         """
         Print out basic info about this intervenable instance
@@ -299,6 +300,9 @@ class IntervenableModel(nn.Module):
         for k, v in self.interventions.items():
             if isinstance(v[0], TrainableIntervention):
                 ret_params += [p for p in v[0].parameters()]
+        for p in self.model.parameters():
+            if p.requires_grad:
+                ret_params += [p]
         return ret_params
     
     def named_parameters(self, recurse=True):
@@ -309,6 +313,9 @@ class IntervenableModel(nn.Module):
         for k, v in self.interventions.items():
             if isinstance(v[0], TrainableIntervention):
                 ret_params += [(k + '.' + n, p) for n, p in v[0].named_parameters()]
+        for n, p in self.model.named_parameters():
+            if p.requires_grad:
+                ret_params += [('model.' + n, p)]
         return ret_params
     
     def get_cached_activations(self):
@@ -373,7 +380,7 @@ class IntervenableModel(nn.Module):
         """
         return self.model.device
 
-    def count_parameters(self):
+    def count_parameters(self, include_model=False):
         """
         Set device of interventions and the model
         """
@@ -387,8 +394,9 @@ class IntervenableModel(nn.Module):
                         total_parameters += count_parameters(v[0])
                 else:
                     total_parameters += count_parameters(v[0])
-        total_parameters += sum(
-            p.numel() for p in self.model.parameters() if p.requires_grad)
+        if include_model:
+            total_parameters += sum(
+                p.numel() for p in self.model.parameters() if p.requires_grad)
         return total_parameters
 
     def set_zero_grad(self):
@@ -561,7 +569,32 @@ class IntervenableModel(nn.Module):
 
         return intervenable
 
-    def load_intervention(self, load_directory):
+    def save_intervention(self, save_directory, include_model=True):
+        """
+        Instead of saving the metadata with artifacts, it only saves artifacts such as
+        trainable weights. This is not a static method, and returns nothing.
+        """
+        create_directory(save_directory)
+        
+        # save binary files
+        for k, v in self.interventions.items():
+            intervention = v[0]
+            binary_filename = f"intkey_{k}.bin"
+            # save intervention binary file
+            if isinstance(intervention, TrainableIntervention):
+                torch.save(intervention.state_dict(),
+                    os.path.join(save_directory, binary_filename))
+
+        # save model's trainable parameters as well
+        if include_model:
+            model_state_dict = {}
+            model_binary_filename = "pytorch_model.bin"
+            for n, p in self.model.named_parameters():
+                if p.requires_grad:
+                    model_state_dict[n] = p
+            torch.save(model_state_dict, os.path.join(save_directory, model_binary_filename))
+    
+    def load_intervention(self, load_directory, include_model=True):
         """
         Instead of creating an new object, this function loads existing weights onto
         the current object. This is not a static method, and returns nothing.
@@ -573,7 +606,13 @@ class IntervenableModel(nn.Module):
             if isinstance(intervention, TrainableIntervention):
                 saved_state_dict = torch.load(os.path.join(load_directory, binary_filename))
                 intervention.load_state_dict(saved_state_dict)
-    
+
+        # load model's trainable parameters as well
+        if include_model:
+            model_binary_filename = "pytorch_model.bin"
+            saved_model_state_dict = torch.load(os.path.join(load_directory, model_binary_filename))
+            self.model.load_state_dict(saved_model_state_dict, strict=False)
+
     def _gather_intervention_output(
         self, output, representations_key, unit_locations
     ) -> torch.Tensor:
