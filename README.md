@@ -1,7 +1,7 @@
 <br />
 <div align="center">
   <h1 align="center"><img src="https://i.ibb.co/BNkhQH3/pyvene-logo.png"></h1>
-  <a href="https://nlp.stanford.edu/~wuzhengx/"><strong>Library Paper and Doc Are Forthcoming »</strong></a>
+  <a href="https://arxiv.org/abs/2403.07809"><strong>Read Our Paper »</strong></a>
 </div>     
 
 <br />
@@ -241,6 +241,18 @@ intervenable.train_alignment(
 ```
 where you need to pass in a trainable dataset, and your customized loss and metrics function. The trainable interventions can later be saved on to your disk. You can also use `intervenable.evaluate()` your interventions in terms of customized objectives.
 
+## Citation
+Library paper is forthcoming. For now, if you use this repository, please consider to cite relevant papers:
+```stex
+@article{wu2024pyvene,
+  title={pyvene: A Library for Understanding and Improving {P}y{T}orch Models via Interventions},
+  author={Wu, Zhengxuan and Geiger, Atticus and Arora, Aryaman and Huang, Jing and Wang, Zheng and Noah D. Goodman and Christopher D. Manning and Christopher Potts},
+  booktitle={arXiv:2403.07809},
+  url={arxiv.org/abs/2403.07809},
+  year={2024}
+}
+```
+
 ## Related Works in Discovering Causal Mechanism of LLMs
 If you would like to read more works on this area, here is a list of papers that try to align or discover the causal mechanisms of LLMs. 
 - [Causal Abstractions of Neural Networks](https://arxiv.org/abs/2106.02997): This paper introduces interchange intervention (a.k.a. activation patching or causal scrubbing). It tries to align a causal model with the model's representations.
@@ -253,21 +265,3 @@ If you would like to read more works on this area, here is a list of papers that
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=stanfordnlp/pyvene&type=Date)](https://star-history.com/#stanfordnlp/pyvene&Date)
-
-## Citation
-Library paper is forthcoming. For now, if you use this repository, please consider to cite relevant papers:
-```stex
-  @article{geiger-etal-2023-DAS,
-        title={Finding Alignments Between Interpretable Causal Variables and Distributed Neural Representations}, 
-        author={Geiger, Atticus and Wu, Zhengxuan and Potts, Christopher and Icard, Thomas  and Goodman, Noah},
-        year={2023},
-        booktitle={arXiv}
-  }
-
-  @article{wu-etal-2023-Boundless-DAS,
-        title={Interpretability at Scale: Identifying Causal Mechanisms in Alpaca}, 
-        author={Wu, Zhengxuan and Geiger, Atticus and Icard, Thomas and Potts, Christopher and Goodman, Noah},
-        year={2023},
-        booktitle={NeurIPS}
-  }
-```
