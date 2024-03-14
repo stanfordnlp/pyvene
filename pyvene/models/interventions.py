@@ -15,7 +15,8 @@ class Intervention(torch.nn.Module):
         super().__init__()
         self.trainable = False
         self.is_source_constant = False
-        
+
+        self.keep_last_dim = kwargs["keep_last_dim"] if "keep_last_dim" in kwargs else False
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
         self.subspace_partition = (
             kwargs["subspace_partition"] if "subspace_partition" in kwargs else None
