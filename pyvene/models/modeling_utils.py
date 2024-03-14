@@ -435,8 +435,8 @@ def do_intervention(
     original_base_shape = base_representation.shape
     if len(original_base_shape) == 2 or (
         isinstance(intervention, LocalistRepresentationIntervention)
-    ):
-        # no pos dimension, e.g., gru
+    ) or intervention.keep_last_dim:
+        # no pos dimension, e.g., gru, or opt-out concate last two dims
         base_representation_f = base_representation
         source_representation_f = source_representation
     elif len(original_base_shape) == 3:
@@ -459,8 +459,8 @@ def do_intervention(
     # unflatten
     if len(original_base_shape) == 2 or isinstance(
         intervention, LocalistRepresentationIntervention
-    ):
-        # no pos dimension, e.g., gru
+    ) or intervention.keep_last_dim:
+        # no pos dimension, e.g., gru or opt-out concate last two dims
         pass
     elif len(original_base_shape) == 3:
         intervened_representation = b_sd_to_bsd(intervened_representation, num_unit)
