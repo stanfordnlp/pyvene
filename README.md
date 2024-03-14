@@ -38,31 +38,41 @@ pip install pyvene
 ```
 
 ## _Wrap_ , _Intervene_ and _Share_
-You can intervene with supported models as,
+You can intervene with any HuggingFace model as,
 ```python
 import torch
 import pyvene as pv
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
-_, tokenizer, gpt2 = pv.create_gpt2()
+model_name = "meta-llama/Llama-2-7b-hf" # your HF model name.
+model = AutoModelForCausalLM.from_pretrained(
+    model_name, torch_dtype=torch.bfloat16, device_map="cuda")
+tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-pv_gpt2 = pv.IntervenableModel({
-    "layer": 0, "component": "block_output",
-    "source_representation": torch.zeros(gpt2.config.n_embd)
-}, model=gpt2)
+def zeroout_intervention_fn(b, s): 
+    b[:,3] = 0. # 3rd position
+    return b
 
-orig_outputs, intervened_outputs = pv_gpt2(
-    base = tokenizer("The capital of Spain is", return_tensors="pt"), 
-    unit_locations={"base": 3}
+pv_model = pv.IntervenableModel({
+    "component": "model.layers[15].mlp.output", # string access
+    "intervention": zeroout_intervention_fn}, model=model)
+
+# run the intervened forward pass
+orig_outputs, intervened_outputs = pv_model(
+    tokenizer("The capital of Spain is", return_tensors="pt").to('cuda'),
+    output_original_output=True
 )
-print(intervened_outputs.last_hidden_state - orig_outputs.last_hidden_state)
+print(intervened_outputs.logits - orig_outputs.logits)
 ```
 which returns,
 ```
 tensor([[[ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
          [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
          [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
-         [ 0.0483, -0.1212, -0.2816,  ...,  0.1958,  0.0830,  0.0784],
-         [ 0.0519,  0.2547, -0.1631,  ...,  0.0050, -0.0453, -0.1624]]])
+         [ 0.4375,  1.0625,  0.3750,  ..., -0.1562,  0.4844,  0.2969],
+         [ 0.0938,  0.1250,  0.1875,  ...,  0.2031,  0.0625,  0.2188],
+         [ 0.0000, -0.0625, -0.0312,  ...,  0.0000,  0.0000, -0.0156]]],
+       device='cuda:0')
 ```
 
 ## _IntervenableModel_ Loaded from HuggingFace Directly
