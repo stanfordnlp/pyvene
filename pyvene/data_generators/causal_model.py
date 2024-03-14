@@ -107,7 +107,8 @@ class CausalModel:
             step += 1
         for var in self.variables:
             assert var in timesteps
-        return timesteps, step - 1
+        # return all timesteps and timestep of root
+        return timesteps, step - 2
 
     def marginalize(self, target):
         pass
@@ -148,9 +149,12 @@ class CausalModel:
         del paths[1]
         return paths
 
-    def print_setting(self, total_setting):
+    def print_setting(self, total_setting, display=None):
+        labeler = lambda var: var + ": " + str(total_setting[var]) \
+            if display is None or display[var] \
+            else var
         relabeler = {
-            var: var + ": " + str(total_setting[var]) for var in self.variables
+            var: labeler(var) for var in self.variables
         }
         G = nx.DiGraph()
         G.add_edges_from(
@@ -227,10 +231,12 @@ class CausalModel:
             total = self.run_forward(intervention=input)
         return input
 
-    def sample_input_tree_balanced(self, output_var=None):
+    def sample_input_tree_balanced(self, output_var=None, output_var_value=None):
         assert output_var is not None or len(self.outputs) == 1
         if output_var is None:
             output_var = self.outputs[0]
+        if output_var_value is None:
+            output_var_value = random.choice(self.values[output_var])
 
         def create_input(var, value, input={}):
             parent_values = random.choice(self.equiv_classes[var][value])
@@ -238,10 +244,14 @@ class CausalModel:
                 if parent in self.inputs:
                     input[parent] = parent_values[parent]
                 else:
-                    create_input(parent, random.choice(self.values[parent]), input)
+                    create_input(parent, parent_values[parent], input)
             return input
 
-        return create_input(output_var, random.choice(self.values[output_var]))
+        input_setting = create_input(output_var, output_var_value)
+        for input_var in self.inputs:
+            if input_var not in input_setting:
+                input_setting[input_var] = random.choice(self.values[input_var])
+        return input_setting
 
     def get_path_maxlen_filter(self, lengths):
         def check_path(total_setting):
@@ -299,24 +309,26 @@ class CausalModel:
         sampler=None,
         filter=None,
         device="cpu",
-        inputFunction=None,
-        outputFunction=None
+        return_tensors=True,
     ):
-        if inputFunction is None:
-            inputFunction = self.input_to_tensor
-        if outputFunction is None:
-            outputFunction = self.output_to_tensor
         if sampler is None:
             sampler = self.sample_input
-        X, y = [], []
-        count = 0
-        while count < size:
+
+        examples = []
+        while len(examples) < size:
+            example = dict()
             input = sampler()
             if filter is None or filter(input):
-                X.append(inputFunction(input))
-                y.append(outputFunction(self.run_forward(input)))
-                count += 1
-        return torch.stack(X).to(device), torch.stack(y).to(device)
+                output = self.run_forward(input)
+                if return_tensors:
+                    example['input_ids'] = self.input_to_tensor(input).to(device)
+                    example['labels'] = self.output_to_tensor(output).to(device)
+                else:
+                    example['input_ids'] = input
+                    example['labels'] = output
+                examples.append(example)
+
+        return examples
 
     def generate_counterfactual_dataset(
         self,
@@ -327,8 +339,7 @@ class CausalModel:
         intervention_sampler=None,
         filter=None,
         device="cpu",
-        inputFunction=None,
-        outputFunction=None
+        return_tensors=True,
     ):
         maxlength = len(
             [
@@ -337,17 +348,12 @@ class CausalModel:
                 if var not in self.inputs and var not in self.outputs
             ]
         )
-        if inputFunction is None:
-            inputFunction = self.input_to_tensor
-        if outputFunction is None:
-            outputFunction = self.output_to_tensor
         if sampler is None:
             sampler = self.sample_input
         if intervention_sampler is None:
             intervention_sampler = self.sample_intervention
         examples = []
-        count = 0
-        while count < size:
+        while len(examples) < size:
             intervention = intervention_sampler()
             if filter is None or filter(intervention):
                 for _ in range(batch_size):
@@ -358,24 +364,39 @@ class CausalModel:
                     for var in self.variables:
                         if var not in intervention:
                             continue
-                        source = sampler()
-                        sources.append(inputFunction(source))
+                        # sample input to match sampled intervention value
+                        source = sampler(output_var=var, output_var_value=intervention[var])
+                        if return_tensors:
+                            sources.append(self.input_to_tensor(source))
+                        else:
+                            sources.append(source)
                         source_dic[var] = source
                     for _ in range(maxlength - len(sources)):
-                        sources.append(torch.zeros(self.input_to_tensor(sampler()).shape))
-                    example["labels"] = outputFunction(
-                        self.run_interchange(base, source_dic)
-                    ).to(device)
-                    example["base_labels"] = outputFunction(
-                        self.run_forward(base)
-                    ).to(device)
-                    example["input_ids"] = inputFunction(base).to(device)
-                    example["source_input_ids"] = torch.stack(sources).to(device)
-                    example["intervention_id"] = torch.tensor(
-                        [intervention_id(intervention)]
-                    ).to(device)
+                        if return_tensors:
+                            sources.append(torch.zeros(self.input_to_tensor(base).shape))
+                        else:
+                            sources.append({})
+
+                    if return_tensors:
+                        example["labels"] = self.output_to_tensor(
+                            self.run_interchange(base, source_dic)
+                        ).to(device)
+                        example["base_labels"] = self.output_to_tensor(
+                            self.run_forward(base)
+                        ).to(device)
+                        example["input_ids"] = self.input_to_tensor(base).to(device)
+                        example["source_input_ids"] = torch.stack(sources).to(device)
+                        example["intervention_id"] = torch.tensor(
+                            [intervention_id(intervention)]
+                        ).to(device)
+                    else:
+                        example['labels'] = self.run_interchange(base, source_dic)
+                        example['base_labels'] = self.run_forward(base)
+                        example['input_ids'] = base
+                        example['source_input_ids'] = sources
+                        example['intervention_id'] = [intervention_id(intervention)]
+
                     examples.append(example)
-                    count += 1
         return examples
 
 
