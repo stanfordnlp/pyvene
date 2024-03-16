@@ -1,0 +1,1 @@
+{"equivalence": "contradiction", "entails": "cover", "reverse entails": "alternation", "contradiction": "equivalence", "cover": "entails", "alternation": "reverse entails", "independence": "independence"}
