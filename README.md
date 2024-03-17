@@ -252,7 +252,7 @@ intervenable.train_alignment(
 where you need to pass in a trainable dataset, and your customized loss and metrics function. The trainable interventions can later be saved on to your disk. You can also use `intervenable.evaluate()` your interventions in terms of customized objectives.
 
 ## Citation
-Library paper is forthcoming. For now, if you use this repository, please consider to cite relevant papers:
+If you use this repository, please consider to cite our library paper:
 ```stex
 @article{wu2024pyvene,
   title={pyvene: A Library for Understanding and Improving {P}y{T}orch Models via Interventions},
