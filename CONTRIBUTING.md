@@ -3,7 +3,7 @@
 *Pull requests, bug reports, and all other forms of contribution are welcomed and highly encouraged!* :octocat:
 
 ### The PR or Issue Title Format
-Whenever you open a issue or a PR, please use this title format
+Whenever you open an issue or a PR, please use this title format
 ```
 [Priority Tag] Short Title
 ```
