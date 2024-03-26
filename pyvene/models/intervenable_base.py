@@ -1317,6 +1317,7 @@ class IntervenableModel(nn.Module):
         unit_locations: Optional[Dict] = None,
         source_representations: Optional[Dict] = None,
         subspaces: Optional[List] = None,
+        labels: Optional[torch.LongTensor] = None,
         output_original_output: Optional[bool] = False,
         return_dict: Optional[bool] = None,
     ):
@@ -1438,7 +1439,10 @@ class IntervenableModel(nn.Module):
                 )
 
             # run intervened forward
-            counterfactual_outputs = self.model(**base)
+            if labels is not None:
+                counterfactual_outputs = self.model(**base, labels=labels)
+            else:
+                counterfactual_outputs = self.model(**base)
             set_handlers_to_remove.remove()
 
             self._output_validation()
