@@ -1439,7 +1439,10 @@ class IntervenableModel(nn.Module):
                 )
 
             # run intervened forward
-            counterfactual_outputs = self.model(**base, labels=labels)
+            if labels is not None:
+                counterfactual_outputs = self.model(**base, labels=labels)
+            else:
+                counterfactual_outputs = self.model(**base)
             set_handlers_to_remove.remove()
 
             self._output_validation()
