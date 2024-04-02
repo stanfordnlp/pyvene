@@ -1,5 +1,6 @@
 from .constants import *
 from .llama.modelings_intervenable_llama import *
+from .mistral.modellings_intervenable_mistral import *
 from .gpt2.modelings_intervenable_gpt2 import *
 from .gpt_neo.modelings_intervenable_gpt_neo import *
 from .gpt_neox.modelings_intervenable_gpt_neox import *
@@ -42,6 +43,8 @@ type_to_module_mapping = {
     hf_models.gpt_neo.modeling_gpt_neo.GPTNeoForCausalLM: gpt_neo_lm_type_to_module_mapping,
     hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXModel: gpt_neox_type_to_module_mapping,
     hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXForCausalLM: gpt_neox_lm_type_to_module_mapping,
+    hf_models.mistral.modeling_mistral.MistralModel: mistral_type_to_module_mapping,
+    hf_models.mistral.modeling_mistral.MistralForCausalLM: mistral_lm_type_to_module_mapping,
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_module_mapping,
     hf_models.blip.modeling_blip.BlipForImageTextRetrieval: blip_itm_type_to_module_mapping,
     BlipWrapper: blip_wrapper_type_to_module_mapping,
@@ -66,6 +69,8 @@ type_to_dimension_mapping = {
     hf_models.gpt_neo.modeling_gpt_neo.GPTNeoForCausalLM: gpt_neo_lm_type_to_dimension_mapping,
     hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXModel: gpt_neox_type_to_dimension_mapping,
     hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXForCausalLM: gpt_neox_lm_type_to_dimension_mapping,
+    hf_models.mistral.modeling_mistral.MistralModel: mistral_type_to_dimension_mapping,
+    hf_models.mistral.modeling_mistral.MistralForCausalLM: mistral_lm_type_to_dimension_mapping,
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_dimension_mapping,
     hf_models.blip.modeling_blip.BlipForImageTextRetrieval: blip_itm_type_to_dimension_mapping,
     BlipWrapper: blip_wrapper_type_to_dimension_mapping,

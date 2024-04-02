@@ -309,10 +309,17 @@ class CausalModel:
         sampler=None,
         filter=None,
         device="cpu",
+        input_function=None,
+        output_function=None,
         return_tensors=True,
     ):
         if sampler is None:
             sampler = self.sample_input
+        
+        if input_function is None:
+            input_function = self.input_to_tensor
+        if output_function is None:
+            output_function = self.output_to_tensor
 
         examples = []
         while len(examples) < size:
@@ -321,8 +328,8 @@ class CausalModel:
             if filter is None or filter(input):
                 output = self.run_forward(input)
                 if return_tensors:
-                    example['input_ids'] = self.input_to_tensor(input).to(device)
-                    example['labels'] = self.output_to_tensor(output).to(device)
+                    example['input_ids'] = input_function(input).to(device)
+                    example['labels'] = output_function(output).to(device)
                 else:
                     example['input_ids'] = input
                     example['labels'] = output
@@ -339,8 +346,15 @@ class CausalModel:
         intervention_sampler=None,
         filter=None,
         device="cpu",
+        input_function=None,
+        output_function=None,
         return_tensors=True,
     ):
+        if input_function is None:
+            input_function = self.input_to_tensor
+        if output_function is None:
+            output_function = self.output_to_tensor
+
         maxlength = len(
             [
                 var
