@@ -47,7 +47,7 @@ class IntervenableModel(nn.Module):
         self.mode = config.mode
         intervention_type = config.intervention_types
         self.is_model_stateless = is_stateless(model)
-        self.config.model_type = type(model) # backfill
+        self.config.model_type = str(type(model)) # backfill
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
 
         self.model_has_grad = False
