@@ -274,4 +274,5 @@ If you would like to read more works on this area, here is a list of papers that
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=stanfordnlp/pyvene&type=Date)](https://star-history.com/#stanfordnlp/pyvene&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=stanfordnlp/pyvene,stanfordnlp/pyreft&type=Date)](https://star-history.com/#stanfordnlp/pyvene&stanfordnlp/pyreft&Date)
+
