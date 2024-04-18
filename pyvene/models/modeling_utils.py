@@ -232,8 +232,10 @@ def output_to_subcomponent(
     :param model_config: Hugging Face Model Config
     """
     subcomponent = output
-    if model_type in type_to_module_mapping and \
-        component in type_to_module_mapping[model_type]:
+    if (
+        model_type in type_to_module_mapping
+        and component in type_to_module_mapping[model_type]
+    ):
         split_last_dim_by = type_to_module_mapping[model_type][component][2:]
 
         if len(split_last_dim_by) > 2:
@@ -461,9 +463,11 @@ def do_intervention(
 
     # flatten
     original_base_shape = base_representation.shape
-    if len(original_base_shape) == 2 or (
-        isinstance(intervention, LocalistRepresentationIntervention)
-    ) or intervention.keep_last_dim:
+    if (
+        len(original_base_shape) == 2
+        or (isinstance(intervention, LocalistRepresentationIntervention))
+        or intervention.keep_last_dim
+    ):
         # no pos dimension, e.g., gru, or opt-out concate last two dims
         base_representation_f = base_representation
         source_representation_f = source_representation
@@ -485,9 +489,11 @@ def do_intervention(
     post_d = intervened_representation.shape[-1]
 
     # unflatten
-    if len(original_base_shape) == 2 or isinstance(
-        intervention, LocalistRepresentationIntervention
-    ) or intervention.keep_last_dim:
+    if (
+        len(original_base_shape) == 2
+        or isinstance(intervention, LocalistRepresentationIntervention)
+        or intervention.keep_last_dim
+    ):
         # no pos dimension, e.g., gru or opt-out concate last two dims
         pass
     elif len(original_base_shape) == 3:

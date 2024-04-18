@@ -47,8 +47,8 @@ class IntervenableModel(nn.Module):
 
         self.mode = config.mode
         intervention_type = config.intervention_types
-        self.is_model_stateless = False # is_stateless(model) # all sequence models need state so no longer meaningful
-        self.config.model_type = type(model)  # backfill
+        self.is_model_stateless = False  # is_stateless(model) # all sequence models need state so no longer meaningful
+        self.config.model_type = str(type(model))  # backfill
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
 
         self.model_has_grad = False
@@ -217,7 +217,7 @@ class IntervenableModel(nn.Module):
         self.model_type = get_internal_model_type(model)
         self.disable_model_gradients()
         self.trainable_model_parameters = {}
-        
+
     def __str__(self):
         """
         Print out basic info about this intervenable instance
@@ -292,7 +292,7 @@ class IntervenableModel(nn.Module):
             if p.requires_grad:
                 ret_params += [p]
         return ret_params
-    
+
     def named_parameters(self, recurse=True):
         """
         The above, but for HuggingFace.
@@ -300,12 +300,12 @@ class IntervenableModel(nn.Module):
         ret_params = []
         for k, v in self.interventions.items():
             if isinstance(v[0], TrainableIntervention):
-                ret_params += [(k + '.' + n, p) for n, p in v[0].named_parameters()]
+                ret_params += [(k + "." + n, p) for n, p in v[0].named_parameters()]
         for n, p in self.model.named_parameters():
             if p.requires_grad:
-                ret_params += [('model.' + n, p)]
+                ret_params += [("model." + n, p)]
         return ret_params
-    
+
     def get_cached_activations(self):
         """
         Return the cached activations with keys
@@ -388,7 +388,8 @@ class IntervenableModel(nn.Module):
                     total_parameters += count_parameters(v[0])
         if include_model:
             total_parameters += sum(
-                p.numel() for p in self.model.parameters() if p.requires_grad)
+                p.numel() for p in self.model.parameters() if p.requires_grad
+            )
         return total_parameters
 
     def set_zero_grad(self):
@@ -406,7 +407,7 @@ class IntervenableModel(nn.Module):
         for k, v in self.interventions.items():
             if isinstance(v[0], TrainableIntervention):
                 v[0].zero_grad()
-    
+
     def save(
         self, save_directory, save_to_hf_hub=False, hf_repo_name="my-awesome-model"
     ):
@@ -573,15 +574,17 @@ class IntervenableModel(nn.Module):
         trainable weights. This is not a static method, and returns nothing.
         """
         create_directory(save_directory)
-        
+
         # save binary files
         for k, v in self.interventions.items():
             intervention = v[0]
             binary_filename = f"intkey_{k}.bin"
             # save intervention binary file
             if isinstance(intervention, TrainableIntervention):
-                torch.save(intervention.state_dict(),
-                    os.path.join(save_directory, binary_filename))
+                torch.save(
+                    intervention.state_dict(),
+                    os.path.join(save_directory, binary_filename),
+                )
 
         # save model's trainable parameters as well
         if include_model:
@@ -590,8 +593,10 @@ class IntervenableModel(nn.Module):
             for n, p in self.model.named_parameters():
                 if p.requires_grad:
                     model_state_dict[n] = p
-            torch.save(model_state_dict, os.path.join(save_directory, model_binary_filename))
-    
+            torch.save(
+                model_state_dict, os.path.join(save_directory, model_binary_filename)
+            )
+
     def load_intervention(self, load_directory, include_model=True):
         """
         Instead of creating an new object, this function loads existing weights onto
@@ -602,13 +607,17 @@ class IntervenableModel(nn.Module):
             intervention = v[0]
             binary_filename = f"intkey_{k}.bin"
             if isinstance(intervention, TrainableIntervention):
-                saved_state_dict = torch.load(os.path.join(load_directory, binary_filename))
+                saved_state_dict = torch.load(
+                    os.path.join(load_directory, binary_filename)
+                )
                 intervention.load_state_dict(saved_state_dict)
 
         # load model's trainable parameters as well
         if include_model:
             model_binary_filename = "pytorch_model.bin"
-            saved_model_state_dict = torch.load(os.path.join(load_directory, model_binary_filename))
+            saved_model_state_dict = torch.load(
+                os.path.join(load_directory, model_binary_filename)
+            )
             self.model.load_state_dict(saved_model_state_dict, strict=False)
 
     def _gather_intervention_output(
@@ -847,7 +856,11 @@ class IntervenableModel(nn.Module):
                 ]  # batch_size
 
             def hook_callback(model, args, kwargs, output=None):
-                if not self.is_model_stateless and self._skip_forward and state.setter_timestep <= 0:
+                if (
+                    not self.is_model_stateless
+                    and self._skip_forward
+                    and state.setter_timestep <= 0
+                ):
                     state.setter_timestep += 1
                     return
 
@@ -858,7 +871,7 @@ class IntervenableModel(nn.Module):
                         output = kwargs[list(kwargs.keys())[0]]
                     else:
                         output = args
-                
+
                 if isinstance(output, tuple):
                     output = output[0]
 
@@ -888,14 +901,15 @@ class IntervenableModel(nn.Module):
                 source = (
                     None
                     if isinstance(intervention, CollectIntervention)
-                    or isinstance(intervention, Intervention) and intervention.is_source_constant
+                    or isinstance(intervention, Intervention)
+                    and intervention.is_source_constant
                     else self._reconcile_stateful_cached_activations(
                         key,
                         selected_output,
                         int_unit_loc,
                     )
                 )
-  
+
                 intervened_representation = do_intervention(
                     selected_output,
                     source,
@@ -1053,19 +1067,20 @@ class IntervenableModel(nn.Module):
         # base at once
         for group_id, keys in self._intervention_group.items():
             keys_with_handler = [
-                key for key in keys if (
+                key
+                for key in keys
+                if (
                     key in self.activations
                     or isinstance(self.interventions[key][0], types.FunctionType)
                     or self.interventions[key][0].is_source_constant
                 )
             ]
 
-            all_set_handlers.extend(self._intervention_setter(
-                keys_with_handler,
-                unit_locations_base,
-                subspaces,
-                timestep_selector
-            ))
+            all_set_handlers.extend(
+                self._intervention_setter(
+                    keys_with_handler, unit_locations_base, subspaces, timestep_selector
+                )
+            )
 
             # for key in keys:
             #     # skip in case smart jump
@@ -1198,7 +1213,7 @@ class IntervenableModel(nn.Module):
                     el = [el for _ in range(len(self.interventions))]
 
                 _v.append(el)
-            
+
             _unit_locations[k] = _v[0], _v[1]
 
         return _unit_locations
@@ -1355,7 +1370,7 @@ class IntervenableModel(nn.Module):
             activations_sources,
             subspaces,
         )
-        
+
         base_outputs = None
         if output_original_output:
             # returning un-intervened output with gradients
@@ -1490,7 +1505,7 @@ class IntervenableModel(nn.Module):
             activations_sources,
             subspaces,
         )
-        
+
         base_outputs = None
         if output_original_output:
             # returning un-intervened output
@@ -1521,9 +1536,7 @@ class IntervenableModel(nn.Module):
                 )
 
             # run intervened generate
-            counterfactual_outputs = self.model.generate(
-                **base, **kwargs
-            )
+            counterfactual_outputs = self.model.generate(**base, **kwargs)
 
             collected_activations = []
             if self.return_collect_activations:
