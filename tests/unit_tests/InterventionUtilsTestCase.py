@@ -51,7 +51,6 @@ class InterventionUtilsTestCase(unittest.TestCase):
         intervenable = IntervenableModel(config, self.gpt2)
 
         assert intervenable.mode == "parallel"
-        self.assertTrue(intervenable.is_model_stateless)
         assert intervenable.use_fast == False
 
         assert len(intervenable.interventions) == 2

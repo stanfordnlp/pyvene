@@ -47,8 +47,8 @@ class IntervenableModel(nn.Module):
 
         self.mode = config.mode
         intervention_type = config.intervention_types
-        self.is_model_stateless = is_stateless(model)
-        self.config.model_type = str(type(model)) # backfill
+        self.is_model_stateless = False # is_stateless(model) # all sequence models need state so no longer meaningful
+        self.config.model_type = type(model)  # backfill
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
 
         self.model_has_grad = False
@@ -81,7 +81,7 @@ class IntervenableModel(nn.Module):
         # Flags and counters below are for interventions in the model.generate
         # call. We can intervene on the prompt tokens only, on each generated
         # token, or on a combination of both.
-        self._is_generation = False
+        self._skip_forward = False
         self._intervene_on_prompt = None
         self._key_getter_call_counter = {}
         self._key_setter_call_counter = {}
@@ -268,7 +268,7 @@ class IntervenableModel(nn.Module):
         """
         Clean up all old in memo states of interventions
         """
-        self._is_generation = False
+        self._skip_forward = False
         self._remove_forward_hooks()
         self._reset_hook_count()
         if not skip_activation_gc:
@@ -360,7 +360,9 @@ class IntervenableModel(nn.Module):
         Set device of interventions and the model
         """
         for k, v in self.interventions.items():
-            v[0].to(device)
+            if isinstance(v[0], Intervention):
+                v[0].to(device)
+
         if set_model:
             self.model.to(device)
 
@@ -703,14 +705,6 @@ class IntervenableModel(nn.Module):
             intervention, module_hook = self.interventions[key]
 
             def hook_callback(model, args, kwargs, output=None):
-                if self._is_generation:
-                    pass
-                    # for getter, there is no restriction.
-                    # is_prompt = self._key_getter_call_counter[key] == 0
-                    # if not self._intervene_on_prompt or is_prompt:
-                    #     self._key_getter_call_counter[key] += 1
-                    # if self._intervene_on_prompt ^ is_prompt:
-                    #     return  # no-op
                 if output is None:
                     if len(args) == 0:  # kwargs based calls
                         # PR: https://github.com/frankaging/align-transformers/issues/11
@@ -842,7 +836,8 @@ class IntervenableModel(nn.Module):
 
         handlers = []
 
-        for key_i, key in enumerate(keys):
+        for key in keys:
+            key_i = self.sorted_keys.index(key)
             intervention, module_hook = self.interventions[key]
             state = self._intervention_state[key]
 
@@ -852,6 +847,10 @@ class IntervenableModel(nn.Module):
                 ]  # batch_size
 
             def hook_callback(model, args, kwargs, output=None):
+                if not self.is_model_stateless and self._skip_forward and state.setter_timestep <= 0:
+                    state.setter_timestep += 1
+                    return
+
                 if output is None:
                     if len(args) == 0:  # kwargs based calls
                         # PR: https://github.com/frankaging/align-transformers/issues/11
@@ -1053,26 +1052,43 @@ class IntervenableModel(nn.Module):
         # in parallel mode, we swap cached activations all into
         # base at once
         for group_id, keys in self._intervention_group.items():
-            for key in keys:
-                # skip in case smart jump
-                if (
+            keys_with_handler = [
+                key for key in keys if (
                     key in self.activations
                     or isinstance(self.interventions[key][0], types.FunctionType)
                     or self.interventions[key][0].is_source_constant
-                ):
-                    set_handlers = self._intervention_setter(
-                        [key],
-                        [unit_locations_base[self.sorted_keys.index(key)]],
-                        # assume same group targeting the same subspace
-                        (
-                            [subspaces[self.sorted_keys.index(key)]]
-                            if subspaces is not None
-                            else None
-                        ),
-                        timestep_selector,
-                    )
-                    # for setters, we don't remove them.
-                    all_set_handlers.extend(set_handlers)
+                )
+            ]
+
+            all_set_handlers.extend(self._intervention_setter(
+                keys_with_handler,
+                unit_locations_base,
+                subspaces,
+                timestep_selector
+            ))
+
+            # for key in keys:
+            #     # skip in case smart jump
+            #     if (
+            #         key in self.activations
+            #         or isinstance(self.interventions[key][0], types.FunctionType)
+            #         or self.interventions[key][0].is_source_constant
+            #     ):
+            #         key_i = self.sorted_keys.index(key)
+
+            #         set_handlers = self._intervention_setter(
+            #             [key],
+            #             [unit_locations_base[key_i]],
+            #             # assume same group targeting the same subspace
+            #             (
+            #                 [subspaces[key_i]]
+            #                 if subspaces is not None
+            #                 else None
+            #             ),
+            #             timestep_selector,
+            #         )
+            #         # for setters, we don't remove them.
+            #         all_set_handlers.extend(set_handlers)
         return all_set_handlers
 
     def _wait_for_forward_with_serial_intervention(
@@ -1162,60 +1178,28 @@ class IntervenableModel(nn.Module):
             is_base_only = k == "base" or self.mode == "serial"
             k = "sources->base" if is_base_only else k
 
+            # Copies same locations into source/base if only one specified
             if not isinstance(v, Sequence) or len(v) != 2:
                 v = (copy.deepcopy(v) if not is_base_only else None, copy.deepcopy(v))
 
             _v = []
 
             for el in v:
-                if el == None:
-                    continue
-
-                if isinstance(el, int):
+                # only position specified
+                if el == None or isinstance(el, int):
                     el = [el]
 
+                # only position specified, broadcast across each batch ex
                 if get_list_depth(el) == 1:
                     el = [el for _ in range(batch_size)]
 
+                # only position and batch dims specified, broadcast across interventions
                 if get_list_depth(el) == 2:
                     el = [el for _ in range(len(self.interventions))]
 
                 _v.append(el)
             
             _unit_locations[k] = _v[0], _v[1]
-
-            # if isinstance(v, int):
-            #     _unit_locations[k] = (
-            #         (
-            #             [[[v]] * batch_size] * len(self.interventions)
-            #             if not is_base_only
-            #             else None
-            #         ),
-            #         [[[v]] * batch_size] * len(self.interventions),
-            #     )
-            # elif (
-            #     len(v) == 2
-            #     and isinstance(v[0], int | None)
-            #     and isinstance(v[1], int | None)
-            # ):
-            #     _unit_locations[k] = (
-            #         [[[v[0]]] * batch_size] * len(self.interventions) if v[0] else None,
-            #         [[[v[1]]] * batch_size] * len(self.interventions) if v[1] else None,
-            #     )
-            #     print(_unit_locations)
-            # elif isinstance(v, list) and get_list_depth(v) == 1:
-            #     # [0,1,2,3] -> [[[0,1,2,3]]], ...
-            #     _unit_locations[k] = (
-            #         (
-            #             None
-            #             if is_base_only
-            #             else [[v] * batch_size] * len(self.interventions)
-            #         ),
-            #         [[v] * batch_size] * len(self.interventions),
-            #     )
-            # else:
-            #     _unit_locations[k] = (None, v) if is_base_only else v
-            #     self.use_fast = False
 
         return _unit_locations
 
@@ -1450,6 +1434,7 @@ class IntervenableModel(nn.Module):
         sources: Optional[List] = None,
         unit_locations: Optional[Dict] = None,
         timestep_selector: Optional[TIMESTEP_SELECTOR_TYPE] = None,
+        intervene_on_prompt: bool = True,
         source_representations: Optional[Dict] = None,
         subspaces: Optional[List] = None,
         output_original_output: Optional[bool] = False,
@@ -1458,10 +1443,6 @@ class IntervenableModel(nn.Module):
         """
         Intervenable generation function that serves a
         wrapper to regular model generate calls.
-
-        Currently, we support basic interventions **in the
-        prompt only**. We will support generation interventions
-        in the next release.
 
         Args:
             base: Base example encoding.
@@ -1486,7 +1467,7 @@ class IntervenableModel(nn.Module):
             sources = [sources]
 
         self._cleanup_states()
-        self._is_generation = True
+        self._skip_forward = not intervene_on_prompt
 
         # broadcast
         unit_locations = self._broadcast_unit_locations(
@@ -1554,7 +1535,7 @@ class IntervenableModel(nn.Module):
         finally:
             if set_handlers_to_remove is not None:
                 set_handlers_to_remove.remove()
-            self._is_generation = False
+            self._skip_forward = False
             self._cleanup_states(
                 skip_activation_gc=(sources is None and activations_sources is not None)
                 or self.return_collect_activations
