@@ -1,12 +1,13 @@
 import unittest
 from ..utils import *
 from pyvene.models.modeling_utils import *
+from pprint import pprint, pformat
 
 
 class ModelUtilsTestCase(unittest.TestCase):
     @classmethod
-    def setUpClass(self):
-        self.gpt2_config = GPT2Config(
+    def setUpClass(cls):
+        cls.gpt2_config = GPT2Config(
             n_embd=6,
             n_head=3,
             attn_pdrop=0.0,
@@ -19,7 +20,7 @@ class ModelUtilsTestCase(unittest.TestCase):
             n_positions=20,
             vocab_size=10,
         )
-        self.gpt2_model = hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel
+        cls.gpt2_model = hf_models.gpt2.modeling_gpt2.GPT2LMHeadModel
 
     def test_gather_neurons_positive(self):
         tensor_input = torch.rand((5, 3, 2))  # batch_size, seq_len, emb_dim
@@ -42,7 +43,10 @@ class ModelUtilsTestCase(unittest.TestCase):
         golden_output = tensor_input.clone()
 
         tensor_output = output_to_subcomponent(
-            tensor_input, "attention_input", self.gpt2_model, self.gpt2_config,
+            tensor_input,
+            "attention_input",
+            self.gpt2_model,
+            self.gpt2_config,
         )
         self.assertTrue(torch.allclose(tensor_output, golden_output))
 
@@ -102,7 +106,7 @@ class ModelUtilsTestCase(unittest.TestCase):
         golden_output = tensor_input.clone()
         golden_output[0, 1:3, :] = replacing_tensor_input[0, 0:2, :]
         # Fast path's behavior is different
-        golden_output[1, 1:3, :] = replacing_tensor_input[1, 0:2, :]
+        golden_output[1, 0:2, :] = replacing_tensor_input[1, 0:2, :]
 
         tensor_output = scatter_neurons(
             tensor_input,
@@ -110,7 +114,7 @@ class ModelUtilsTestCase(unittest.TestCase):
             "attention_input",
             "pos",
             # each batch is different
-            ([[1, 2], [0, 1]]),
+            [[1, 2], [0, 1]],
             self.gpt2_model,
             self.gpt2_config,
             True,
@@ -274,7 +278,7 @@ class ModelUtilsTestCase(unittest.TestCase):
         replacing_tensor_input = torch.arange(60, 84).view(2, 3, 2, 2)
         # ?
 
-        # Replace the heads 1, 2 at positions 0, 1 with the first
+        # Replace the heads 1, 2 at positions 0, 1 with the first two heads of the replacement
         golden_output = tensor_input.clone().view(2, 5, 3, 2)
         golden_output[:, 0:2, 1:3, :] = replacing_tensor_input[:, 0:2, :, :].permute(
             0, 2, 1, 3

@@ -27,7 +27,7 @@ class InterventionState(object):
         self._timestep = [0, 0]
 
     def __repr__(self):
-        pprint.pprint(self.__dict__, indent=4)
+        return pprint.pformat(self.__dict__, indent=4)
 
 def broadcast_tensor_v1(x, target_shape):
     # Ensure the last dimension of target_shape matches x's size

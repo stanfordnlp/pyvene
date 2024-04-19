@@ -6,6 +6,7 @@ from ..utils import *
 import copy
 import torch
 import pyvene as pv
+import pprint
 
 
 class IntervenableBasicTestCase(unittest.TestCase):
@@ -228,7 +229,7 @@ class IntervenableBasicTestCase(unittest.TestCase):
 
         base = tokenizer("The capital of Spain is", return_tensors="pt")
         sources = [tokenizer("The capital of Italy is", return_tensors="pt")]
-        intervened_outputs = pv_gpt2(
+        _, intervened_outputs = pv_gpt2(
             base,
             sources,
             {
@@ -238,6 +239,7 @@ class IntervenableBasicTestCase(unittest.TestCase):
                 )
             },
         )
+        pprint.pprint(get_topk(gpt2, tokenizer, intervened_outputs))
 
     def test_intervention_skipping(self):
 
@@ -578,7 +580,6 @@ class IntervenableBasicTestCase(unittest.TestCase):
     def test_customized_intervention_function_get(self):
 
         _, tokenizer, gpt2 = pv.create_gpt2()
-
         pv_gpt2 = pv.IntervenableModel(
             {
                 "layer": 10,

@@ -84,22 +84,27 @@ class GenerationInterventionTestCase(unittest.TestCase):
             model=self.tinystory.to(self.device),
         )
 
-        prompt = self.tokenizer("Once upon a time there was", return_tensors="pt").to(self.device)
+        prompt = self.tokenizer("Once upon a time there was", return_tensors="pt").to(
+            self.device
+        )
         orig, intervened = pv_model.generate(
             prompt,
             max_length=32,
             sources=self.tokenizer("Happy love", return_tensors="pt").to(self.device),
             intervene_on_prompt=True,
             unit_locations={"sources->base": 0},
+            output_original_output=True,
         )
         orig_text, intervened_text = (
             self.tokenizer.decode(orig[0], skip_special_tokens=True),
             self.tokenizer.decode(intervened[0], skip_special_tokens=True),
         )
 
-        # print(orig_text)
-        # print(intervened_text)
-        assert orig_text != intervened_text, 'Aggressive intervention did not change the output. Probably something wrong.'
+        print(orig_text)
+        print(intervened_text)
+        assert (
+            orig_text != intervened_text
+        ), "Aggressive intervention did not change the output. Probably something wrong."
 
     def test_dynamic_static_generation_intervention_parity(self):
         torch.manual_seed(1)
@@ -109,20 +114,24 @@ class GenerationInterventionTestCase(unittest.TestCase):
                 {
                     "layer": l,
                     "component": "mlp_output",
-                    "intervention": lambda b, s: b + torch.ones_like(b),
+                    "intervention": lambda b, s: torch.ones_like(b),
                 }
                 for l in range(self.config.num_layers)
             ],
             model=self.tinystory.to(self.device),
         )
 
-        prompt = self.tokenizer("Once upon a time there was", return_tensors="pt").to(self.device)
+        prompt = self.tokenizer("Once upon a time there was", return_tensors="pt").to(
+            self.device
+        )
         INTERVENTION_DELAY = 5
 
         orig, intervened = pv_model.generate(
             prompt,
-            max_length=prompt.shape[1] + INTERVENTION_DELAY + 1,
-            timestep_selector=lambda idx, ul, o: idx == INTERVENTION_DELAY,
+            max_length=prompt.input_ids.shape[1] + INTERVENTION_DELAY + 2,
+            timestep_selector=[lambda idx, o: idx == INTERVENTION_DELAY]
+            * self.config.num_layers,
+            output_original_output=True,
         )
         orig_text, intervened_text = (
             self.tokenizer.decode(orig[0], skip_special_tokens=True),
@@ -131,4 +140,10 @@ class GenerationInterventionTestCase(unittest.TestCase):
 
         print(orig_text)
         print(intervened_text)
-        assert orig_text != intervened_text, 'Aggressive intervention did not change the output. Probably something wrong.'
+        assert (
+            orig_text != intervened_text
+        ), "Aggressive intervention did not change the output. Probably something wrong."
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -47,7 +47,9 @@ class IntervenableModel(nn.Module):
 
         self.mode = config.mode
         intervention_type = config.intervention_types
-        self.is_model_stateless = False  # is_stateless(model) # all sequence models need state so no longer meaningful
+        self.is_model_stateless = is_stateless(
+            model
+        )  # all sequence models need state to generate, but only the time indices
         self.config.model_type = str(type(model))  # backfill
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
 
@@ -621,7 +623,7 @@ class IntervenableModel(nn.Module):
             self.model.load_state_dict(saved_model_state_dict, strict=False)
 
     def _gather_intervention_output(
-        self, output: torch.Tensor, representations_key: str, unit_locations
+        self, output: torch.Tensor | Tuple, representations_key: str, unit_locations
     ) -> torch.Tensor:
         """
         Gather intervening activations from the output based on indices
@@ -710,7 +712,8 @@ class IntervenableModel(nn.Module):
         Create a list of getter handlers that will fetch activations
         """
         handlers = []
-        for key_i, key in enumerate(keys):
+        for key in keys:
+            key_i = self.sorted_keys.index(key)
             intervention, module_hook = self.interventions[key]
 
             def hook_callback(model, args, kwargs, output=None):
@@ -749,8 +752,8 @@ class IntervenableModel(nn.Module):
                     self.activations.setdefault(key, []).append(
                         (selected_output, state_select_flag)
                     )
-                # set version for stateful models
-                self._intervention_state[key].getter_timestep += 1
+                    # set version for stateful models
+                    self._intervention_state[key].getter_timestep += 1
 
             handlers.append(module_hook(hook_callback, with_kwargs=True))
 
@@ -792,17 +795,15 @@ class IntervenableModel(nn.Module):
         if key not in self.activations:
             return None
 
-        cached_activations = self.activations[key]
-        if self.is_model_stateless:
+        cached_activations = torch.tensor(self.activations[key])
+        if self.is_model_stateless or cached_activations.numel() == 0:
             # nothing to reconcile if stateless
             return cached_activations
 
-        state_select_flag = []
-        for unit_location in intervening_unit_locations:
-            if self._intervention_state[key].setter_timestep in unit_location:
-                state_select_flag += [True]
-            else:
-                state_select_flag += [False]
+        state_select_flag = [
+            self._intervention_state[key].setter_timestep in unit_location
+            for unit_location in intervening_unit_locations
+        ]
         state_select_flag = (
             torch.tensor(state_select_flag).bool().to(intervening_activations.device)
         )
@@ -1046,13 +1047,11 @@ class IntervenableModel(nn.Module):
             for group_id, keys in self._intervention_group.items():
                 if sources[group_id] is None:
                     continue  # smart jump for advance usage only
-                group_get_handlers = HandlerList([])
-                for key in keys:
-                    get_handlers = self._intervention_getter(
-                        [key],
-                        [unit_locations_sources[self.sorted_keys.index(key)]],
-                    )
-                    group_get_handlers.extend(get_handlers)
+
+                group_get_handlers = self._intervention_getter(
+                    keys,
+                    unit_locations_sources,
+                )
                 _ = self.model(**sources[group_id])
                 group_get_handlers.remove()
         else:
@@ -1082,28 +1081,6 @@ class IntervenableModel(nn.Module):
                 )
             )
 
-            # for key in keys:
-            #     # skip in case smart jump
-            #     if (
-            #         key in self.activations
-            #         or isinstance(self.interventions[key][0], types.FunctionType)
-            #         or self.interventions[key][0].is_source_constant
-            #     ):
-            #         key_i = self.sorted_keys.index(key)
-
-            #         set_handlers = self._intervention_setter(
-            #             [key],
-            #             [unit_locations_base[key_i]],
-            #             # assume same group targeting the same subspace
-            #             (
-            #                 [subspaces[key_i]]
-            #                 if subspaces is not None
-            #                 else None
-            #             ),
-            #             timestep_selector,
-            #         )
-            #         # for setters, we don't remove them.
-            #         all_set_handlers.extend(set_handlers)
         return all_set_handlers
 
     def _wait_for_forward_with_serial_intervention(
@@ -1118,24 +1095,19 @@ class IntervenableModel(nn.Module):
         for group_id, keys in self._intervention_group.items():
             if sources[group_id] is None:
                 continue  # smart jump for advance usage only
-            for key_id, key in enumerate(keys):
-                if group_id != len(self._intervention_group) - 1:
-                    unit_locations_key = f"source_{group_id}->source_{group_id+1}"
-                else:
-                    unit_locations_key = f"source_{group_id}->base"
-                unit_locations_source = unit_locations[unit_locations_key][0][key_id]
-                if unit_locations_source is None:
-                    continue  # smart jump for advance usage only
 
-                unit_locations_base = unit_locations[unit_locations_key][1][key_id]
-                if activations_sources is None:
-                    # get activation from source_i
-                    get_handlers = self._intervention_getter(
-                        [key],
-                        [unit_locations_source],
-                    )
-                else:
+            group_dest = "base" if group_id >= len(self._intervention_group) - 1 else f"source_{group_id+1}"
+            group_key = f'source_{group_id}->{group_dest}'
+            unit_locations_source = unit_locations[group_key][0]
+            unit_locations_base = unit_locations[group_key][1]
+
+            if activations_sources != None:
+                for key in keys:
                     self.activations[key] = activations_sources[key]
+            else:
+                keys_with_source = [k for i, k in enumerate(keys) if unit_locations_source[i] != None]
+                get_handlers = self._intervention_getter(keys_with_source, unit_locations_source)
+
             # call once per group. each intervention is by its own group by default
             if activations_sources is None:
                 # this is when previous setter and THEN the getter get called
@@ -1146,27 +1118,22 @@ class IntervenableModel(nn.Module):
                     all_set_handlers.remove()
                     all_set_handlers = HandlerList([])
 
-            for key in keys:
-                # skip in case smart jump
+            keys_with_handler = [
+                key
+                for key in keys
                 if (
                     key in self.activations
                     or isinstance(self.interventions[key][0], types.FunctionType)
                     or self.interventions[key][0].is_source_constant
-                ):
-                    # set with intervened activation to source_i+1
-                    set_handlers = self._intervention_setter(
-                        [key],
-                        [unit_locations_base],
-                        # assume the order
-                        (
-                            [subspaces[self.sorted_keys.index(key)]]
-                            if subspaces is not None
-                            else None
-                        ),
-                        timestep_selector,
-                    )
-                    # for setters, we don't remove them.
-                    all_set_handlers.extend(set_handlers)
+                )
+            ]
+
+            all_set_handlers.extend(
+                self._intervention_setter(
+                    keys_with_handler, unit_locations_base, subspaces, timestep_selector
+                )
+            )
+
         return all_set_handlers
 
     def _broadcast_unit_locations(
@@ -1190,12 +1157,12 @@ class IntervenableModel(nn.Module):
 
         for k, v in unit_locations.items():
             # special broadcast for base-only interventions
-            is_base_only = k == "base" or self.mode == "serial"
-            k = "sources->base" if is_base_only else k
+            if k == "base":
+                k = "sources->base"
 
             # Copies same locations into source/base if only one specified
             if not isinstance(v, Sequence) or len(v) != 2:
-                v = (copy.deepcopy(v) if not is_base_only else None, copy.deepcopy(v))
+                v = (copy.deepcopy(v) if k != "base" else None, copy.deepcopy(v))
 
             _v = []
 
@@ -1211,6 +1178,33 @@ class IntervenableModel(nn.Module):
                 # only position and batch dims specified, broadcast across interventions
                 if get_list_depth(el) == 2:
                     el = [el for _ in range(len(self.interventions))]
+
+                # broadcasting once right number of dims created:
+                if len(el) == 1:
+                    el *= len(self.interventions)
+                elif len(el) < len(self.interventions):
+                    raise ValueError(
+                        f"{len(self.interventions)} interventions expected, but {len(el)} locations given!"
+                    )
+
+                for i, intervention in enumerate(el):
+                    if intervention == None:
+                        continue
+
+                    if len(intervention) == 1:
+                        el[i] = intervention * batch_size
+                    elif len(intervention) == 2:
+                        for j in {0, 1}:
+                            if len(intervention[j]) == 1:
+                                el[i][j] = intervention[j] * batch_size
+                            elif len(intervention[j]) < batch_size:
+                                raise ValueError(
+                                    f"{batch_size} batch size expected, but {len(intervention[j])} locations given!"
+                                )
+                    elif len(intervention) < batch_size:
+                        raise ValueError(
+                            f"{batch_size} batch size expected, but {len(intervention)} locations given!"
+                        )
 
                 _v.append(el)
 
@@ -1454,7 +1448,9 @@ class IntervenableModel(nn.Module):
         subspaces: Optional[List] = None,
         output_original_output: Optional[bool] = False,
         **kwargs,
-    ) -> Tuple[ModelOutput | Tuple[ModelOutput, List[torch.Tensor]], ModelOutput]:
+    ) -> Tuple[
+        ModelOutput | Tuple[ModelOutput | None, List[torch.Tensor]] | None, ModelOutput
+    ]:
         """
         Intervenable generation function that serves a
         wrapper to regular model generate calls.

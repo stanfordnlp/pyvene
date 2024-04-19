@@ -4,17 +4,17 @@ from ..utils import *
 
 class InterventionWithMLPTestCase(unittest.TestCase):
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         print("=== Test Suite: InterventionWithMLPTestCase ===")
-        self.config, self.tokenizer, self.mlp = create_mlp_classifier(
+        cls.config, cls.tokenizer, cls.mlp = create_mlp_classifier(
             MLPConfig(
                 h_dim=3, n_layer=1, pdrop=0.0, num_classes=5,
                 include_bias=False, squeeze_output=False
             )
         )
 
-        self.test_subspace_intervention_link_config = IntervenableConfig(
-            model_type=type(self.mlp),
+        cls.test_subspace_intervention_link_config = IntervenableConfig(
+            model_type=type(cls.mlp),
             representations=[
                 RepresentationConfig(
                     0,
@@ -42,9 +42,9 @@ class InterventionWithMLPTestCase(unittest.TestCase):
             intervention_types=VanillaIntervention,
         )
 
-        self.test_subspace_no_intervention_link_config = (
+        cls.test_subspace_no_intervention_link_config = (
             IntervenableConfig(
-                model_type=type(self.mlp),
+                model_type=type(cls.mlp),
                 representations=[
                     RepresentationConfig(
                         0,
@@ -71,9 +71,9 @@ class InterventionWithMLPTestCase(unittest.TestCase):
             )
         )
 
-        self.test_subspace_no_intervention_link_trainable_config = (
+        cls.test_subspace_no_intervention_link_trainable_config = (
             IntervenableConfig(
-                model_type=type(self.mlp),
+                model_type=type(cls.mlp),
                 representations=[
                     RepresentationConfig(
                         0,

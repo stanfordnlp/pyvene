@@ -7,11 +7,11 @@ from pyvene.models.interventions import CollectIntervention
 
 
 class InterventionUtilsTestCase(unittest.TestCase):
-    
+
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         print("=== Test Suite: InterventionUtilsTestCase ===")
-        self.config, self.tokenizer, self.gpt2 = create_gpt2_lm(
+        cls.config, cls.tokenizer, cls.gpt2 = create_gpt2_lm(
             config=GPT2Config(
                 n_embd=24,
                 attn_pdrop=0.0,
@@ -25,9 +25,9 @@ class InterventionUtilsTestCase(unittest.TestCase):
                 vocab_size=10,
             )
         )
-        self.test_output_dir_prefix = "test_tmp_output"
-        self.test_output_dir_pool = []
-        
+        cls.test_output_dir_prefix = "test_tmp_output"
+        cls.test_output_dir_pool = []
+
     def test_initialization_positive(self):
         config = IntervenableConfig(
             model_type=type(self.gpt2),
@@ -143,17 +143,13 @@ class InterventionUtilsTestCase(unittest.TestCase):
             )
 
     def _test_local_trainable_load_positive(self, intervention_types):
-        b_s = 10
+        b_s = 12
 
         config = IntervenableConfig(
             model_type=type(self.gpt2),
             representations=[
-                RepresentationConfig(
-                    0, "block_output", "pos", 1, low_rank_dimension=4
-                ),
-                RepresentationConfig(
-                    1, "block_output", "pos", 1, low_rank_dimension=4
-                ),
+                RepresentationConfig(0, "block_output", "pos", 1, low_rank_dimension=4),
+                RepresentationConfig(1, "block_output", "pos", 1, low_rank_dimension=4),
             ],
             intervention_types=intervention_types,
         )
@@ -189,7 +185,7 @@ class InterventionUtilsTestCase(unittest.TestCase):
         self._test_local_trainable_load_positive(VanillaIntervention)
         self._test_local_trainable_load_positive(RotatedSpaceIntervention)
         self._test_local_trainable_load_positive(LowRankRotatedSpaceIntervention)
-        
+
     def test_vanilla_intervention_positive(self):
         intervention = VanillaIntervention(embed_dim=2)
         base = torch.arange(36).view(2, 3, 6)
@@ -355,11 +351,16 @@ class InterventionUtilsTestCase(unittest.TestCase):
         base = torch.arange(12).view(2, 6)
         source = torch.arange(12, 24).view(2, 6)
         output = intervention(base, source)
-        golden = torch.tensor([[3, 4, 5, 6, 7, 8], [9, 10, 11, 12, 13, 14],])
+        golden = torch.tensor(
+            [
+                [3, 4, 5, 6, 7, 8],
+                [9, 10, 11, 12, 13, 14],
+            ]
+        )
         self.assertTrue(torch.allclose(golden, output))
 
     def test_brs_gradient_positive(self):
-        
+
         _retry = 10
         while _retry > 0:
             try:
@@ -373,7 +374,12 @@ class InterventionUtilsTestCase(unittest.TestCase):
                 optimizer_params += [{"params": intervention.intervention_boundaries}]
                 optimizer = torch.optim.Adam(optimizer_params, lr=1e-1)
 
-                golden = torch.tensor([[5, 6, 7, 8, 9, 10], [11, 12, 13, 14, 15, 16],]).float()
+                golden = torch.tensor(
+                    [
+                        [5, 6, 7, 8, 9, 10],
+                        [11, 12, 13, 14, 15, 16],
+                    ]
+                ).float()
 
                 for _ in range(1000):
                     optimizer.zero_grad()
@@ -390,13 +396,10 @@ class InterventionUtilsTestCase(unittest.TestCase):
         if _retry > 0:
             pass  # succeed
         else:
-            raise AssertionError(
-                "test_brs_gradient_positive with retries"
-            )
-        
+            raise AssertionError("test_brs_gradient_positive with retries")
 
     def test_sigmoid_mask_gradient_positive(self):
-        
+
         _retry = 10
         while _retry > 0:
             try:
@@ -409,7 +412,12 @@ class InterventionUtilsTestCase(unittest.TestCase):
                 optimizer_params += [{"params": intervention.temperature}]
                 optimizer = torch.optim.Adam(optimizer_params, lr=1e-1)
 
-                golden = torch.tensor([[0, 1, 14, 15, 16, 17], [6, 7, 20, 21, 22, 23],]).float()
+                golden = torch.tensor(
+                    [
+                        [0, 1, 14, 15, 16, 17],
+                        [6, 7, 20, 21, 22, 23],
+                    ]
+                ).float()
 
                 for _ in range(2000):
                     optimizer.zero_grad()
@@ -429,13 +437,10 @@ class InterventionUtilsTestCase(unittest.TestCase):
         if _retry > 0:
             pass  # succeed
         else:
-            raise AssertionError(
-                "test_sigmoid_mask_gradient_positive with retries"
-            )
-        
+            raise AssertionError("test_sigmoid_mask_gradient_positive with retries")
 
     def test_low_rank_gradient_positive(self):
-        
+
         _retry = 10
         while _retry > 0:
             try:
@@ -449,7 +454,12 @@ class InterventionUtilsTestCase(unittest.TestCase):
                 optimizer_params += [{"params": intervention.rotate_layer.parameters()}]
                 optimizer = torch.optim.Adam(optimizer_params, lr=1e-1)
 
-                golden = torch.tensor([[0, 1, 14, 15, 16, 17], [6, 7, 20, 21, 22, 23],]).float()
+                golden = torch.tensor(
+                    [
+                        [0, 1, 14, 15, 16, 17],
+                        [6, 7, 20, 21, 22, 23],
+                    ]
+                ).float()
 
                 for _ in range(2000):
                     optimizer.zero_grad()
@@ -467,13 +477,11 @@ class InterventionUtilsTestCase(unittest.TestCase):
         if _retry > 0:
             pass  # succeed
         else:
-            raise AssertionError(
-                "test_sigmoid_mask_gradient_positive with retries"
-            )
+            raise AssertionError("test_sigmoid_mask_gradient_positive with retries")
 
     @classmethod
-    def tearDownClass(self):
-        for current_dir in self.test_output_dir_pool:
+    def tearDownClass(cls):
+        for current_dir in cls.test_output_dir_pool:
             print(f"Removing testing dir {current_dir}")
             if os.path.exists(current_dir) and os.path.isdir(current_dir):
                 shutil.rmtree(current_dir)

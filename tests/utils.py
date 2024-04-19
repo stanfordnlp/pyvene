@@ -6,30 +6,35 @@
 import os, shutil, torch, random, uuid
 import pandas as pd
 import numpy as np
-from transformers import GPT2Config
-
-
+from transformers.utils import ModelOutput
 import subprocess
+
 
 def is_package_installed(package_name):
     try:
         # Execute 'pip list' command and capture the output
-        result = subprocess.run(['pip', 'list'], stdout=subprocess.PIPE, text=True)
+        pkg_all = subprocess.run(
+            ["pip", "list"], stdout=subprocess.PIPE, text=True
+        ).stdout
+        pkg_e = subprocess.run(
+            ["pip", "list", "-e"], stdout=subprocess.PIPE, text=True
+        ).stdout
 
         # Check if package_name is in the result
-        return package_name in result.stdout
+        return package_name in pkg_all and package_name not in pkg_e
     except Exception as e:
         print(f"An error occurred: {e}")
         return False
 
+
 # Replace 'pyvene' with the name of the package you want to check
-package_name = 'pyvene'
+package_name = "pyvene"
 if is_package_installed(package_name):
     raise RuntimeError(
-        f"Remove your pip installed {package_name} before running tests.")
+        f"Remove your pip installed {package_name} before running tests."
+    )
 else:
-    print(f"'{package_name}' is not installed.")
-    print("PASS: pyvene is not installed. Testing local dev code.")
+    print(f"PASS: {package_name} is not installed. Testing local dev code.")
 
 from pyvene.models.basic_utils import embed_to_distrib, top_vals, format_token
 from pyvene.models.configuration_intervenable_model import (
@@ -41,6 +46,15 @@ from pyvene.models.interventions import *
 from pyvene.models.mlp.modelings_mlp import MLPConfig
 from pyvene.models.mlp.modelings_intervenable_mlp import create_mlp_classifier
 from pyvene.models.gpt2.modelings_intervenable_gpt2 import create_gpt2_lm
+from pyvene import embed_to_distrib
+
+
+def get_topk(model, tokenizer, outputs: ModelOutput, k=20):
+    dist = embed_to_distrib(model, outputs.last_hidden_state, logits=False)
+
+    if dist is not None:
+        _, ind = torch.topk(dist[:, -1], 20, dim=-1)
+        return tokenizer.batch_decode(ind)
 
 
 ##################
