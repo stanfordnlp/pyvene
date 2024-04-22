@@ -19,6 +19,7 @@ class GenerationInterventionTestCase(unittest.TestCase):
         cls.device = DEVICE
 
         cls.config, cls.tokenizer, cls.tinystory = pv.create_gpt_neo()
+        cls.tinystory.to(cls.device)
 
     @classmethod
     def tearDownClass(cls):
@@ -65,7 +66,7 @@ class GenerationInterventionTestCase(unittest.TestCase):
 
         prompt = tokenizer("Once upon a time there was", return_tensors="pt")
         _, intervened_story = pv_tinystory.generate(
-            prompt, source_representations=emb_happy, max_length=32
+            prompt, source_representations=emb_happy, unit_locations={"sources->base": (0, [0, 1, 2])}, max_length=32
         )
         print(tokenizer.decode(intervened_story[0], skip_special_tokens=True))
 
@@ -81,7 +82,7 @@ class GenerationInterventionTestCase(unittest.TestCase):
                 }
                 for l in range(self.config.num_layers)
             ],
-            model=self.tinystory.to(self.device),
+            model=self.tinystory,
         )
 
         prompt = self.tokenizer("Once upon a time there was", return_tensors="pt").to(
@@ -118,7 +119,7 @@ class GenerationInterventionTestCase(unittest.TestCase):
                 }
                 for l in range(self.config.num_layers)
             ],
-            model=self.tinystory.to(self.device),
+            model=self.tinystory,
         )
 
         prompt = self.tokenizer("Once upon a time there was", return_tensors="pt").to(
@@ -144,6 +145,92 @@ class GenerationInterventionTestCase(unittest.TestCase):
             orig_text != intervened_text
         ), "Aggressive intervention did not change the output. Probably something wrong."
 
+    def test_generation_noops(self):
+        torch.manual_seed(0)
+
+        # No-op intervention
+        pv_model = pv.IntervenableModel(
+            [
+                {
+                    "layer": l,
+                    "component": "mlp_output",
+                    "intervention": lambda b, s: b,
+                }
+                for l in range(self.config.num_layers)
+            ],
+            model=self.tinystory,
+        )
+
+        prompt = self.tokenizer("Once upon a time there was", return_tensors="pt").to(
+            self.device
+        )
+        sources = self.tokenizer(" love", return_tensors="pt").to(self.device)
+
+        orig, intervened = pv_model.generate(
+            prompt,
+            max_length=20,
+            sources=sources,
+            intervene_on_prompt=True,
+            unit_locations={"sources->base": (0, [0, 1, 2])},
+            output_original_output=True,
+        )
+        orig_text, intervened_text = (
+            self.tokenizer.decode(orig[0], skip_special_tokens=True),
+            self.tokenizer.decode(intervened[0], skip_special_tokens=True),
+        )
+
+        print(intervened_text)
+        assert (
+            orig_text == intervened_text
+        ), "No-op intervention changed the output. Probably something wrong."
+
+        # Aggressive intervention with intervene_on_prompt=False
+        aggressive_model = pv.IntervenableModel(
+            [
+                {
+                    "layer": l,
+                    "component": "mlp_output",
+                    "intervention": lambda b, s: s * 1000,
+                }
+                for l in range(self.config.num_layers)
+            ],
+            model=self.tinystory,
+        )
+
+        orig, intervened = aggressive_model.generate(
+            prompt,
+            max_length=20,
+            sources=sources,
+            intervene_on_prompt=False,
+            output_original_output=True,
+        )        
+
+        orig_text, intervened_text = (
+            self.tokenizer.decode(orig[0], skip_special_tokens=True),
+            self.tokenizer.decode(intervened[0], skip_special_tokens=True),
+        )
+        print(orig_text)
+        print(intervened_text)
+        assert (
+            orig_text == intervened_text
+        ), "Aggressive intervention changed the output. Probably something wrong."
+
+        # Aggressive intervention with no prompt intervention, disabled selectors
+        orig, intervened = aggressive_model.generate(
+            prompt,
+            max_length=20,
+            sources=sources,
+            intervene_on_prompt=False,
+            output_original_output=True,
+            timestep_selector=[lambda idx, o: False] * self.config.num_layers,
+        )
+        orig_text, intervened_text = (
+            self.tokenizer.decode(orig[0], skip_special_tokens=True),
+            self.tokenizer.decode(intervened[0], skip_special_tokens=True),
+        )
+        assert (
+            orig_text == intervened_text
+        ), "Aggressive intervention changed the output. Probably something wrong."
 
 if __name__ == "__main__":
     unittest.main()

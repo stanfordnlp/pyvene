@@ -270,7 +270,6 @@ class IntervenableModel(nn.Module):
         """
         Clean up all old in memo states of interventions
         """
-        self._skip_forward = False
         self._remove_forward_hooks()
         self._reset_hook_count()
         if not skip_activation_gc:
@@ -858,8 +857,7 @@ class IntervenableModel(nn.Module):
 
             def hook_callback(model, args, kwargs, output=None):
                 if (
-                    not self.is_model_stateless
-                    and self._skip_forward
+                    self._skip_forward
                     and state.setter_timestep <= 0
                 ):
                     state.setter_timestep += 1
@@ -879,11 +877,11 @@ class IntervenableModel(nn.Module):
                 # in this code we assume that output is batched along its first axis.
                 int_unit_loc = (
                     unit_locations_base[key_i]
-                    if state.setter_timestep <= 0 or not timestep_selector
+                    if state.setter_timestep <= 0
                     else [
                         (
                             [0]
-                            if timestep_selector[key_i](
+                            if timestep_selector != None and timestep_selector[key_i](
                                 state.setter_timestep, output[i]
                             )
                             else None

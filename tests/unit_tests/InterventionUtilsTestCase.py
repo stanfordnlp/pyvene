@@ -468,7 +468,7 @@ class InterventionUtilsTestCase(unittest.TestCase):
                     loss = F.mse_loss(output, golden)
                     loss.backward()
                     optimizer.step()
-                print(output)
+
                 self.assertTrue(torch.allclose(golden, output, rtol=1e-02, atol=1e-02))
             except:
                 pass  # retry
