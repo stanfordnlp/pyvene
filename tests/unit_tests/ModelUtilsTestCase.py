@@ -2,6 +2,7 @@ import unittest
 from ..utils import *
 from pyvene.models.modeling_utils import *
 from pprint import pprint, pformat
+from transformers import GPT2Config
 
 
 class ModelUtilsTestCase(unittest.TestCase):

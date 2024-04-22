@@ -1,5 +1,6 @@
 import unittest
 from ..utils import *
+from transformers import GPT2Config
 
 
 class ComplexInterventionWithGPT2TestCase(unittest.TestCase):

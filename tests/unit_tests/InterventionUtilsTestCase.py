@@ -4,6 +4,7 @@ from ..utils import *
 from pyvene.models.intervention_utils import _do_intervention_by_swap
 from pyvene.models.interventions import VanillaIntervention
 from pyvene.models.interventions import CollectIntervention
+from transformers import GPT2Config
 
 
 class InterventionUtilsTestCase(unittest.TestCase):
