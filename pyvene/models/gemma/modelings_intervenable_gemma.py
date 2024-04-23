@@ -70,7 +70,7 @@ gemma_classifier_type_to_dimension_mapping = gemma_type_to_dimension_mapping
 
 
 def create_gemma(
-    name="sharpbai/alpaca-7b-merged", cache_dir=None, dtype=torch.bfloat16
+    name="google/gemma-2b-it", cache_dir=None, dtype=torch.bfloat16
 ):
     """Creates a Gemma Causal LM model, config, and tokenizer from the given name and revision"""
     from transformers import GemmaForCausalLM, GemmaTokenizer, GemmaConfig
