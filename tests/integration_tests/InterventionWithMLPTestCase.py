@@ -42,6 +42,35 @@ class InterventionWithMLPTestCase(unittest.TestCase):
             intervention_types=VanillaIntervention,
         )
 
+        cls.test_negative_subspace_config = IntervenableConfig(
+            model_type=type(cls.mlp),
+            representations=[
+                RepresentationConfig(
+                    0,
+                    "mlp_activation",
+                    "pos",  # mlp layer creates a single token reprs
+                    1,
+                    subspace_partition=[
+                        [1, 4],
+                        [0, 1],
+                    ],  # partition into two sets of subspaces
+                    intervention_link_key=0,  # linked ones target the same subspace
+                ),
+                RepresentationConfig(
+                    0,
+                    "mlp_activation",
+                    "pos",  # mlp layer creates a single token reprs
+                    1,
+                    subspace_partition=[
+                        [1, 4],
+                        [0, 1],
+                    ],  # partition into two sets of subspaces
+                    intervention_link_key=0,  # linked ones target the same subspace
+                ),
+            ],
+            intervention_types=VanillaIntervention,
+        )
+
         cls.test_subspace_no_intervention_link_config = (
             IntervenableConfig(
                 model_type=type(cls.mlp),
@@ -149,13 +178,12 @@ class InterventionWithMLPTestCase(unittest.TestCase):
         Negative test case to check input length.
         """
         intervenable = IntervenableModel(
-            self.test_subspace_intervention_link_config, self.mlp
+            self.test_negative_subspace_config, self.mlp
         )
         # golden label
         b_s = 10
         base = {"inputs_embeds": torch.rand(b_s, 1, 3)}
         source_1 = {"inputs_embeds": torch.rand(b_s, 1, 3)}
-        source_2 = {"inputs_embeds": torch.rand(b_s, 1, 3)}
 
         try:
             intervenable(

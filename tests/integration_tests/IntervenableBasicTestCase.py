@@ -646,6 +646,54 @@ class IntervenableBasicTestCase(unittest.TestCase):
             intervened_outputs_fn[1].last_hidden_state,
         )
 
+    def test_nulling_intervention(self):
+
+        _, tokenizer, gpt2 = pv.create_gpt2()
+        gpt2.to("cuda")
+        base = tokenizer(
+            ["The capital of Spain is" for i in range(3)], return_tensors="pt"
+        ).to("cuda")
+
+        base_output = gpt2(**base)
+        base_logits = pv.embed_to_distrib(
+            gpt2, base_output.last_hidden_state, logits=True
+        )[0]
+        print(base_logits.shape)
+
+        pv_gpt2 = pv.IntervenableModel(
+            {
+                "layer": 0,
+                "component": "mlp_output",
+                "intervention": lambda b, s: b * 0.5 + s * 0.5,
+            },
+            model=gpt2,
+        )
+        pv_gpt2.set_device("cuda")
+
+        _, intervened_outputs = pv_gpt2(
+            # the base input
+            base=base,
+            # the source input
+            sources=tokenizer(["Egypt" for i in range(3)], return_tensors="pt").to(
+                "cuda"
+            ),
+            # the location to intervene at (3rd token)
+            unit_locations={"sources->base": (0, [[[3], None, [3]]])},
+        )
+
+        intervened_logits = pv.embed_to_distrib(
+            gpt2, intervened_outputs.last_hidden_state, logits=True
+        )
+        assert not torch.allclose(
+            base_logits, intervened_logits[0]
+        ), "Intervention had no effect on example 0!"
+        assert torch.allclose(
+            base_logits, intervened_logits[1]
+        ), "Intervention was not nulled on example 1!"
+        assert not torch.allclose(
+            base_logits, intervened_logits[2]
+        ), "Intervention had no effect on example 2!"
+
     @classmethod
     def tearDownClass(cls):
         print(f"Removing testing dir {cls._test_dir}")
