@@ -856,10 +856,7 @@ class IntervenableModel(nn.Module):
                 ]  # batch_size
 
             def hook_callback(model, args, kwargs, output=None):
-                if (
-                    self._skip_forward
-                    and state.setter_timestep <= 0
-                ):
+                if self._skip_forward and state.setter_timestep <= 0:
                     state.setter_timestep += 1
                     return
 
@@ -881,7 +878,8 @@ class IntervenableModel(nn.Module):
                     else [
                         (
                             [0]
-                            if timestep_selector != None and timestep_selector[key_i](
+                            if timestep_selector != None
+                            and timestep_selector[key_i](
                                 state.setter_timestep, output[i]
                             )
                             else None
@@ -1054,11 +1052,11 @@ class IntervenableModel(nn.Module):
                 group_get_handlers.remove()
         else:
             # simply patch in the ones passed in
-            self.activations = activations_sources
-            for _, passed_in_key in enumerate(self.activations):
+            for passed_in_key, v in activations_sources.items():
                 assert (
                     passed_in_key in self.sorted_keys
                 ), f"{passed_in_key} not in {self.sorted_keys}, {unit_locations}"
+                self.activations[passed_in_key] = torch.clone(v)
 
         # in parallel mode, we swap cached activations all into
         # base at once
@@ -1094,8 +1092,12 @@ class IntervenableModel(nn.Module):
             if sources[group_id] is None:
                 continue  # smart jump for advance usage only
 
-            group_dest = "base" if group_id >= len(self._intervention_group) - 1 else f"source_{group_id+1}"
-            group_key = f'source_{group_id}->{group_dest}'
+            group_dest = (
+                "base"
+                if group_id >= len(self._intervention_group) - 1
+                else f"source_{group_id+1}"
+            )
+            group_key = f"source_{group_id}->{group_dest}"
             unit_locations_source = unit_locations[group_key][0]
             unit_locations_base = unit_locations[group_key][1]
 
@@ -1103,8 +1105,12 @@ class IntervenableModel(nn.Module):
                 for key in keys:
                     self.activations[key] = activations_sources[key]
             else:
-                keys_with_source = [k for i, k in enumerate(keys) if unit_locations_source[i] != None]
-                get_handlers = self._intervention_getter(keys_with_source, unit_locations_source)
+                keys_with_source = [
+                    k for i, k in enumerate(keys) if unit_locations_source[i] != None
+                ]
+                get_handlers = self._intervention_getter(
+                    keys_with_source, unit_locations_source
+                )
 
             # call once per group. each intervention is by its own group by default
             if activations_sources is None:
@@ -1402,11 +1408,11 @@ class IntervenableModel(nn.Module):
 
             self._output_validation()
 
-            collected_activations = []
+            collected_activations = {}
             if self.return_collect_activations:
                 for key in self.sorted_keys:
                     if isinstance(self.interventions[key][0], CollectIntervention):
-                        collected_activations += self.activations[key]
+                        collected_activations[key] = self.activations[key]
 
         except Exception as e:
             raise e
@@ -1439,15 +1445,16 @@ class IntervenableModel(nn.Module):
         self,
         base,
         sources: Optional[List] = None,
+        source_representations: Optional[Dict] = None,
+        intervene_on_prompt: bool = True,
         unit_locations: Optional[Dict] = None,
         timestep_selector: Optional[TIMESTEP_SELECTOR_TYPE] = None,
-        intervene_on_prompt: bool = True,
-        source_representations: Optional[Dict] = None,
         subspaces: Optional[List] = None,
         output_original_output: Optional[bool] = False,
         **kwargs,
     ) -> Tuple[
-        ModelOutput | Tuple[ModelOutput | None, List[torch.Tensor]] | None, ModelOutput
+        Optional[ModelOutput | Tuple[Optional[ModelOutput], Dict[str, torch.Tensor]]],
+        ModelOutput,
     ]:
         """
         Intervenable generation function that serves a
@@ -1532,11 +1539,11 @@ class IntervenableModel(nn.Module):
             # run intervened generate
             counterfactual_outputs = self.model.generate(**base, **kwargs)
 
-            collected_activations = []
+            collected_activations = {}
             if self.return_collect_activations:
                 for key in self.sorted_keys:
                     if isinstance(self.interventions[key][0], CollectIntervention):
-                        collected_activations += self.activations[key]
+                        collected_activations[key] = self.activations[key]
         except Exception as e:
             raise e
         finally:
