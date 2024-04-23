@@ -16,6 +16,7 @@ class IntervenableBasicTestCase(unittest.TestCase):
     def setUpClass(cls):
         _uuid = str(uuid.uuid4())[:6]
         cls._test_dir = os.path.join(f"./test_output_dir_prefix-{_uuid}")
+        cls.DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
     def test_lazy_demo(self):
 
@@ -649,10 +650,10 @@ class IntervenableBasicTestCase(unittest.TestCase):
     def test_nulling_intervention(self):
 
         _, tokenizer, gpt2 = pv.create_gpt2()
-        gpt2.to("cuda")
+        gpt2.to(self.DEVICE)
         base = tokenizer(
             ["The capital of Spain is" for i in range(3)], return_tensors="pt"
-        ).to("cuda")
+        ).to(self.DEVICE)
 
         base_output = gpt2(**base)
         base_logits = pv.embed_to_distrib(
@@ -668,14 +669,14 @@ class IntervenableBasicTestCase(unittest.TestCase):
             },
             model=gpt2,
         )
-        pv_gpt2.set_device("cuda")
+        pv_gpt2.set_device(self.DEVICE)
 
         _, intervened_outputs = pv_gpt2(
             # the base input
             base=base,
             # the source input
             sources=tokenizer(["Egypt" for i in range(3)], return_tensors="pt").to(
-                "cuda"
+                self.DEVICE
             ),
             # the location to intervene at (3rd token)
             unit_locations={"sources->base": (0, [[[3], None, [3]]])},
