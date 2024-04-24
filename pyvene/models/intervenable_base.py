@@ -1102,8 +1102,11 @@ class IntervenableModel(nn.Module):
             unit_locations_base = unit_locations[group_key][1]
 
             if activations_sources != None:
-                for key in keys:
-                    self.activations[key] = activations_sources[key]
+                for passed_in_key, v in activations_sources.items():
+                    assert (
+                        passed_in_key in self.sorted_keys
+                    ), f"{passed_in_key} not in {self.sorted_keys}, {unit_locations}"
+                    self.activations[passed_in_key] = torch.clone(v)
             else:
                 keys_with_source = [
                     k for i, k in enumerate(keys) if unit_locations_source[i] != None

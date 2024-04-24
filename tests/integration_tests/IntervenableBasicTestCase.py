@@ -591,10 +591,10 @@ class IntervenableBasicTestCase(unittest.TestCase):
         )
 
         base = "When John and Mary went to the shops, Mary gave the bag to"
-        collected_attn_w = pv_gpt2(
+        (_, collected_attn_w), _ = pv_gpt2(
             base=tokenizer(base, return_tensors="pt"),
             unit_locations={"base": [h for h in range(12)]},
-        )[0][-1][0]
+        )
 
         cached_w = {}
 
@@ -608,7 +608,7 @@ class IntervenableBasicTestCase(unittest.TestCase):
 
         base = "When John and Mary went to the shops, Mary gave the bag to"
         _ = pv_gpt2(tokenizer(base, return_tensors="pt"))
-        torch.allclose(collected_attn_w, cached_w["attn_w"].unsqueeze(dim=0))
+        torch.allclose(list(collected_attn_w.values())[0], cached_w["attn_w"].unsqueeze(dim=0))
 
     def test_customized_intervention_function_zeroout(self):
 
