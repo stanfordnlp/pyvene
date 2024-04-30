@@ -13,7 +13,7 @@ import torch
 from ..constants import *
 
 
-llama_type_to_module_mapping = {
+gemma_type_to_module_mapping = {
     "block_input": ("layers[%s]", CONST_INPUT_HOOK),
     "block_output": ("layers[%s]", CONST_OUTPUT_HOOK),
     "mlp_activation": ("layers[%s].mlp.act_fn", CONST_OUTPUT_HOOK),
@@ -32,7 +32,7 @@ llama_type_to_module_mapping = {
 }
 
 
-llama_type_to_dimension_mapping = {
+gemma_type_to_dimension_mapping = {
     "block_input": ("hidden_size",),
     "block_output": ("hidden_size",),
     "mlp_activation": ("intermediate_size",),
@@ -51,37 +51,37 @@ llama_type_to_dimension_mapping = {
 }
 
 
-"""llama model with LM head"""
-llama_lm_type_to_module_mapping = {}
-for k, v in llama_type_to_module_mapping.items():
-    llama_lm_type_to_module_mapping[k] = (f"model.{v[0]}", v[1])
+"""gemma model with LM head"""
+gemma_lm_type_to_module_mapping = {}
+for k, v in gemma_type_to_module_mapping.items():
+    gemma_lm_type_to_module_mapping[k] = (f"model.{v[0]}", v[1])
 
 
-llama_lm_type_to_dimension_mapping = llama_type_to_dimension_mapping
+gemma_lm_type_to_dimension_mapping = gemma_type_to_dimension_mapping
 
 
-"""llama model with classifier head"""
-llama_classifier_type_to_module_mapping = {}
-for k, v in llama_type_to_module_mapping.items():
-    llama_classifier_type_to_module_mapping[k] = (f"model.{v[0]}", v[1])
+"""gemma model with classifier head"""
+gemma_classifier_type_to_module_mapping = {}
+for k, v in gemma_type_to_module_mapping.items():
+    gemma_classifier_type_to_module_mapping[k] = (f"model.{v[0]}", v[1])
 
 
-llama_classifier_type_to_dimension_mapping = llama_type_to_dimension_mapping
+gemma_classifier_type_to_dimension_mapping = gemma_type_to_dimension_mapping
 
 
-def create_llama(
-    name="sharpbai/alpaca-7b-merged", cache_dir=None, dtype=torch.bfloat16
+def create_gemma(
+    name="google/gemma-2b-it", cache_dir=None, dtype=torch.bfloat16
 ):
-    """Creates a LLaMA Causal LM model, config, and tokenizer from the given name and revision"""
-    from transformers import LlamaForCausalLM, LlamaTokenizer, LlamaConfig
+    """Creates a Gemma Causal LM model, config, and tokenizer from the given name and revision"""
+    from transformers import GemmaForCausalLM, GemmaTokenizer, GemmaConfig
 
-    config = LlamaConfig.from_pretrained(name, cache_dir=cache_dir)
-    tokenizer = LlamaTokenizer.from_pretrained(name, cache_dir=cache_dir)
-    llama = LlamaForCausalLM.from_pretrained(
+    config = GemmaConfig.from_pretrained(name, cache_dir=cache_dir)
+    tokenizer = GemmaTokenizer.from_pretrained(name, cache_dir=cache_dir)
+    gemma = GemmaForCausalLM.from_pretrained(
         name,
         config=config,
         cache_dir=cache_dir,
         torch_dtype=dtype,  # save memory
     )
     print("loaded model")
-    return config, tokenizer, llama
+    return config, tokenizer, gemma
