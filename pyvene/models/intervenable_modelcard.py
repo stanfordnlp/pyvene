@@ -10,6 +10,7 @@ from .gru.modelings_intervenable_gru import *
 from .blip.modelings_intervenable_blip import *
 from .blip.modelings_intervenable_blip_itm import *
 from .backpack_gpt2.modelings_intervenable_backpack_gpt2 import *
+from .llava.modelings_intervenable_llava import *
 
 
 #########################################################################
@@ -41,6 +42,7 @@ type_to_module_mapping = {
     hf_models.llama.modeling_llama.LlamaModel: llama_type_to_module_mapping,
     hf_models.llama.modeling_llama.LlamaForCausalLM: llama_lm_type_to_module_mapping,
     hf_models.llama.modeling_llama.LlamaForSequenceClassification: llama_classifier_type_to_module_mapping,
+    hf_models.llava.modeling_llava.LlavaForConditionalGeneration: llava_type_to_module_mapping,
     hf_models.gpt_neo.modeling_gpt_neo.GPTNeoModel: gpt_neo_type_to_module_mapping,
     hf_models.gpt_neo.modeling_gpt_neo.GPTNeoForCausalLM: gpt_neo_lm_type_to_module_mapping,
     hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXModel: gpt_neox_type_to_module_mapping,
@@ -71,6 +73,7 @@ type_to_dimension_mapping = {
     hf_models.llama.modeling_llama.LlamaModel: llama_type_to_dimension_mapping,
     hf_models.llama.modeling_llama.LlamaForCausalLM: llama_lm_type_to_dimension_mapping,
     hf_models.llama.modeling_llama.LlamaForSequenceClassification: llama_classifier_type_to_dimension_mapping,
+    hf_models.llava.modeling_llava.LlavaForConditionalGeneration: llava_type_to_dimension_mapping,
     hf_models.gpt_neo.modeling_gpt_neo.GPTNeoModel: gpt_neo_type_to_dimension_mapping,
     hf_models.gpt_neo.modeling_gpt_neo.GPTNeoForCausalLM: gpt_neo_lm_type_to_dimension_mapping,
     hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXModel: gpt_neox_type_to_dimension_mapping,
