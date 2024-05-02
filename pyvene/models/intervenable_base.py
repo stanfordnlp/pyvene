@@ -1320,6 +1320,7 @@ class IntervenableModel(nn.Module):
         labels: Optional[torch.LongTensor] = None,
         output_original_output: Optional[bool] = False,
         return_dict: Optional[bool] = None,
+        use_cache: Optional[bool] = True,
     ):
         """
         Main forward function that serves a wrapper to
@@ -1439,10 +1440,14 @@ class IntervenableModel(nn.Module):
                 )
 
             # run intervened forward
-            if labels is not None:
-                counterfactual_outputs = self.model(**base, labels=labels)
-            else:
-                counterfactual_outputs = self.model(**base)
+            model_kwargs = {}
+            if labels is not None: # for training
+                model_kwargs["labels"] = labels
+            if 'use_cache' in self.model.config.to_dict(): # for transformer models
+                model_kwargs["use_cache"] = use_cache
+
+            counterfactual_outputs = self.model(**base, **model_kwargs)
+
             set_handlers_to_remove.remove()
 
             self._output_validation()
