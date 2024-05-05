@@ -1,10 +1,11 @@
 import seaborn
+import torch
 
 def rotation_token_heatmap(rotate_layer, 
                            tokens, 
                            token_size, 
                            variables, 
-                           intervention_sizes):
+                           intervention_size):
 
     W = rotate_layer.weight.data
     in_dim, out_dim = W.shape
@@ -19,12 +20,12 @@ def rotation_token_heatmap(rotate_layer,
     for j in range(len(variables)):
         row = []
         for i in range(len(tokens)):
-            row.append(W[i*token_size:(i+1)*token_size, j*intervention_size:(j+1)*intervention_size].sum())
+            row.append(torch.norm(W[i*token_size:(i+1)*token_size, j*intervention_size:(j+1)*intervention_size]))
         mean = sum(row)
         heatmap.append([x/mean for x in row])
     return seaborn.heatmap(heatmap, 
-                    xticklabels=variables, 
-                    yticklabels=tokens)
+                    xticklabels=tokens, 
+                    yticklabels=variables)
     
 
 
