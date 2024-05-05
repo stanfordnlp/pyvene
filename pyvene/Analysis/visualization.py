@@ -26,7 +26,3 @@ def rotation_token_heatmap(rotate_layer,
     return seaborn.heatmap(heatmap, 
                     xticklabels=tokens, 
                     yticklabels=variables)
-    
-
-
-    
