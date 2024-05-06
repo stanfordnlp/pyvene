@@ -35,9 +35,6 @@ class CausalModel:
             assert variable in self.values
             assert variable in self.children
             assert variable in self.functions
-            assert len(inspect.getfullargspec(self.functions[variable])[0]) == len(
-                self.parents[variable]
-            )
             if timesteps is not None:
                 assert variable in timesteps
             for variable2 in copy.copy(self.variables):
@@ -79,6 +76,8 @@ class CausalModel:
             self.equiv_classes = equiv_classes
         else:
             self.equiv_classes = {}
+    
+    def generate_equiv_classes(self):
         for var in self.variables:
             if var in self.inputs or var in self.equiv_classes:
                 continue
@@ -113,7 +112,7 @@ class CausalModel:
     def marginalize(self, target):
         pass
 
-    def print_structure(self, pos=None):
+    def print_structure(self, pos=None, font=12, node_size=1000):
         G = nx.DiGraph()
         G.add_edges_from(
             [
@@ -123,7 +122,7 @@ class CausalModel:
             ]
         )
         plt.figure(figsize=(10, 10))
-        nx.draw_networkx(G, with_labels=True, node_color="green", pos=self.pos)
+        nx.draw_networkx(G, with_labels=True, node_color="green", pos=self.pos, font_size=font, node_size=node_size)
         plt.show()
 
     def find_live_paths(self, intervention):
@@ -149,12 +148,9 @@ class CausalModel:
         del paths[1]
         return paths
 
-    def print_setting(self, total_setting, display=None):
-        labeler = lambda var: var + ": " + str(total_setting[var]) \
-            if display is None or display[var] \
-            else var
+    def print_setting(self, total_setting, font=12, node_size=1000):
         relabeler = {
-            var: labeler(var) for var in self.variables
+            var: var + ": " + str(total_setting[var]) for var in self.variables
         }
         G = nx.DiGraph()
         G.add_edges_from(
@@ -170,7 +166,7 @@ class CausalModel:
         if self.pos is not None:
             for var in self.pos:
                 newpos[relabeler[var]] = self.pos[var]
-        nx.draw_networkx(G, with_labels=True, node_color="green", pos=newpos)
+        nx.draw_networkx(G, with_labels=True, node_color="green", pos=newpos, font_size=font, node_size=node_size)
         plt.show()
 
     def run_forward(self, intervention=None):
@@ -233,10 +229,13 @@ class CausalModel:
 
     def sample_input_tree_balanced(self, output_var=None, output_var_value=None):
         assert output_var is not None or len(self.outputs) == 1
+        self.generate_equiv_classes()
+
         if output_var is None:
             output_var = self.outputs[0]
         if output_var_value is None:
             output_var_value = random.choice(self.values[output_var])
+
 
         def create_input(var, value, input={}):
             parent_values = random.choice(self.equiv_classes[var][value])
