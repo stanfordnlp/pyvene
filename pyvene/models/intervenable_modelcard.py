@@ -1,7 +1,12 @@
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '../../../DoRA/image_video_text_understanding/VL-T5/src')))
+import multitask_model
+
 from .constants import *
 from .llama.modelings_intervenable_llama import *
-from .mistral.modellings_intervenable_mistral import *
-from .gemma.modelings_intervenable_gemma import *
+# from .mistral.modellings_intervenable_mistral import *
+# from .gemma.modelings_intervenable_gemma import *
 from .gpt2.modelings_intervenable_gpt2 import *
 from .gpt_neo.modelings_intervenable_gpt_neo import *
 from .gpt_neox.modelings_intervenable_gpt_neox import *
@@ -10,7 +15,8 @@ from .gru.modelings_intervenable_gru import *
 from .blip.modelings_intervenable_blip import *
 from .blip.modelings_intervenable_blip_itm import *
 from .backpack_gpt2.modelings_intervenable_backpack_gpt2 import *
-from .llava.modelings_intervenable_llava import *
+# from .llava.modelings_intervenable_llava import *
+from .vlbart.modelings_intervenable_vlbart import *
 
 
 #########################################################################
@@ -42,16 +48,16 @@ type_to_module_mapping = {
     hf_models.llama.modeling_llama.LlamaModel: llama_type_to_module_mapping,
     hf_models.llama.modeling_llama.LlamaForCausalLM: llama_lm_type_to_module_mapping,
     hf_models.llama.modeling_llama.LlamaForSequenceClassification: llama_classifier_type_to_module_mapping,
-    hf_models.llava.modeling_llava.LlavaForConditionalGeneration: llava_type_to_module_mapping,
+    # hf_models.llava.modeling_llava.LlavaForConditionalGeneration: llava_type_to_module_mapping,
     hf_models.gpt_neo.modeling_gpt_neo.GPTNeoModel: gpt_neo_type_to_module_mapping,
     hf_models.gpt_neo.modeling_gpt_neo.GPTNeoForCausalLM: gpt_neo_lm_type_to_module_mapping,
     hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXModel: gpt_neox_type_to_module_mapping,
     hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXForCausalLM: gpt_neox_lm_type_to_module_mapping,
-    hf_models.mistral.modeling_mistral.MistralModel: mistral_type_to_module_mapping,
-    hf_models.mistral.modeling_mistral.MistralForCausalLM: mistral_lm_type_to_module_mapping,
-    hf_models.gemma.modeling_gemma.GemmaModel: gemma_type_to_module_mapping,
-    hf_models.gemma.modeling_gemma.GemmaForCausalLM: gemma_lm_type_to_module_mapping,
-    hf_models.gemma.modeling_gemma.GemmaForSequenceClassification: gemma_classifier_type_to_module_mapping,
+    # hf_models.mistral.modeling_mistral.MistralModel: mistral_type_to_module_mapping,
+    # hf_models.mistral.modeling_mistral.MistralForCausalLM: mistral_lm_type_to_module_mapping,
+    # hf_models.gemma.modeling_gemma.GemmaModel: gemma_type_to_module_mapping,
+    # hf_models.gemma.modeling_gemma.GemmaForCausalLM: gemma_lm_type_to_module_mapping,
+    # hf_models.gemma.modeling_gemma.GemmaForSequenceClassification: gemma_classifier_type_to_module_mapping,
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_module_mapping,
     hf_models.blip.modeling_blip.BlipForImageTextRetrieval: blip_itm_type_to_module_mapping,
     BlipWrapper: blip_wrapper_type_to_module_mapping,
@@ -62,6 +68,7 @@ type_to_module_mapping = {
     GRULMHeadModel: gru_lm_type_to_module_mapping,
     GRUForClassification: gru_classifier_type_to_module_mapping,
     BackpackGPT2LMHeadModel: backpack_gpt2_lm_type_to_module_mapping,
+    multitask_model.VLBartMultiTask: vlbart_multitask_lm_type_to_module_mapping,
     # new model type goes here after defining the model files
 }
 
@@ -73,16 +80,16 @@ type_to_dimension_mapping = {
     hf_models.llama.modeling_llama.LlamaModel: llama_type_to_dimension_mapping,
     hf_models.llama.modeling_llama.LlamaForCausalLM: llama_lm_type_to_dimension_mapping,
     hf_models.llama.modeling_llama.LlamaForSequenceClassification: llama_classifier_type_to_dimension_mapping,
-    hf_models.llava.modeling_llava.LlavaForConditionalGeneration: llava_type_to_dimension_mapping,
+    # hf_models.llava.modeling_llava.LlavaForConditionalGeneration: llava_type_to_dimension_mapping,
     hf_models.gpt_neo.modeling_gpt_neo.GPTNeoModel: gpt_neo_type_to_dimension_mapping,
     hf_models.gpt_neo.modeling_gpt_neo.GPTNeoForCausalLM: gpt_neo_lm_type_to_dimension_mapping,
     hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXModel: gpt_neox_type_to_dimension_mapping,
     hf_models.gpt_neox.modeling_gpt_neox.GPTNeoXForCausalLM: gpt_neox_lm_type_to_dimension_mapping,
-    hf_models.mistral.modeling_mistral.MistralModel: mistral_type_to_dimension_mapping,
-    hf_models.mistral.modeling_mistral.MistralForCausalLM: mistral_lm_type_to_dimension_mapping,
-    hf_models.gemma.modeling_gemma.GemmaModel: gemma_type_to_dimension_mapping,
-    hf_models.gemma.modeling_gemma.GemmaForCausalLM: gemma_lm_type_to_dimension_mapping,
-    hf_models.gemma.modeling_gemma.GemmaForSequenceClassification: gemma_classifier_type_to_dimension_mapping,
+    # hf_models.mistral.modeling_mistral.MistralModel: mistral_type_to_dimension_mapping,
+    # hf_models.mistral.modeling_mistral.MistralForCausalLM: mistral_lm_type_to_dimension_mapping,
+    # hf_models.gemma.modeling_gemma.GemmaModel: gemma_type_to_dimension_mapping,
+    # hf_models.gemma.modeling_gemma.GemmaForCausalLM: gemma_lm_type_to_dimension_mapping,
+    # hf_models.gemma.modeling_gemma.GemmaForSequenceClassification: gemma_classifier_type_to_dimension_mapping,
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_dimension_mapping,
     hf_models.blip.modeling_blip.BlipForImageTextRetrieval: blip_itm_type_to_dimension_mapping,
     BlipWrapper: blip_wrapper_type_to_dimension_mapping,
@@ -93,6 +100,7 @@ type_to_dimension_mapping = {
     GRULMHeadModel: gru_lm_type_to_dimension_mapping,
     GRUForClassification: gru_classifier_type_to_dimension_mapping,
     BackpackGPT2LMHeadModel: backpack_gpt2_lm_type_to_dimension_mapping,
+    multitask_model.VLBartMultiTask: vlbart_multitask_lm_type_to_dimension_mapping,
     # new model type goes here after defining the model files
 }
 #########################################################################
