@@ -1498,6 +1498,7 @@ class IntervenableModel(nn.Module):
         intervene_on_prompt: bool = False,
         subspaces: Optional[List] = None,
         output_original_output: Optional[bool] = False,
+        model = None,
         **kwargs,
     ):
         """
@@ -1545,7 +1546,7 @@ class IntervenableModel(nn.Module):
         sources = self._broadcast_sources(sources)
         activations_sources = self._broadcast_source_representations(activations_sources)
         subspaces = self._broadcast_subspaces(get_batch_size(base), subspaces)
-        
+
         self._input_validation(
             base,
             sources,
@@ -1555,13 +1556,17 @@ class IntervenableModel(nn.Module):
         )
         
         base_outputs = None
+
+        if model is None:
+            model = self.model
         if output_original_output:
             # returning un-intervened output
-            base_outputs = self.model.generate(**base, **kwargs)
+            base_outputs = model.generate(**base, **kwargs)
 
         set_handlers_to_remove = None
         try:
             # intervene
+            
             if self.mode == "parallel":
                 set_handlers_to_remove = (
                     self._wait_for_forward_with_parallel_intervention(
@@ -1582,7 +1587,7 @@ class IntervenableModel(nn.Module):
                 )
             
             # run intervened generate
-            counterfactual_outputs = self.model.generate(
+            counterfactual_outputs = model.generate(
                 **base, **kwargs
             )
             
@@ -1720,10 +1725,10 @@ class IntervenableModel(nn.Module):
 
         return batched_location_dict
     
-    def train(self):
+    def train(self, val=True):
         self.model.train()
     
-    def eval(self):
+    def eval(self, val=True):
         self.model.eval()
 
     def train_alignment(

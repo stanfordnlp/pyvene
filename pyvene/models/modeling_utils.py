@@ -287,7 +287,7 @@ def gather_neurons(tensor_input, unit, unit_locations_as_list):
     else:
         unit_locations = torch.tensor(
             unit_locations_as_list, device=tensor_input.device
-        )
+        ).clone().detach()
         tensor_output = torch.gather(
             tensor_input,
             1,
@@ -339,7 +339,7 @@ def scatter_neurons(
     else:
         unit_locations = torch.tensor(
             unit_locations_as_list, device=tensor_input.device
-        )
+        ).clone().detach()
 
     # if tensor is splitted, we need to get the start and end indices
     meta_component = output_to_subcomponent(
