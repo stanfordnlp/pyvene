@@ -34,6 +34,7 @@ class CasualModelTestCase(unittest.TestCase):
             self.parents, 
             self.functions
         )
+        self.causal_model.generate_equiv_classes()
 
     def test_initialization(self):
         inputs = ['A', 'B']

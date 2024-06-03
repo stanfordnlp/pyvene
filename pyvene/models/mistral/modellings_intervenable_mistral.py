@@ -51,7 +51,7 @@ mistral_type_to_dimension_mapping = {
 }
 
 
-"""llama model with LM head"""
+"""mistral model with LM head"""
 mistral_lm_type_to_module_mapping = {}
 for k, v in mistral_type_to_module_mapping.items():
     mistral_lm_type_to_module_mapping[k] = (f"model.{v[0]}", v[1])
@@ -68,11 +68,11 @@ def create_mistral(
 
     config = AutoConfig.from_pretrained(name, cache_dir=cache_dir)
     tokenizer = AutoTokenizer.from_pretrained(name, cache_dir=cache_dir)
-    llama = AutoModelForCausalLM.from_pretrained(
+    mistral = AutoModelForCausalLM.from_pretrained(
         name,
         config=config,
         cache_dir=cache_dir,
         torch_dtype=torch.bfloat16,  # save memory
     )
     print("loaded model")
-    return config, tokenizer, llama
+    return config, tokenizer, mistral
