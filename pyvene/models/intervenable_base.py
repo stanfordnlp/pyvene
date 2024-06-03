@@ -1715,8 +1715,8 @@ class IntervenableModel(nn.Module):
 
         return batched_location_dict
     
-    def train(self):
-        self.model.train()
+    def train(self, mode=True):
+        self.model.train(mode=mode)
     
     def eval(self):
         self.model.eval()
