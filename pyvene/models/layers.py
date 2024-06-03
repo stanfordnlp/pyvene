@@ -22,8 +22,8 @@ class RotateLayer(torch.nn.Module):
         # we don't need init if the saved checkpoint has a nice
         # starting point already.
         # you can also study this if you want, but it is our focus.
-        if init_orth:
-            torch.nn.init.orthogonal_(weight)
+        # if init_orth:
+        #     torch.nn.init.orthogonal_(weight)
         self.weight = torch.nn.Parameter(weight, requires_grad=True)
 
     def forward(self, x):
@@ -37,7 +37,7 @@ class LowRankRotateLayer(torch.nn.Module):
         super().__init__()
         # n > m
         self.weight = torch.nn.Parameter(torch.empty(n, m), requires_grad=True)
-        torch.nn.init.orthogonal_(self.weight)
+        # torch.nn.init.orthogonal_(self.weight)
 
     def forward(self, x):
         return torch.matmul(x.to(self.weight.dtype), self.weight)
@@ -50,7 +50,7 @@ class SubspaceLowRankRotateLayer(torch.nn.Module):
         super().__init__()
         # n > m
         self.weight = torch.nn.Parameter(torch.empty(n, m), requires_grad=True)
-        torch.nn.init.orthogonal_(self.weight)
+        # torch.nn.init.orthogonal_(self.weight)
 
     def forward(self, x, l, r):
         return torch.matmul(x.to(self.weight.dtype), self.weight[:, l:r])
