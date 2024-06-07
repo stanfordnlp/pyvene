@@ -19,16 +19,16 @@ gpt_neo_type_to_module_mapping = {
     "mlp_activation": ("h[%s].mlp.act", CONST_OUTPUT_HOOK),
     "mlp_output": ("h[%s].mlp", CONST_OUTPUT_HOOK),
     "mlp_input": ("h[%s].mlp", CONST_INPUT_HOOK),
-    "attention_value_output": ("h[%s].attn.out_proj", CONST_INPUT_HOOK),
-    "head_attention_value_output": ("h[%s].attn.out_proj", CONST_INPUT_HOOK, (split_head_and_permute, "n_head")),
+    "attention_value_output": ("h[%s].attn.attention.out_proj", CONST_INPUT_HOOK),
+    "head_attention_value_output": ("h[%s].attn.attention.out_proj", CONST_INPUT_HOOK, (split_head_and_permute, "n_head")),
     "attention_output": ("h[%s].attn", CONST_OUTPUT_HOOK),
     "attention_input": ("h[%s].attn", CONST_INPUT_HOOK),
-    "query_output": ("h[%s].attn.q_proj", CONST_OUTPUT_HOOK),
-    "key_output": ("h[%s].attn.k_proj", CONST_OUTPUT_HOOK),
-    "value_output": ("h[%s].attn.v_proj", CONST_OUTPUT_HOOK),
-    "head_query_output": ("h[%s].attn.q_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_head")),
-    "head_key_output": ("h[%s].attn.k_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_head")),
-    "head_value_output": ("h[%s].attn.v_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_head")),
+    "query_output": ("h[%s].attn.attention.q_proj", CONST_OUTPUT_HOOK),
+    "key_output": ("h[%s].attn.attention.k_proj", CONST_OUTPUT_HOOK),
+    "value_output": ("h[%s].attn.attention.v_proj", CONST_OUTPUT_HOOK),
+    "head_query_output": ("h[%s].attn.attention.q_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_head")),
+    "head_key_output": ("h[%s].attn.attention.k_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_head")),
+    "head_value_output": ("h[%s].attn.attention.v_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_head")),
 }
 
 
@@ -67,11 +67,13 @@ gpt_neo_lm_type_to_dimension_mapping = gpt_neo_type_to_dimension_mapping
 def create_gpt_neo(
     name="roneneldan/TinyStories-33M", cache_dir=None
 ):
-    """Creates a GPT2 model, config, and tokenizer from the given name and revision"""
+    """Creates a GPTNeo model, config, and tokenizer from the given name and revision"""
     from transformers import GPTNeoForCausalLM, GPT2Tokenizer, GPTNeoConfig
 
     config = GPTNeoConfig.from_pretrained(name)
     tokenizer = GPT2Tokenizer.from_pretrained("EleutherAI/gpt-neo-125M")  # not sure
     gpt_neo = GPTNeoForCausalLM.from_pretrained(name)
-    print("loaded model")
+    assert isinstance(gpt_neo, GPTNeoForCausalLM)
+
+    print(f"loaded GPTNeo model {name}")
     return config, tokenizer, gpt_neo

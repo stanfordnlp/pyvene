@@ -1,12 +1,13 @@
 import unittest
 from ..utils import *
+from transformers import GPT2Config
 
 
 class InterventionWithGPT2TestCase(unittest.TestCase):
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         print("=== Test Suite: InterventionWithGPT2TestCase ===")
-        self.config, self.tokenizer, self.gpt2 = create_gpt2_lm(
+        cls.config, cls.tokenizer, cls.gpt2 = create_gpt2_lm(
             config=GPT2Config(
                 n_embd=24,
                 attn_pdrop=0.0,
@@ -20,8 +21,8 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                 vocab_size=10,
             )
         )
-        self.vanilla_block_output_config = IntervenableConfig(
-            model_type=type(self.gpt2),
+        cls.vanilla_block_output_config = IntervenableConfig(
+            model_type=type(cls.gpt2),
             representations=[
                 RepresentationConfig(
                     0,
@@ -32,10 +33,10 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
             ],
             intervention_types=VanillaIntervention,
         )
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.gpt2 = self.gpt2.to(self.device)
+        cls.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        cls.gpt2 = cls.gpt2.to(cls.device)
 
-        self.nonhead_streams = [
+        cls.nonhead_streams = [
             "block_output",
             "block_input",
             "mlp_activation",
@@ -49,7 +50,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
             "value_output",
         ]
 
-        self.head_streams = [
+        cls.head_streams = [
             "head_attention_value_output",
             "head_query_output",
             "head_key_output",
@@ -141,7 +142,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
         Multiple head and position with vanilla intervention.
         """
         for stream in self.head_streams:
-            print(f"testing stream: {stream} with multiple heads positions")
+            print(f"testing stream: {stream} with multiple heads and positions")
             self._test_with_head_position_intervention(
                 intervention_layer=random.randint(0, 3),
                 intervention_stream=stream,

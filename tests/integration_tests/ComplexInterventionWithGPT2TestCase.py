@@ -1,12 +1,13 @@
 import unittest
 from ..utils import *
+from transformers import GPT2Config
 
 
 class ComplexInterventionWithGPT2TestCase(unittest.TestCase):
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         print("=== Test Suite: VanillaInterventionWithTransformerTestCase ===")
-        self.config, self.tokenizer, self.gpt2 = create_gpt2_lm(
+        cls.config, cls.tokenizer, cls.gpt2 = create_gpt2_lm(
             config=GPT2Config(
                 n_embd=24,
                 attn_pdrop=0.0,
@@ -20,10 +21,10 @@ class ComplexInterventionWithGPT2TestCase(unittest.TestCase):
                 vocab_size=10,
             )
         )
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.gpt2 = self.gpt2.to(self.device)
+        cls.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        cls.gpt2 = cls.gpt2.to(cls.device)
 
-        self.nonhead_streams = [
+        cls.nonhead_streams = [
             "block_output",
             "block_input",
             "mlp_activation",
@@ -37,7 +38,7 @@ class ComplexInterventionWithGPT2TestCase(unittest.TestCase):
             "value_output",
         ]
 
-        self.head_streams = [
+        cls.head_streams = [
             "head_attention_value_output",
             "head_query_output",
             "head_key_output",
