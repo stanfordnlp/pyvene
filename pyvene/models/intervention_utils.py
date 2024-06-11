@@ -1,11 +1,13 @@
 import json
 import torch
 import pprint
+from typing import Optional
 
 class InterventionState(object):
     def __init__(self, key, **kwargs):
         self.key = key
         self._timestep = [0, 0]
+        self.last_token: Optional[torch.LongTensor] = None
 
     @property
     def getter_timestep(self):
@@ -25,6 +27,7 @@ class InterventionState(object):
 
     def reset(self):
         self._timestep = [0, 0]
+        self.last_token = None
 
     def __repr__(self):
         return pprint.pformat(self.__dict__, indent=4)

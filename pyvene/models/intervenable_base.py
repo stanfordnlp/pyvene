@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from transformers.utils import ModelOutput
 from tqdm import tqdm, trange
 
-TIMESTEP_SELECTOR_TYPE = List[Callable[[int, torch.Tensor], bool]]
+TIMESTEP_SELECTOR_TYPE = List[Callable[[int, torch.Tensor, Optional[torch.LongTensor]], bool]]
 
 
 @dataclass
@@ -52,6 +52,7 @@ class IntervenableModel(nn.Module):
         )  # all sequence models need state to generate, but only the time indices
         self.config.model_type = str(type(model))  # backfill
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
+        self._use_token_state = kwargs["use_token_state"] if "use_token_state" in kwargs else False
 
         self.model_has_grad = False
         if self.use_fast:
@@ -880,13 +881,16 @@ class IntervenableModel(nn.Module):
                             [0]
                             if timestep_selector != None
                             and timestep_selector[key_i](
-                                state.setter_timestep, output[i]
+                                state.setter_timestep, output[i], state.last_token[i]
                             )
                             else None
                         )
                         for i in range(len(output))
                     ]
                 )
+
+                if int_unit_loc[0] and int_unit_loc[0][0] == 0:
+                    print(state.last_token)
 
                 selected_output = self._gather_intervention_output(
                     output, key, int_unit_loc
@@ -1509,6 +1513,14 @@ class IntervenableModel(nn.Module):
             activations_sources,
             subspaces,
         )
+
+        # token identity hook: saves last token ID in the forward pass to intervention states
+        if self._use_token_state:
+            def token_hook(module, input, output):
+                for key in self.interventions.keys():
+                    self._intervention_state[key].last_token = input[0][:, -1]
+
+            self.model.transformer.wte.register_forward_hook(token_hook)
 
         base_outputs = None
         if output_original_output:
