@@ -19,19 +19,21 @@ llava_type_to_module_mapping = {
     "mlp_output": ("language_model.model.layers[%s].mlp", CONST_OUTPUT_HOOK),
     "mlp_input": ("language_model.model.layers[%s].mlp", CONST_INPUT_HOOK),
     "attention_value_output": ("language_model.model.layers[%s].self_attn.o_proj", CONST_INPUT_HOOK),
-    "head_attention_value_output": ("language_model.model.layers[%s].self_attn.o_proj", CONST_INPUT_HOOK),
+    "head_attention_value_output": ("language_model.model.layers[%s].self_attn.o_proj", CONST_INPUT_HOOK, (split_head_and_permute, "n_head")),
     "attention_output": ("language_model.model.layers[%s].self_attn", CONST_OUTPUT_HOOK),
     "attention_input": ("language_model.model.layers[%s].self_attn", CONST_INPUT_HOOK),
     "query_output": ("language_model.model.layers[%s].self_attn.q_proj", CONST_OUTPUT_HOOK),
     "key_output": ("language_model.model.layers[%s].self_attn.k_proj", CONST_OUTPUT_HOOK),
     "value_output": ("language_model.model.layers[%s].self_attn.v_proj", CONST_OUTPUT_HOOK),
-    "head_query_output": ("language_model.model.layers[%s].self_attn.q_proj", CONST_OUTPUT_HOOK),
-    "head_key_output": ("language_model.model.layers[%s].self_attn.k_proj", CONST_OUTPUT_HOOK),
-    "head_value_output": ("language_model.model.layers[%s].self_attn.v_proj", CONST_OUTPUT_HOOK),
+    "head_query_output": ("language_model.model.layers[%s].self_attn.q_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_head")),
+    "head_key_output": ("language_model.model.layers[%s].self_attn.k_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_kv_head")),
+    "head_value_output": ("language_model.model.layers[%s].self_attn.v_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_kv_head")),
 }
 
 
 llava_type_to_dimension_mapping = {
+    "n_head": ("text_config.num_attention_heads",),
+    "n_kv_head": ("text_config.num_key_value_heads",),
     "block_input": ("text_config.hidden_size",),
     "block_output": ("text_config.hidden_size",),
     "mlp_activation": ("text_config.intermediate_size",),
@@ -53,7 +55,7 @@ llava_type_to_dimension_mapping = {
 """llava model with LM head"""
 llava_lm_type_to_module_mapping = {}
 for k, v in llava_type_to_module_mapping.items():
-    llava_lm_type_to_module_mapping[k] = (f"model.{v[0]}", v[1])
+    llava_lm_type_to_module_mapping[k] = (f"model.{v[0]}", ) + v[1:]
 
 
 llava_lm_type_to_dimension_mapping = llava_type_to_dimension_mapping
@@ -62,7 +64,7 @@ llava_lm_type_to_dimension_mapping = llava_type_to_dimension_mapping
 """llava model with classifier head"""
 llava_classifier_type_to_module_mapping = {}
 for k, v in llava_type_to_module_mapping.items():
-    llava_classifier_type_to_module_mapping[k] = (f"model.{v[0]}", v[1])
+    llava_classifier_type_to_module_mapping[k] = (f"model.{v[0]}", ) + v[1:]
 
 
 llava_classifier_type_to_dimension_mapping = llava_type_to_dimension_mapping
