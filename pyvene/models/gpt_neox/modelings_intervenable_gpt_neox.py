@@ -33,7 +33,7 @@ gpt_neox_type_to_module_mapping = {
 
 
 gpt_neox_type_to_dimension_mapping = {
-    "n_head": "num_attention_heads",
+    "n_head": ("num_attention_heads",),
     "block_input": ("hidden_size",),
     "block_output": ("hidden_size",),
     "mlp_activation": (
@@ -58,7 +58,7 @@ gpt_neox_type_to_dimension_mapping = {
 """gpt_neox model with LM head"""
 gpt_neox_lm_type_to_module_mapping = {}
 for k, v in gpt_neox_type_to_module_mapping.items():
-    gpt_neox_lm_type_to_module_mapping[k] = (f"gpt_neox.{v[0]}", v[1])
+    gpt_neox_lm_type_to_module_mapping[k] = (f"gpt_neox.{v[0]}", ) + v[1:]
 
 
 gpt_neox_lm_type_to_dimension_mapping = gpt_neox_type_to_dimension_mapping

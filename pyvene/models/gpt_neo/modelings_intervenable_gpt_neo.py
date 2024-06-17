@@ -58,7 +58,7 @@ gpt_neo_type_to_dimension_mapping = {
 """gpt_neo model with LM head"""
 gpt_neo_lm_type_to_module_mapping = {}
 for k, v in gpt_neo_type_to_module_mapping.items():
-    gpt_neo_lm_type_to_module_mapping[k] = (f"transformer.{v[0]}", v[1])
+    gpt_neo_lm_type_to_module_mapping[k] = (f"transformer.{v[0]}", ) + v[1:]
 
 
 gpt_neo_lm_type_to_dimension_mapping = gpt_neo_type_to_dimension_mapping

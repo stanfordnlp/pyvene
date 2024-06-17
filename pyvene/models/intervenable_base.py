@@ -366,13 +366,14 @@ class IntervenableModel(nn.Module):
         # Freeze all intervention weights
         pass
 
-    def set_device(self, device):
+    def set_device(self, device, set_model=True):
         """
         Set device of interventions and the model
         """
         for k, v in self.interventions.items():
             v[0].to(device)
-        self.model.to(device)
+        if set_model:
+            self.model.to(device)
 
     def get_device(self):
         """
@@ -1739,8 +1740,8 @@ class IntervenableModel(nn.Module):
 
         return batched_location_dict
     
-    def train(self):
-        self.model.train()
+    def train(self, mode=True):
+        self.model.train(mode=mode)
     
     def eval(self):
         self.model.eval()
