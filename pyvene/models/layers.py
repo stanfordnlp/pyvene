@@ -56,3 +56,32 @@ class SubspaceLowRankRotateLayer(torch.nn.Module):
 
     def forward(self, x, l, r):
         return torch.matmul(x.to(self.weight.dtype), self.weight[:, l:r])
+
+
+class AutoencoderLayer(torch.nn.Module):
+  """An autoencoder with a single-layer encoder and single-layer decoder."""
+  def __init__(self, embed_dim, latent_dim, kwargs):
+    super().__init__()
+    self.encoder = torch.nn.Sequential(
+        torch.nn.Linear(embed_dim, latent_dim, bias=True),
+        torch.nn.ReLU())
+    self.decoder = torch.nn.Sequential(
+        torch.nn.Linear(latent_dim, embed_dim, bias=True))
+
+  def encode(self, x):
+    x = x.to(self.encoder[0].weight.dtype)
+    x = x - self.decoder[0].bias
+    latent = self.encoder(x)
+    return latent
+
+  def decode(self, latent):
+    return self.decoder(latent)
+
+  def forward(self, base, return_latent=False):
+    base_type = base.dtype
+    base = base.to(self.encoder[0].weight.dtype)
+    latent = self.encode(base)
+    base_reconstruct = self.decode(latent)
+    if not return_latent:
+      return base_reconstruct.to(base_type)
+    return {'latent': latent, 'output': base_reconstruct}

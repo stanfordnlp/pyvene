@@ -556,4 +556,23 @@ class NoiseIntervention(ConstantSourceIntervention, LocalistRepresentationInterv
 
     def __str__(self):
         return f"NoiseIntervention()"
-    
+ 
+
+class AutoencoderIntervention(TrainableIntervention):
+  """Intervene in the latent space of an autoencoder."""
+
+  def __init__(self, **kwargs):
+    super().__init__(**kwargs)
+    self.autoencoder = kwargs['autoencoder']
+
+  def forward(self, base, source, subspaces=None):
+    base_dtype = base.dtype
+    base = base.to(self.autoencoder.encoder[0].weight.dtype)
+    base_latent = self.autoencoder.encode(base)
+    source_latent = self.autoencoder.encode(source)
+    base_latent[..., self.interchange_dim] = source_latent[..., self.interchange_dim]
+    inv_output = self.autoencoder.decode(base_latent)
+    return inv_output.to(base_dtype)
+
+  def __str__(self):
+    return f"AutoencoderIntervention()"
