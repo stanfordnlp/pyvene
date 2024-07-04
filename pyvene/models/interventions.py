@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from abc import ABC, abstractmethod
 
-from .layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotateLayer
+from .layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotateLayer, AutoencoderLayer
 from .basic_utils import sigmoid_boundary
 from .intervention_utils import _can_use_fast, _do_intervention_by_swap
 
@@ -54,7 +54,8 @@ class Intervention(torch.nn.Module):
         self.register_buffer('source_representation', source_representation)
                 
     def set_interchange_dim(self, interchange_dim):
-        if isinstance(interchange_dim, int):
+        if not isinstance(interchange_dim, torch.Tensor):
+            # Convert integer or list into torch.Tensor.
             self.interchange_dim = torch.tensor(interchange_dim)
         else:
             self.interchange_dim = interchange_dim
@@ -556,4 +557,28 @@ class NoiseIntervention(ConstantSourceIntervention, LocalistRepresentationInterv
 
     def __str__(self):
         return f"NoiseIntervention()"
-    
+ 
+
+class AutoencoderIntervention(TrainableIntervention):
+    """Intervene in the latent space of an autoencoder."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if "latent_dim" not in kwargs:
+          raise ValueError('Missing latent_dim in kwargs.')
+        if "embed_dim" in kwargs:
+          self.embed_dim = torch.tensor(kwargs["embed_dim"])
+        self.autoencoder = AutoencoderLayer(
+                self.embed_dim, kwargs["latent_dim"])
+
+    def forward(self, base, source, subspaces=None):
+        base_dtype = base.dtype
+        base = base.to(self.autoencoder.encoder[0].weight.dtype)
+        base_latent = self.autoencoder.encode(base)
+        source_latent = self.autoencoder.encode(source)
+        base_latent[..., self.interchange_dim] = source_latent[..., self.interchange_dim]
+        inv_output = self.autoencoder.decode(base_latent)
+        return inv_output.to(base_dtype)
+
+    def __str__(self):
+        return f"AutoencoderIntervention()"
