@@ -27,6 +27,7 @@ from .models.interventions import DistributedRepresentationIntervention
 from .models.interventions import SourcelessIntervention
 from .models.interventions import NoiseIntervention
 from .models.interventions import SigmoidMaskIntervention
+from .models.interventions import AutoencoderIntervention
 
 
 # Utils

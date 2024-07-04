@@ -124,7 +124,7 @@ class BaseModel(nn.Module):
                 all_metadata["embed_dim"] = component_dim
                 all_metadata["use_fast"] = self.use_fast
                 intervention = intervention_function(
-                    **all_metadata 
+                    **all_metadata
                 )
                 
             if representation.intervention_link_key in self._intervention_pointers:
