@@ -1,6 +1,6 @@
 # Generic APIs
 from .data_generators.causal_model import CausalModel
-from .models.intervenable_base import IntervenableModel
+from .models.intervenable_base import IntervenableModel, IntervenableNdifModel
 from .models.configuration_intervenable_model import IntervenableConfig
 from .models.configuration_intervenable_model import RepresentationConfig
 

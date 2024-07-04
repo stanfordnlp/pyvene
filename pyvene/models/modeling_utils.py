@@ -129,7 +129,7 @@ def get_dimension_by_component(model_type, model_config, component) -> int:
     assert False
 
 
-def get_module_hook(model, representation) -> nn.Module:
+def get_module_hook(model, representation, backend="native") -> nn.Module:
     """Render the intervening module with a hook."""
     if (
         get_internal_model_type(model) in type_to_module_mapping and
@@ -157,7 +157,11 @@ def get_module_hook(model, representation) -> nn.Module:
             hook_type = CONST_OUTPUT_HOOK
 
     module = getattr_for_torch_module(model, parameter_name)
-    module_hook = getattr(module, hook_type)
+    if backend == "native":
+        module_hook = getattr(module, hook_type)
+    elif backend == "ndif":
+        # we assume the input v.s. output is handled outside
+        module_hook = module
 
     return module_hook
 
