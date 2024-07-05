@@ -87,7 +87,7 @@ pv_gpt2_ndif = pv.build_intervenable_model({
     "component": "transformer.h[10].attn.attn_dropout.input",
     "intervention": pv.CollectIntervention()}, model=gpt2_ndif, remote=False)
 ```
-Then, you can use `pv_gpt2_ndif` as your regular intervenable model. If you specify `remote=True` (this is still under construction), then everything will be executed remotely on NDIF server with **zero** GPU resource required! We provide example code in our main tutorial (https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb) [**Main _pyvene_ 101**].
+Then, you can use `pv_gpt2_ndif` as your regular intervenable model. If you specify `remote=True` (this is still under construction), then everything will be executed remotely on NDIF server with **zero** GPU resource required! We provide example code in our main tutorial [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb) [**Main _pyvene_ 101**].
 
 
 ## _IntervenableModel_ Loaded from HuggingFace Directly
