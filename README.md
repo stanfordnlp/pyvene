@@ -9,8 +9,6 @@
 <a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/v/pyvene?color=red"></img></a> 
 <a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/l/pyvene?color=blue"></img></a>
 
-*This is a beta release (public testing).*
-
 # A Library for _Understanding_ and _Improving_ PyTorch Models via Interventions
 Interventions on model-internal states are fundamental operations in many areas of AI, including model editing, steering, robustness, and interpretability. To facilitate such research, we introduce **pyvene**, an open-source Python library that supports customizable interventions on a range of different PyTorch modules. **pyvene** supports complex intervention schemes with an intuitive configuration format, and its interventions can be static or include trainable parameters.
 
@@ -102,6 +100,23 @@ _, iti_response_shared = pv_model.generate(prompt, max_new_tokens=64, do_sample=
 print(tokenizer.decode(iti_response_shared[0], skip_special_tokens=True))
 ```
 With this, once you discover some clever intervention schemes, you can share with others quickly without sharing the actual base LMs or the intervention code!
+
+
+## _IntervenableModel_ using [NDIF](https://ndif.us/) Backend for Remote Intervention Calls
+We are working with the [NDIF](https://ndif.us/) team to support remote model intervention calls without letting the users to download/host their own large language models! This is still in the development mode. But, all you have to do is use NDIF library to load their models and use pyvene as before! Here is an example:
+
+```py
+from nnsight import LanguageModel
+# load nnsight.LanguageModel as your model to wrap with pyvene
+gpt2_ndif = LanguageModel('openai-community/gpt2', device_map='cpu')
+tokenizer = AutoTokenizer.from_pretrained('openai-community/gpt2')
+
+# pyvene provides pv.build_intervenable_model as the generic model builder
+pv_gpt2_ndif = pv.build_intervenable_model({
+    "component": "transformer.h[10].attn.attn_dropout.input",
+    "intervention": pv.CollectIntervention()}, model=gpt2_ndif, remote=False)
+```
+Then you can use `pv_gpt2_ndif` as your intervenable model. If you specify `remote=True` (still under construction), then everything will be executed remotely on NDIF server with **zero** GPU resource required!
 
 
 ## _IntervenableModel_ as Regular _nn.Module_
