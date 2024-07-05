@@ -15,7 +15,7 @@ Interventions on model-internal states are fundamental operations in many areas 
 **Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb) [**Main _pyvene_ 101**]  
 
 ## Installation
-Since we are currently beta-testing, it is recommended to install pyvene by,
+Since the library is evolving, it is recommended to install pyvene by,
 ```bash
 git clone git@github.com:stanfordnlp/pyvene.git
 ```
