@@ -73,6 +73,23 @@ tensor([[[ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
        device='cuda:0')
 ```
 
+## Remote Intervention Calls with _IntervenableModel_ on [NDIF](https://ndif.us/) Backend
+We are working with the [NDIF](https://ndif.us/) team to support remote intervention calls without asking the users to download or host their own LLMs! This is still under construction. All you have to do is to use NDIF library to load your model and use pyvene to wrap it (i.e., pyvene will automatically recognize NDIF models)! Here is an example:
+
+```py
+from nnsight import LanguageModel
+# load nnsight.LanguageModel as your model to wrap with pyvene
+gpt2_ndif = LanguageModel('openai-community/gpt2', device_map='cpu')
+tokenizer = AutoTokenizer.from_pretrained('openai-community/gpt2')
+
+# pyvene provides pv.build_intervenable_model as the generic model builder
+pv_gpt2_ndif = pv.build_intervenable_model({
+    "component": "transformer.h[10].attn.attn_dropout.input",
+    "intervention": pv.CollectIntervention()}, model=gpt2_ndif, remote=False)
+```
+Then, you can use `pv_gpt2_ndif` as your regular intervenable model. If you specify `remote=True` (this is still under construction), then everything will be executed remotely on NDIF server with **zero** GPU resource required! We provide example code in our main tutorial (https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb) [**Main _pyvene_ 101**].
+
+
 ## _IntervenableModel_ Loaded from HuggingFace Directly
 The following codeblock can reproduce [honest_llama-2 chat](https://github.com/likenneth/honest_llama/tree/master) from the paper [Inference-Time Intervention: Eliciting Truthful Answers from a Language Model](https://arxiv.org/abs/2306.03341). The added activations are only **~0.14MB** on disk!
 
@@ -100,23 +117,6 @@ _, iti_response_shared = pv_model.generate(prompt, max_new_tokens=64, do_sample=
 print(tokenizer.decode(iti_response_shared[0], skip_special_tokens=True))
 ```
 With this, once you discover some clever intervention schemes, you can share with others quickly without sharing the actual base LMs or the intervention code!
-
-
-## _IntervenableModel_ using [NDIF](https://ndif.us/) Backend for Remote Intervention Calls
-We are working with the [NDIF](https://ndif.us/) team to support remote model intervention calls without letting the users to download/host their own large language models! This is still in the development mode. But, all you have to do is use NDIF library to load their models and use pyvene as before! Here is an example:
-
-```py
-from nnsight import LanguageModel
-# load nnsight.LanguageModel as your model to wrap with pyvene
-gpt2_ndif = LanguageModel('openai-community/gpt2', device_map='cpu')
-tokenizer = AutoTokenizer.from_pretrained('openai-community/gpt2')
-
-# pyvene provides pv.build_intervenable_model as the generic model builder
-pv_gpt2_ndif = pv.build_intervenable_model({
-    "component": "transformer.h[10].attn.attn_dropout.input",
-    "intervention": pv.CollectIntervention()}, model=gpt2_ndif, remote=False)
-```
-Then you can use `pv_gpt2_ndif` as your intervenable model. If you specify `remote=True` (still under construction), then everything will be executed remotely on NDIF server with **zero** GPU resource required!
 
 
 ## _IntervenableModel_ as Regular _nn.Module_
