@@ -162,6 +162,7 @@ def get_module_hook(model, representation, backend="native") -> nn.Module:
     elif backend == "ndif":
         # we assume the input v.s. output is handled outside
         module_hook = module
+        return (module_hook, hook_type)
 
     return module_hook
 
@@ -243,7 +244,7 @@ def output_to_subcomponent(output, component, model_type, model_config):
     return subcomponent
 
 
-def gather_neurons(tensor_input, unit, unit_locations_as_list):
+def gather_neurons(tensor_input, unit, unit_locations_as_list, device=None):
     """Gather intervening neurons.
 
     :param tensor_input: tensors of shape (batch_size, sequence_length, ...) if
@@ -262,8 +263,10 @@ def gather_neurons(tensor_input, unit, unit_locations_as_list):
 
     if "." in unit:
         unit_locations = (
-            torch.tensor(unit_locations_as_list[0], device=tensor_input.device),
-            torch.tensor(unit_locations_as_list[1], device=tensor_input.device),
+            torch.tensor(unit_locations_as_list[0], 
+                         device=tensor_input.device if device is None else device),
+            torch.tensor(unit_locations_as_list[1], 
+                         device=tensor_input.device if device is None else device),
         )
         # we assume unit_locations is a tuple
         head_unit_locations = unit_locations[0]
@@ -290,8 +293,9 @@ def gather_neurons(tensor_input, unit, unit_locations_as_list):
         return tensor_output  # b, num_unit (h), num_unit (pos), d
     else:
         unit_locations = torch.tensor(
-            unit_locations_as_list, device=tensor_input.device
+            unit_locations_as_list, device="cpu"
         )
+
         tensor_output = torch.gather(
             tensor_input,
             1,
@@ -311,6 +315,7 @@ def scatter_neurons(
     model_type,
     model_config,
     use_fast,
+    device=None
 ):
     """Replace selected neurons in `tensor_input` by `replacing_tensor_input`.
 
@@ -337,12 +342,15 @@ def scatter_neurons(
     if "." in unit:
         # extra dimension for multi-level intervention
         unit_locations = (
-            torch.tensor(unit_locations_as_list[0], device=tensor_input.device),
-            torch.tensor(unit_locations_as_list[1], device=tensor_input.device),
+            torch.tensor(unit_locations_as_list[0], 
+                         device=tensor_input.device if device is None else device),
+            torch.tensor(unit_locations_as_list[1], 
+                         device=tensor_input.device if device is None else device),
         )
     else:
         unit_locations = torch.tensor(
-            unit_locations_as_list, device=tensor_input.device
+            unit_locations_as_list, 
+            device=tensor_input.device if device is None else device
         )
 
     # if tensor is splitted, we need to get the start and end indices

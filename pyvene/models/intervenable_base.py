@@ -1,8 +1,10 @@
 import json, logging, torch, types
+import nnsight
 import numpy as np
 from collections import OrderedDict
 from typing import List, Optional, Tuple, Union, Dict, Any
 
+from .constants import *
 from .basic_utils import *
 from .modeling_utils import *
 from .intervention_utils import *
@@ -469,14 +471,14 @@ class BaseModel(nn.Module):
             )
 
             # gather based on intervention locations
-            selected_output = original_output
-            # gather_neurons(
-            #     original_output,
-            #     self.representations[
-            #         representations_key
-            #     ].unit,
-            #     unit_locations,
-            # )
+            selected_output = gather_neurons(
+                original_output,
+                self.representations[
+                    representations_key
+                ].unit,
+                unit_locations,
+                device=self.get_device()
+            )
 
         return selected_output
 
@@ -518,6 +520,7 @@ class BaseModel(nn.Module):
             self.model_type,
             self.model_config,
             self.use_fast,
+            device=self.get_device()
         )
         
         return original_output
@@ -675,8 +678,10 @@ class IntervenableNdifModel(BaseModel):
     
     def __init__(self, config, model, **kwargs):
         super().__init__(config, model, "ndif", **kwargs)
-        logging.info(
-            f"We currently have very limited intervention support for NdifModel type."
+        # this is not used for now.
+        self.remote = kwargs["remote"] if "remote" in kwargs else False
+        logging.warning(
+            f"We currently have very limited intervention support for ndif backend."
         )
 
     def save(
@@ -737,13 +742,21 @@ class IntervenableNdifModel(BaseModel):
         """
         handlers = []
         for key_i, key in enumerate(keys):
-            intervention, module_hook = self.interventions[key]
+            intervention, (module_hook, hook_type) = self.interventions[key]
             if self._is_generation:
                 raise NotImplementedError("Generation is not implemented for ndif backend")
 
-            # only the first item will be accessed.
-            output = module_hook.output[0].save()
+            if hook_type == CONST_INPUT_HOOK:
+                output = module_hook.input
+            elif hook_type == CONST_OUTPUT_HOOK:
+                output = module_hook.output
 
+            # TODO: this could be faulty by assuming the types.
+            if isinstance(output.dtype, tuple) and isinstance(output.dtype[0], tuple):
+                output = output[0][0]
+            elif isinstance(output.dtype, tuple):
+                output = output[0]
+            
             if isinstance(intervention, SkipIntervention):
                 raise NotImplementedError("Skip intervention is not implemented for ndif backend")
             else:
@@ -755,7 +768,7 @@ class IntervenableNdifModel(BaseModel):
                     # WARNING: might be worth to check the below assertion at runtime,
                     # but commenting it out for now just to avoid confusion.
                     # assert key not in self.activations
-                    self.activations[key] = selected_output
+                    self.activations[key] = selected_output.save()
                 else:
                     raise NotImplementedError("Stateful models are not supported for ndif backend")
 
@@ -769,13 +782,12 @@ class IntervenableNdifModel(BaseModel):
         subspaces,
     ) -> HandlerList:
         """
-        Create a list of setter handlers that will set activations
+        Create a list of setter tracer that will set activations
         """
         self._tidy_stateful_activations()
         
-        handlers = []
         for key_i, key in enumerate(keys):
-            intervention, module_hook = self.interventions[key]
+            intervention, (module_hook, hook_type) = self.interventions[key]
             if unit_locations_base[0] is not None:
                 self._batched_setter_activation_select[key] = [
                     0 for _ in range(len(unit_locations_base[0]))
@@ -784,9 +796,17 @@ class IntervenableNdifModel(BaseModel):
             if self._is_generation:
                 raise NotImplementedError("Generation is not implemented for ndif backend")
 
-            # only the first item will be accessed
-            output = module_hook.output[0]
-            # .clone().save()
+            if hook_type == CONST_INPUT_HOOK:
+                output = module_hook.input
+            elif hook_type == CONST_OUTPUT_HOOK:
+                output = module_hook.output
+
+            # TODO: this could be faulty by assuming the types.
+            if isinstance(output.dtype, tuple) and isinstance(output.dtype[0], tuple):
+                output = output[0][0]
+            elif isinstance(output.dtype, tuple):
+                output = output[0]
+
             selected_output = self._gather_intervention_output(
                 output, key, unit_locations_base[key_i]
             )
@@ -852,11 +872,11 @@ class IntervenableNdifModel(BaseModel):
                 
                 if isinstance(output, tuple):
                     _ = self._scatter_intervention_output(
-                        module_hook.output[0], intervened_representation, key, unit_locations_base[key_i]
+                        output[0], intervened_representation, key, unit_locations_base[key_i]
                     )
                 else:
                     _ = self._scatter_intervention_output(
-                        module_hook.output, intervened_representation, key, unit_locations_base[key_i]
+                        output, intervened_representation, key, unit_locations_base[key_i]
                     )
                         
                 self._intervention_state[key].inc_setter_version()
@@ -1023,8 +1043,7 @@ class IntervenableNdifModel(BaseModel):
                         self.interventions[key][0],
                         CollectIntervention
                     ):
-                        print(self.activations[key])
-                        collected_activations += self.activations[key]
+                        collected_activations += self.activations[key].clone()
 
         except Exception as e:
             raise e
@@ -2273,3 +2292,14 @@ class IntervenableModel(BaseModel):
         result = weighted_average(all_metrics, all_num_examples)
 
         return result
+
+
+def build_intervenable_model(config, model, **kwargs):
+    """
+    Factory design pattern for different types of intervenable models.
+    """
+    if isinstance(model, nnsight.LanguageModel):
+        return IntervenableNdifModel(config, model, **kwargs)
+    else:
+        return IntervenableModel(config, model, **kwargs)
+
