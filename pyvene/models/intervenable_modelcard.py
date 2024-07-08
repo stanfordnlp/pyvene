@@ -1,7 +1,6 @@
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '../../../DoRA/image_video_text_understanding/VL-T5/src')))
-from multitask_model import VLBartMultiTask
 from modeling_bart import VLBartModel
 
 from .constants import *
@@ -69,7 +68,6 @@ type_to_module_mapping = {
     GRULMHeadModel: gru_lm_type_to_module_mapping,
     GRUForClassification: gru_classifier_type_to_module_mapping,
     BackpackGPT2LMHeadModel: backpack_gpt2_lm_type_to_module_mapping,
-    VLBartMultiTask: vlbart_multitask_lm_type_to_module_mapping,
     VLBartModel: vlbart_multitask_type_to_module_mapping
     # new model type goes here after defining the model files
 }
@@ -102,7 +100,7 @@ type_to_dimension_mapping = {
     GRULMHeadModel: gru_lm_type_to_dimension_mapping,
     GRUForClassification: gru_classifier_type_to_dimension_mapping,
     BackpackGPT2LMHeadModel: backpack_gpt2_lm_type_to_dimension_mapping,
-    VLBartMultiTask: vlbart_multitask_lm_type_to_dimension_mapping,
+    #VLBartMultiTask: vlbart_multitask_lm_type_to_dimension_mapping,
     VLBartModel: vlbart_multitask_type_to_dimension_mapping
     # new model type goes here after defining the model files
 }
