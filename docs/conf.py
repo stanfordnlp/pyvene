@@ -29,7 +29,18 @@ templates_path = ['_templates']
 
 # -- Options for HTML output
 
-html_theme = 'sphinx_rtd_theme'
+html_title = 'pyvene'
+
+# The theme to use for HTML and HTML Help pages.  See the documentation for
+# a list of builtin themes.
+html_theme = 'sphinx_book_theme'
+
+html_theme_options = {
+    'repository_url': 'https://github.com/stanfordnlp/pyvene',
+    'use_repository_button': True,
+    'use_issues_button': True,
+    'show_toc_level': 4,
+}
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
