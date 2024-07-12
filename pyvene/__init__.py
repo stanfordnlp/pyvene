@@ -1,6 +1,6 @@
 # Generic APIs
 from .data_generators.causal_model import CausalModel
-from .models.intervenable_base import IntervenableModel
+from .models.intervenable_base import IntervenableModel, IntervenableNdifModel, build_intervenable_model
 from .models.configuration_intervenable_model import IntervenableConfig
 from .models.configuration_intervenable_model import RepresentationConfig
 
@@ -27,6 +27,7 @@ from .models.interventions import DistributedRepresentationIntervention
 from .models.interventions import SourcelessIntervention
 from .models.interventions import NoiseIntervention
 from .models.interventions import SigmoidMaskIntervention
+from .models.interventions import AutoencoderIntervention
 
 
 # Utils

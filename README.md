@@ -9,15 +9,13 @@
 <a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/v/pyvene?color=red"></img></a> 
 <a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/l/pyvene?color=blue"></img></a>
 
-*This is a beta release (public testing).*
-
 # A Library for _Understanding_ and _Improving_ PyTorch Models via Interventions
 Interventions on model-internal states are fundamental operations in many areas of AI, including model editing, steering, robustness, and interpretability. To facilitate such research, we introduce **pyvene**, an open-source Python library that supports customizable interventions on a range of different PyTorch modules. **pyvene** supports complex intervention schemes with an intuitive configuration format, and its interventions can be static or include trainable parameters.
 
 **Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb) [**Main _pyvene_ 101**]  
 
 ## Installation
-Since we are currently beta-testing, it is recommended to install pyvene by,
+Since the library is evolving, it is recommended to install pyvene by,
 ```bash
 git clone git@github.com:stanfordnlp/pyvene.git
 ```
@@ -74,6 +72,23 @@ tensor([[[ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
          [ 0.0000, -0.0625, -0.0312,  ...,  0.0000,  0.0000, -0.0156]]],
        device='cuda:0')
 ```
+
+## Remote Intervention Calls with _IntervenableModel_ on [NDIF](https://ndif.us/) Backend
+We are working with the [NDIF](https://ndif.us/) team to support remote intervention calls without asking the users to download or host their own LLMs! This is still under construction. All you have to do is to use NDIF library to load your model and use pyvene to wrap it (i.e., pyvene will automatically recognize NDIF models)! Here is an example:
+
+```py
+from nnsight import LanguageModel
+# load nnsight.LanguageModel as your model to wrap with pyvene
+gpt2_ndif = LanguageModel('openai-community/gpt2', device_map='cpu')
+tokenizer = AutoTokenizer.from_pretrained('openai-community/gpt2')
+
+# pyvene provides pv.build_intervenable_model as the generic model builder
+pv_gpt2_ndif = pv.build_intervenable_model({
+    "component": "transformer.h[10].attn.attn_dropout.input",
+    "intervention": pv.CollectIntervention()}, model=gpt2_ndif, remote=False)
+```
+Then, you can use `pv_gpt2_ndif` as your regular intervenable model. If you specify `remote=True` (this is still under construction), then everything will be executed remotely on NDIF server with **zero** GPU resource required! We provide example code in our main tutorial [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb) [**Main _pyvene_ 101**].
+
 
 ## _IntervenableModel_ Loaded from HuggingFace Directly
 The following codeblock can reproduce [honest_llama-2 chat](https://github.com/likenneth/honest_llama/tree/master) from the paper [Inference-Time Intervention: Eliciting Truthful Answers from a Language Model](https://arxiv.org/abs/2306.03341). The added activations are only **~0.14MB** on disk!
