@@ -418,7 +418,7 @@ class IntervenableModel(nn.Module):
     
     def save(
         self, save_directory, save_to_hf_hub=False, hf_repo_name="my-awesome-model",
-        include_model=True
+        include_model=False
     ):
         """
         Save interventions to disk or hub
@@ -526,7 +526,7 @@ class IntervenableModel(nn.Module):
     @staticmethod
     def load(
         load_directory, model, local_directory=None, from_huggingface_hub=False,
-        include_model=True
+        include_model=False
     ):
         """
         Load interventions from disk or hub
