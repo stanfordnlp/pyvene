@@ -1128,7 +1128,8 @@ class IntervenableModel(BaseModel):
             self._batched_setter_activation_select = {}
     
     def save(
-        self, save_directory, save_to_hf_hub=False, hf_repo_name="my-awesome-model"
+        self, save_directory, save_to_hf_hub=False, hf_repo_name="my-awesome-model",
+        include_model=False
     ):
         """
         Save interventions to disk or hub
@@ -1205,6 +1206,15 @@ class IntervenableModel(BaseModel):
             else:
                 saving_config.intervention_dimensions += [intervention.interchange_dim.tolist()]
             saving_config.intervention_constant_sources += [intervention.is_source_constant]
+
+        # save model's trainable parameters as well
+        if include_model:
+            model_state_dict = {}
+            model_binary_filename = "pytorch_model.bin"
+            for n, p in self.model.named_parameters():
+                if p.requires_grad:
+                    model_state_dict[n] = p
+            torch.save(model_state_dict, os.path.join(save_directory, model_binary_filename))
             
         # save metadata config
         saving_config.save_pretrained(save_directory)
@@ -1225,7 +1235,10 @@ class IntervenableModel(BaseModel):
             )
 
     @staticmethod
-    def load(load_directory, model, local_directory=None, from_huggingface_hub=False):
+    def load(
+        load_directory, model, local_directory=None, from_huggingface_hub=False,
+        include_model=False
+    ):
         """
         Load interventions from disk or hub
         """
@@ -1278,6 +1291,12 @@ class IntervenableModel(BaseModel):
             elif isinstance(intervention, TrainableIntervention):
                 saved_state_dict = torch.load(os.path.join(load_directory, binary_filename))
                 intervention.load_state_dict(saved_state_dict)
+
+        # load model's trainable parameters as well
+        if include_model:
+            model_binary_filename = "pytorch_model.bin"
+            saved_model_state_dict = torch.load(os.path.join(load_directory, model_binary_filename))
+            intervenable.model.load_state_dict(saved_model_state_dict, strict=False)
 
         return intervenable
 
