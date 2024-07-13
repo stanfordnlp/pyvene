@@ -1,3 +1,5 @@
+"""Stanford NLP Python Library for Understanding and Improving PyTorch Models via Interventions"""
+
 # Generic APIs
 from .data_generators.causal_model import CausalModel
 from .models.intervenable_base import IntervenableModel, IntervenableNdifModel, build_intervenable_model
