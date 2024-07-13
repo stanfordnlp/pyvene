@@ -43,13 +43,13 @@ collections_target = ''
 collections = {
     'notebooks': {
         'driver': 'copy_folder',
-        'source': 'tutorials/',
+        'source': '../tutorials/',
         'target': 'tutorials/',
         'ignore': [],
     },
     'notebooks2': {
         'driver': 'copy_file',
-        'source': 'pyvene_101.ipynb',
+        'source': '../pyvene_101.ipynb',
         'target': 'tutorials/pyvene_101.ipynb',
         'ignore': [],
     },
