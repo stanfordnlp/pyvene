@@ -110,35 +110,6 @@ which returns
             [ 0.0000, -0.0625, -0.0312,  ...,  0.0000,  0.0000, -0.0156]]],
          device='cuda:0')
 
-
-Remote Intervention Calls with *IntervenableModel* on `NDIF <https://ndif.us/>`_ Backend
-----------------------------------------------------------------------------------------
-
-We are working with the `NDIF <https://ndif.us/>`_ team to support remote intervention calls
-without asking the users to download or host their own LLMs! This is still under construction.
-All you have to do is to use NDIF library to load your model and use pyvene to wrap it
-(i.e., pyvene will automatically recognize NDIF models)! Here is an example:
-
-::
-
-   from nnsight import LanguageModel
-   # load nnsight.LanguageModel as your model to wrap with pyvene
-   gpt2_ndif = LanguageModel('openai-community/gpt2', device_map='cpu')
-   tokenizer = AutoTokenizer.from_pretrained('openai-community/gpt2')
-
-   # pyvene provides pv.build_intervenable_model as the generic model builder
-   pv_gpt2_ndif = pv.build_intervenable_model({
-      "component": "transformer.h[10].attn.attn_dropout.input",
-      "intervention": pv.CollectIntervention()}, model=gpt2_ndif, remote=False)
-
-
-Then, you can use ``pv_gpt2_ndif`` as your regular intervenable model.
-If you specify ``remote=True`` (this is still under construction), then
-everything will be executed remotely on NDIF server with **zero** GPU
-resource required! We provide example code in our main tutorial
-` <https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb>`__
-[**Main pyvene 101**].
-
 *IntervenableModel* Loaded from HuggingFace Directly
 ----------------------------------------------------
 
@@ -487,6 +458,38 @@ Star History
 
 .. |Star History Chart| image:: https://api.star-history.com/svg?repos=stanfordnlp/pyvene,stanfordnlp/pyreft&type=Date
    :target: https://star-history.com/#stanfordnlp/pyvene&stanfordnlp/pyreft&Date
+
+.. toctree::
+   :hidden:
+   :caption: Extensions
+
+   guides/ndif
+
+
+.. toctree::
+   :hidden:
+   :caption: Basic tutorials
+
+   tutorials/pyvene_101
+   tutorials/basic_tutorials/Add_Activations_to_Streams
+   tutorials/basic_tutorials/Basic_Intervention
+   tutorials/basic_tutorials/Nested_Intervention
+   tutorials/basic_tutorials/Subspace_Partition_with_Intervention
+   tutorials/basic_tutorials/Intervention_Training
+
+.. toctree::
+   :hidden:
+   :caption: Advanced tutorials
+
+   tutorials/advanced_tutorials/Causal_Tracing
+   tutorials/advanced_tutorials/Probing_Gender
+   tutorials/advanced_tutorials/DAS_Main_Introduction
+   tutorials/advanced_tutorials/Boundless_DAS
+   tutorials/advanced_tutorials/IOI_Replication
+   tutorials/advanced_tutorials/IOI_with_DAS
+   tutorials/advanced_tutorials/IOI_with_Mask_Intervention
+   tutorials/advanced_tutorials/MQNLI
+   tutorials/advanced_tutorials/Voting_Mechanism
 
 
 Indices and tables

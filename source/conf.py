@@ -20,12 +20,40 @@ release = '0.1'
 
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinxcontrib.collections',
+    'myst_nb',
 ]
 
 templates_path = ['_templates']
 exclude_patterns = []
 
+# -- Options for myst -------------------------------------------------------
+# myst_enable_extensions = [
+#     'amsmath',
+#     'dollarmath',
+# ]
+# nb_execution_mode can be overridden on a notebook level via .ipynb metadata
+nb_execution_mode = 'off'
+nb_execution_allow_errors = False
+# nb_execution_excludepatterns = ['notebooks/*']
 
+# -- Options for sphinx-collections
+
+collections_target = ''
+collections = {
+    'notebooks': {
+        'driver': 'copy_folder',
+        'source': 'tutorials/',
+        'target': 'tutorials/',
+        'ignore': [],
+    },
+    'notebooks2': {
+        'driver': 'copy_file',
+        'source': 'pyvene_101.ipynb',
+        'target': 'tutorials/pyvene_101.ipynb',
+        'ignore': [],
+    },
+}
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
