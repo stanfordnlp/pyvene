@@ -6,8 +6,6 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../..'))
-print(sys.path)
-import pyvene
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -43,17 +41,19 @@ nb_execution_allow_errors = False
 
 # -- Options for autodoc / autosummary -----------------------------------------
 
-autoclass_content = 'class'
-autodoc_class_signature = 'separated'
-autodoc_default_options = {
-    'exclude-members': (
-        '__repr__, __str__, __weakref__, __hash__, __delattr__, __eq__,'
-        ' __setattr__, __subclasshook__'
-    ),
-}
-autodoc_inherit_docstrings = False
+# autoclass_content = 'class'
+# autodoc_class_signature = 'separated'
+# autodoc_default_options = {
+#     'exclude-members': (
+#         '__repr__, __str__, __weakref__, __hash__, __delattr__, __eq__,'
+#         ' __setattr__, __subclasshook__'
+#     ),
+# }
+# autodoc_inherit_docstrings = False
 
-autosummary_generate = ['_autogen_root.rst']
+autosummary_generate = True  # Turn on sphinx.ext.autosummary
+autodoc_inherit_docstrings = True  # If no docstring, inherit from base class
+add_module_names = False # Remove namespaces from class/method signatures
 
 # -- Options for sphinx-collections
 

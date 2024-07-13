@@ -1,0 +1,6 @@
+
+sphinx>=6.0.0,<7.3.0
+sphinx-book-theme>=1.0.1
+sphinx-collections>=0.0.1
+myst-nb>=1.0.0
+myst-parser>=3.0.1
