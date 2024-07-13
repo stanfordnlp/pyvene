@@ -5,7 +5,7 @@
 
 import os
 import sys
-sys.path.append('../pyvene')
+sys.path.insert(0, os.path.abspath('../../pyvene'))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -59,13 +59,13 @@ collections_target = ''
 collections = {
     'notebooks': {
         'driver': 'copy_folder',
-        'source': '../tutorials/',
+        'source': os.path.abspath('../../tutorials/'),
         'target': 'tutorials/',
         'ignore': [],
     },
     'notebooks2': {
         'driver': 'copy_file',
-        'source': '../pyvene_101.ipynb',
+        'source': os.path.abspath('../../pyvene_101.ipynb'),
         'target': 'tutorials/pyvene_101.ipynb',
         'ignore': [],
     },
