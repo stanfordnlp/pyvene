@@ -20,8 +20,10 @@ release = '0.1'
 
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'sphinxcontrib.collections',
     'myst_nb',
+    'sphinx.ext.viewcode',
 ]
 
 templates_path = ['_templates']
@@ -36,6 +38,20 @@ exclude_patterns = []
 nb_execution_mode = 'off'
 nb_execution_allow_errors = False
 # nb_execution_excludepatterns = ['notebooks/*']
+
+# -- Options for autodoc / autosummary -----------------------------------------
+
+autoclass_content = 'class'
+autodoc_class_signature = 'separated'
+autodoc_default_options = {
+    'exclude-members': (
+        '__repr__, __str__, __weakref__, __hash__, __delattr__, __eq__,'
+        ' __setattr__, __subclasshook__'
+    ),
+}
+autodoc_inherit_docstrings = False
+
+autosummary_generate = ['_autogen_root.rst']
 
 # -- Options for sphinx-collections
 

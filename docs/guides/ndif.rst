@@ -16,6 +16,7 @@ All you have to do is to use NDIF library to load your model and use pyvene to w
 ::
 
    from nnsight import LanguageModel
+   
    # load nnsight.LanguageModel as your model to wrap with pyvene
    gpt2_ndif = LanguageModel('openai-community/gpt2', device_map='cpu')
    tokenizer = AutoTokenizer.from_pretrained('openai-community/gpt2')

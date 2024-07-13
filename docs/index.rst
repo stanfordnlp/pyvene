@@ -461,6 +461,12 @@ Star History
 
 .. toctree::
    :hidden:
+   :caption: API
+
+   api/core
+
+.. toctree::
+   :hidden:
    :caption: Extensions
 
    guides/ndif
@@ -488,6 +494,7 @@ Star History
    tutorials/advanced_tutorials/IOI_Replication
    tutorials/advanced_tutorials/IOI_with_DAS
    tutorials/advanced_tutorials/IOI_with_Mask_Intervention
+   tutorials/advanced_tutorials/Interventions_with_BLIP
    tutorials/advanced_tutorials/MQNLI
    tutorials/advanced_tutorials/Voting_Mechanism
 
