@@ -28,6 +28,9 @@ from tqdm import tqdm, trange
 
 @dataclass
 class IntervenableModelOutput(ModelOutput):
+    """
+    Output of the IntervenableModel, including original outputs, intervened outputs, and collected activations.
+    """
     original_outputs: Optional[Any] = None
     intervened_outputs: Optional[Any] = None
     collected_activations: Optional[Any] = None
