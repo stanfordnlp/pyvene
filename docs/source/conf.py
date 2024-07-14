@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 project = 'pyvene'
 copyright = '2024, Stanford NLP'
 author = 'Stanford NLP'
-release = '0.1'
+release = '0.1.2'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -69,6 +69,12 @@ collections = {
         'driver': 'copy_file',
         'source': os.path.abspath('../../pyvene_101.ipynb'),
         'target': 'tutorials/pyvene_101.ipynb',
+        'ignore': [],
+    },
+    'contributing': {
+        'driver': 'copy_file',
+        'source': os.path.abspath('../../CONTRIBUTING.md'),
+        'target': 'guides/contributing.md',
         'ignore': [],
     },
 }

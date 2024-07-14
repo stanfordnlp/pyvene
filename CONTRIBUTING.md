@@ -11,7 +11,7 @@ For Priority Tag, you can use `[P0]`-`[P2]`, `[P0]` is the highest priority, whi
 
 ---
 
-### :book: Pull Requests
+### 📕 Pull Requests
 
 #### Uninstall pyvene from python library
 It becomes tricky if you have `pyvene` installed while debugging with this codebase, since imports can be easily messed up. Please run,
@@ -45,7 +45,7 @@ When checking in new code, please also consider to add new tests in the same PR.
 
 ```
 
-### :beetle: Bug Reports and Other Issues
+### 🪲 Bug Reports and Other Issues
 Go to issues, and open with a title formatted as,
 ```
 [Bug Fix] Short Title
@@ -55,5 +55,19 @@ For external requests (i.e., you are not in our core dev team), please use,
 [External] Short Title
 ```
 
-### :inbox_tray: Larger Feature Requests
+### 📄 Documentation
+If making changes to documentation (in `docs/source`, deployed to GitHub Pages), please test your changes locally
+(ideally in a fresh Python environment):
+
+```
+pip install -r requirements.txt
+pip install -r docs/requirements.txt
+cd docs
+make html
+python -m http.server
+```
+
+Then navigate to [localhost:8000/build/html](http://localhost:8000/build/html).
+
+### 📥 Larger Feature Requests
 Please email us!

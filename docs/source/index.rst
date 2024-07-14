@@ -461,14 +461,9 @@ Star History
 
 .. toctree::
    :hidden:
-   :caption: API
+   :caption: Guides
 
-   api/core
-
-.. toctree::
-   :hidden:
-   :caption: Extensions
-
+   guides/contributing
    guides/ndif
 
 
@@ -497,6 +492,12 @@ Star History
    tutorials/advanced_tutorials/Interventions_with_BLIP
    tutorials/advanced_tutorials/MQNLI
    tutorials/advanced_tutorials/Voting_Mechanism
+
+.. toctree::
+   :hidden:
+   :caption: API
+
+   api/core
 
 
 Indices and tables
