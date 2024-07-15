@@ -10,6 +10,10 @@
 
    `Read Our Paper » <https://arxiv.org/abs/2403.07809>`__
 
+
+pyvene
+======
+
 |image2| |image3| |image4|
 
 .. |image1| image:: https://i.ibb.co/BNkhQH3/pyvene-logo.png
@@ -24,77 +28,85 @@
    :maxdepth: 2
    :caption: Contents:
 
+**pyvene** is an open-source Python library for intervening on the internal states of
+PyTorch models. Interventions are an important operation in many areas of AI, including
+model editing, steering, robustness, and interpretability.
 
-pyvene
-======
+pyvene has many features that make interventions easy:
 
-Interventions on model-internal states are fundamental operations in many areas of AI,
-including model editing, steering, robustness, and interpretability. To facilitate such research,
-we introduce **pyvene**, an open-source Python library that supports customizable interventions
-on a range of different PyTorch modules. pyvene supports complex intervention schemes with
-an intuitive configuration format, and its interventions can be static or include trainable
-parameters.
+* Interventions are the basic primitive, specified as dicts and thus able to be saved locally
+  and shared as serialisable objects through HuggingFace.
+* Interventions can be composed and customised: you can run them on multiple locations, on arbitrary
+  sets of neurons (or other levels of granularity), in parallel or in sequence, on decoding steps of
+  generative language models, etc.
+* Interventions work out-of-the-box on any PyTorch model! No need to define new model classes from
+  scratch and easy interventions are possible all kinds of architectures (RNNs, ResNets, CNNs, Mamba).
+
+pyvene is under active development and constantly being improved 🫡
+
 
 Getting Started
 ---------------
 
-Since the library is evolving, it is recommended to install pyvene by,
+To install the latest stable version of pyvene:
+
+::
+   
+   pip install pyvene
+
+Alternatively, to install a bleeding-edge version, you can clone the repo and install:
 
 ::
    
    git clone git@github.com:stanfordnlp/pyvene.git
+   cd pyvene
+   pip install -e .
 
-and add pyvene into your system path in Python via,
+When you want to update, you can just run ``git pull`` in the cloned directory.
 
-::
+We suggest importing the library as:
 
-   import sys
-   sys.path.append("<Your Path to Pyvene>")
+.. code:: python
 
    import pyvene as pv
 
-Alternatively, you can do
 
-::
+*Wrap* and *intervene*
+----------------------
 
-   pip install git+https://github.com/stanfordnlp/pyvene.git
+The usual workflow for using pyvene is to load a model, define an intervention config and wrap the model,
+and then run the intervened model. This returns both the original and intervened outputs, as well as any
+internal activations you specified to collect. For example:
 
-or
-
-::
-
-   pip install pyvene
-
-
-*Wrap*, *intervene*, and *share*
---------------------------------
-
-You can intervene with any HuggingFace model as,
-
-::
+.. code:: python
 
    import torch
    import pyvene as pv
    from transformers import AutoTokenizer, AutoModelForCausalLM
 
-   model_name = "meta-llama/Llama-2-7b-hf" # your HF model name.
+
+   # 1. Load the model
+   model_name = "meta-llama/Llama-2-7b-hf" # the HF model you want to intervene on
+   tokenizer = AutoTokenizer.from_pretrained(model_name)
    model = AutoModelForCausalLM.from_pretrained(
       model_name, torch_dtype=torch.bfloat16, device_map="cuda")
-   tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-   def zeroout_intervention_fn(b, s): 
-      b[:,3] = 0. # 3rd position
-      return b
 
+   # 2. Wrap the model with an intervention config
    pv_model = pv.IntervenableModel({
-      "component": "model.layers[15].mlp.output", # string access
-      "intervention": zeroout_intervention_fn}, model=model)
+      "component": "model.layers[15].mlp.output",   # where to intervene (here, the MLP output in layer 15)
+      "intervention": pv.ZeroIntervention           # what intervention to apply (here, zeroing out the activation)
+   }, model=model)
 
-   # run the intervened forward pass
+
+   # 3. Run the intervened model
    orig_outputs, intervened_outputs = pv_model(
       tokenizer("The capital of Spain is", return_tensors="pt").to('cuda'),
       output_original_output=True
    )
+
+
+   # 4. Compare outputs
    print(intervened_outputs.logits - orig_outputs.logits)
 
 
@@ -110,8 +122,10 @@ which returns
             [ 0.0000, -0.0625, -0.0312,  ...,  0.0000,  0.0000, -0.0156]]],
          device='cuda:0')
 
-*IntervenableModel* Loaded from HuggingFace Directly
-----------------------------------------------------
+*Share* and *load* from HuggingFace
+-----------------------------------
+
+pyvene has support for sharing and loading intervention schemata via HuggingFace.
 
 The following codeblock can reproduce `honest_llama-2
 chat <https://github.com/likenneth/honest_llama/tree/master>`__ from the
@@ -121,22 +135,27 @@ activations are only **~0.14MB** on disk!
 
 .. code:: python
 
-   # others can download from huggingface and use it directly
    import torch
    from transformers import AutoTokenizer, AutoModelForCausalLM
    import pyvene as pv
 
+
+   # 1. Load base model
    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
    model = AutoModelForCausalLM.from_pretrained(
        "meta-llama/Llama-2-7b-chat-hf",
        torch_dtype=torch.bfloat16,
    ).to("cuda")
 
+
+   # 2. Load intervention from HF and wrap model
    pv_model = pv.IntervenableModel.load(
        "zhengxuanzenwu/intervenable_honest_llama2_chat_7B", # the activation diff ~0.14MB
        model,
    )
 
+
+   # 3. Let's run it!
    print("llama-2-chat loaded with interventions:")
    q = "What's a cure for insomnia that always works?"
    prompt = tokenizer(q, return_tensors="pt").to("cuda")
@@ -149,13 +168,13 @@ intervention code!
 
 .. _intervenablemodel-as-regular-nnmodule:
 
-*IntervenableModel* as Regular *nn.Module*
+*IntervenableModel* is just an *nn.Module*
 ------------------------------------------
 
-You can also use the ``pv_gpt2`` just like a regular torch model
-component inside another model, or another pipeline as,
+pyvene wraps PyTorch models in the :class:`IntervenableModel <pyvene.models.intervenable_base.IntervenableModel>` class. This is just a subclass of
+``nn.Module``, so you can use it just like any other PyTorch model! For example:
 
-.. code:: py
+.. code:: python
 
    import torch
    import torch.nn as nn
@@ -189,14 +208,14 @@ component inside another model, or another pipeline as,
 Complex *Intervention Schema* as an *Object*
 --------------------------------------------
 
-One key abstraction that **pyvene** provides is the encapsulation of the
-intervention schema. While abstraction provides good user-interfact,
-**pyvene** can support relatively complex intervention schema. The
-following helper function generates the schema configuration for *path
-patching* on individual attention heads on the output of the OV circuit
-(i.e., analyzing causal effect of each individual component):
+One key abstraction that pyvene provides is the encapsulation of the
+intervention schema. While abstraction provides good user-interfaces,
+pyvene can support relatively complex intervention schema. The
+following helper function generates the schema for *path
+patching* for individual attention heads, for replicating experiments
+from the paper `Interpretability in the Wild: a Circuit for Indirect Object Identification in GPT-2 small <https://arxiv.org/abs/2211.00593>`__:
 
-.. code:: py
+.. code:: python
 
    import pyvene as pv
 
@@ -218,11 +237,11 @@ patching* on individual attention heads on the output of the OV circuit
        intervenable_config = IntervenableConfig(intervening_component + restoring_components)
        return intervenable_config
 
-then you can wrap the config generated by this function to a model. And
+You can now use the config generated by this function to wrap a model. And
 after you have done your intervention, you can share your path patching
-with others,
+config with others:
 
-.. code:: py
+.. code:: python
 
    _, tokenizer, gpt2 = pv.create_gpt2()
 
@@ -251,28 +270,28 @@ Selected Tutorials
      - Run in Colab
      - Description
    * - Beginner
-     - `pyvene 101 <pyvene_101.ipynb>`__
+     - `pyvene 101 <tutorials/pyvene_101.html>`__
      - 
          .. image:: https://colab.research.google.com/assets/colab-badge.svg
             :align: center
             :target: https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb
      - Introduce you to the basics of pyvene
    * - Intermediate
-     - `ROME Causal Tracing <tutorials/advanced_tutorials/Causal_Tracing.ipynb>`__
+     - `ROME Causal Tracing <tutorials/advanced_tutorials/Causal_Tracing.html>`__
      - 
          .. image:: https://colab.research.google.com/assets/colab-badge.svg
             :align: center
             :target: https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/advanced_tutorials/Causal_Tracing.ipynb
      - Reproduce ROME's Results on Factual Associations with GPT2-XL
    * - Intermediate
-     - `Intervention vs. Probing <tutorials/advanced_tutorials/Probing_Gender.ipynb>`__
+     - `Intervention vs. Probing <tutorials/advanced_tutorials/Probing_Gender.html>`__
      - 
          .. image:: https://colab.research.google.com/assets/colab-badge.svg
             :align: center
             :target: https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/advanced_tutorials/Probing_Gender.ipynb
      - Illustrates how to run trainable interventions and probing with pythia-6.9B
    * - Advanced
-     - `Trainable Interventions for Causal Abstraction <tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb>`__
+     - `Trainable Interventions for Causal Abstraction <tutorials/advanced_tutorials/DAS_Main_Introduction.html>`__
      - 
          .. image:: https://colab.research.google.com/assets/colab-badge.svg
             :align: center
@@ -283,144 +302,34 @@ Selected Tutorials
 Contributing to This Library
 ----------------------------
 
-Please see `our guidelines <CONTRIBUTING.md>`__ about how to contribute
+Please see `our guidelines <guides/contributing.html>`__ about how to contribute
 to this repository.
 
 *Pull requests, bug reports, and all other forms of contribution are
-welcomed and highly encouraged!* :octocat:
-
-A Little Guide for Causal Abstraction: From Interventions to Gain Interpretability Insights
--------------------------------------------------------------------------------------------
-
-Basic interventions are fun but we cannot make any causal claim
-systematically. To gain actual interpretability insights, we want to
-measure the counterfactual behaviors of a model in a data-driven
-fashion. In other words, if the model responds systematically to your
-interventions, then you start to associate certain regions in the
-network with a high-level concept. We also call this alignment search
-process with model internals.
-
-Understanding Causal Mechanisms with Static Interventions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Here is a more concrete example,
-
-.. code:: py
-
-   def add_three_numbers(a, b, c):
-       var_x = a + b
-       return var_x + c
-
-The function solves a 3-digit sum problem. Let's say, we trained a
-neural network to solve this problem perfectly. "Can we find the
-representation of (a + b) in the neural network?". We can use this
-library to answer this question. Specifically, we can do the following,
-
--  **Step 1:** Form Interpretability (Alignment) Hypothesis: We
-   hypothesize that a set of neurons N aligns with (a + b).
--  **Step 2:** Counterfactual Testings: If our hypothesis is correct,
-   then swapping neurons N between examples would give us expected
-   counterfactual behaviors. For instance, the values of N for (1+2)+3,
-   when swapping with N for (2+3)+4, the output should be (2+3)+3 or
-   (1+2)+4 depending on the direction of the swap.
--  **Step 3:** Reject Sampling of Hypothesis: Running tests multiple
-   times and aggregating statistics in terms of counterfactual behavior
-   matching. Proposing a new hypothesis based on the results.
-
-To translate the above steps into API calls with the library, it will be
-a single call,
-
-.. code:: py
-
-   intervenable.eval_alignment(
-       train_dataloader=test_dataloader,
-       compute_metrics=compute_metrics,
-       inputs_collator=inputs_collator
-   )
-
-where you provide testing data (basically interventional data and the
-counterfactual behavior you are looking for) along with your metrics
-functions. The library will try to evaluate the alignment with the
-intervention you specified in the config.
-
---------------
-
-Understanding Causal Mechanism with Trainable Interventions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The alignment searching process outlined above can be tedious when your
-neural network is large. For a single hypothesized alignment, you
-basically need to set up different intervention configs targeting
-different layers and positions to verify your hypothesis. Instead of
-doing this brute-force search process, you can turn it into an
-optimization problem which also has other benefits such as distributed
-alignments.
-
-In its crux, we basically want to train an intervention to have our
-desired counterfactual behaviors in mind. And if we can indeed train
-such interventions, we claim that causally informative information
-should live in the intervening representations! Below, we show one type
-of trainable intervention
-``models.interventions.RotatedSpaceIntervention`` as,
-
-.. code:: py
-
-   class RotatedSpaceIntervention(TrainableIntervention):
-       
-       """Intervention in the rotated space."""
-       def forward(self, base, source):
-           rotated_base = self.rotate_layer(base)
-           rotated_source = self.rotate_layer(source)
-           # interchange
-           rotated_base[:self.interchange_dim] = rotated_source[:self.interchange_dim]
-           # inverse base
-           output = torch.matmul(rotated_base, self.rotate_layer.weight.T)
-           return output
-
-Instead of activation swapping in the original representation space, we
-first **rotate** them, and then do the swap followed by un-rotating the
-intervened representation. Additionally, we try to use SGD to **learn a
-rotation** that lets us produce expected counterfactual behavior. If we
-can find such rotation, we claim there is an alignment.
-``If the cost is between X and Y.ipynb`` tutorial covers this with an
-advanced version of distributed alignment search, `Boundless
-DAS <https://arxiv.org/abs/2305.08809>`__. There are `recent
-works <https://www.lesswrong.com/posts/RFtkRXHebkwxygDe2/an-interpretability-illusion-for-activation-patching-of>`__
-outlining potential limitations of doing a distributed alignment search
-as well.
-
-You can now also make a single API call to train your intervention,
-
-.. code:: py
-
-   intervenable.train_alignment(
-       train_dataloader=train_dataloader,
-       compute_loss=compute_loss,
-       compute_metrics=compute_metrics,
-       inputs_collator=inputs_collator
-   )
-
-where you need to pass in a trainable dataset, and your customized loss
-and metrics function. The trainable interventions can later be saved on
-to your disk. You can also use ``intervenable.evaluate()`` your
-interventions in terms of customized objectives.
+welcomed and highly encouraged!*
 
 Citation
 --------
 
-If you use this repository, please consider to cite our library paper:
+If you use this repository, please cite our library paper:
 
-.. code:: stex
+.. code:: bibtex
 
-   @article{wu2024pyvene,
-     title={pyvene: A Library for Understanding and Improving {P}y{T}orch Models via Interventions},
-     author={Wu, Zhengxuan and Geiger, Atticus and Arora, Aryaman and Huang, Jing and Wang, Zheng and Noah D. Goodman and Christopher D. Manning and Christopher Potts},
-     booktitle={arXiv:2403.07809},
-     url={arxiv.org/abs/2403.07809},
-     year={2024}
+   @inproceedings{wu-etal-2024-pyvene,
+      title = "pyvene: A Library for Understanding and Improving {P}y{T}orch Models via Interventions",
+      author = "Wu, Zhengxuan and Geiger, Atticus and Arora, Aryaman and Huang, Jing and Wang, Zheng and Goodman, Noah and Manning, Christopher and Potts, Christopher",
+      editor = "Chang, Kai-Wei and Lee, Annie and Rajani, Nazneen",
+      booktitle = "Proceedings of the 2024 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 3: System Demonstrations)",
+      month = jun,
+      year = "2024",
+      address = "Mexico City, Mexico",
+      publisher = "Association for Computational Linguistics",
+      url = "https://aclanthology.org/2024.naacl-demo.16",
+      pages = "158--165",
    }
 
-Related Works in Discovering Causal Mechanism of LLMs
+
+Related Works on Discovering Causal Mechanism of LLMs
 -----------------------------------------------------
 
 If you would like to read more works on this area, here is a list of
@@ -464,6 +373,7 @@ Star History
    :caption: Guides
 
    guides/contributing
+   guides/causal_abstraction
    guides/ndif
 
 
