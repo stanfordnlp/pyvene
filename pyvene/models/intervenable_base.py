@@ -974,7 +974,7 @@ class IntervenableNdifModel(BaseModel):
         labels: Optional[torch.LongTensor] = None,
         output_original_output: Optional[bool] = False,
         return_dict: Optional[bool] = None,
-        use_cache: Optional[bool] = True,
+        use_cache: Optional[bool] = None,
     ):
         activations_sources = source_representations
         if sources is not None and not isinstance(sources, list):
@@ -1017,7 +1017,7 @@ class IntervenableNdifModel(BaseModel):
             model_kwargs = {}
             if labels is not None: # for training
                 model_kwargs["labels"] = labels
-            if 'use_cache' in self.model.config.to_dict(): # for transformer models
+            if 'use_cache' is not None and 'use_cache' in self.model.config.to_dict(): # for transformer models
                 model_kwargs["use_cache"] = use_cache
 
             if self.mode == "parallel":
