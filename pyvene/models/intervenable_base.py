@@ -1904,7 +1904,7 @@ class IntervenableModel(BaseModel):
             model_kwargs = {}
             if labels is not None: # for training
                 model_kwargs["labels"] = labels
-            if 'use_cache' in self.model.config.to_dict(): # for transformer models
+            if use_cache is not None and 'use_cache' in self.model.config.to_dict(): # for transformer models
                 model_kwargs["use_cache"] = use_cache
 
             counterfactual_outputs = self.model(**base, **model_kwargs)
