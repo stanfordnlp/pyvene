@@ -30,6 +30,7 @@ from .models.interventions import SourcelessIntervention
 from .models.interventions import NoiseIntervention
 from .models.interventions import SigmoidMaskIntervention
 from .models.interventions import AutoencoderIntervention
+from .models.interventions import InterventionOutput
 
 
 # Utils
