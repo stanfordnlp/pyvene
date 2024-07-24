@@ -1790,7 +1790,7 @@ class IntervenableModel(BaseModel):
         labels: Optional[torch.LongTensor] = None,
         output_original_output: Optional[bool] = False,
         return_dict: Optional[bool] = None,
-        use_cache: Optional[bool] = True,
+        use_cache: Optional[bool] = None,
     ):
         """
         Main forward function that serves a wrapper to
