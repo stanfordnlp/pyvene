@@ -1,10 +1,24 @@
 import torch
 import numpy as np
 from abc import ABC, abstractmethod
+from typing import Dict, Optional, Sequence, Union, List, Any
 
 from .layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotateLayer, AutoencoderLayer
 from .basic_utils import sigmoid_boundary
 from .intervention_utils import _can_use_fast, _do_intervention_by_swap
+
+from dataclasses import dataclass
+from transformers.activations import ACT2FN
+from transformers.utils import ModelOutput
+
+
+@dataclass
+class InterventionOutput(ModelOutput):
+    """
+    Output of the IntervenableModel, including original outputs, intervened outputs, and collected activations.
+    """
+    output: Optional[Any] = None
+    loss: Optional[Any] = None
 
 
 class Intervention(torch.nn.Module):

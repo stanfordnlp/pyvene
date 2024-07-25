@@ -461,10 +461,14 @@ def do_intervention(
         source_representation_f = bhsd_to_bs_hd(source_representation)
     else:
         assert False  # what's going on?
-    
-    intervened_representation = intervention(
+
+    intervention_output = intervention(
         base_representation_f, source_representation_f, subspaces
     )
+    if isinstance(intervention_output, InterventionOutput):
+        intervened_representation = intervention_output.output
+    else:
+        intervened_representation = intervention_output
 
     post_d = intervened_representation.shape[-1]
 
@@ -481,7 +485,11 @@ def do_intervention(
     else:
         assert False  # what's going on?
 
-    return intervened_representation
+    if not isinstance(intervention_output, InterventionOutput):
+        return intervened_representation
+
+    intervention_output.output = intervened_representation
+    return intervention_output
 
 
 def simple_output_to_subcomponent(output, representation_type, model_config):
