@@ -461,6 +461,8 @@ class BaseModel(nn.Module):
             # data structure casting
             if isinstance(output, tuple):
                 original_output = output[0].clone()
+            elif isinstance(output, dict):
+                original_output = output[list(output.keys())[0]].clone()
             else:
                 original_output = output.clone()
             # for non-sequence models, there is no concept of
@@ -502,6 +504,8 @@ class BaseModel(nn.Module):
         # data structure casting
         if isinstance(output, tuple):
             original_output = output[0]
+        elif isinstance(output, dict):
+            original_output = output[list(output.keys())[0]]
         else:
             original_output = output
         # for non-sequence-based models, we simply replace
