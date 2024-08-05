@@ -23,11 +23,17 @@ things that need to be changed.
 """
 
 import transformers.models as hf_models
-from .blip.modelings_blip import BlipWrapper
-from .blip.modelings_blip_itm import BlipITMWrapper
 from .mlp.modelings_mlp import MLPModel, MLPForClassification
 from .gru.modelings_gru import GRUModel, GRULMHeadModel, GRUForClassification
 from .backpack_gpt2.modelings_backpack_gpt2 import BackpackGPT2LMHeadModel
+
+enable_blip = True
+try:
+    from .blip.modelings_blip import BlipWrapper
+    from .blip.modelings_blip_itm import BlipITMWrapper
+except:
+    print("Failed to import blip model, skipping.")
+    enable_blip = False
 
 global type_to_module_mapping
 global type_to_dimension_mapping
@@ -54,8 +60,6 @@ type_to_module_mapping = {
     hf_models.gemma.modeling_gemma.GemmaForSequenceClassification: gemma_classifier_type_to_module_mapping,
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_module_mapping,
     hf_models.blip.modeling_blip.BlipForImageTextRetrieval: blip_itm_type_to_module_mapping,
-    BlipWrapper: blip_wrapper_type_to_module_mapping,
-    BlipITMWrapper: blip_itm_wrapper_type_to_module_mapping,
     MLPModel: mlp_type_to_module_mapping,
     MLPForClassification: mlp_classifier_type_to_module_mapping,
     GRUModel: gru_type_to_module_mapping,
@@ -64,7 +68,9 @@ type_to_module_mapping = {
     BackpackGPT2LMHeadModel: backpack_gpt2_lm_type_to_module_mapping,
     # new model type goes here after defining the model files
 }
-
+if enable_blip:
+    type_to_module_mapping[BlipWrapper] = blip_wrapper_type_to_module_mapping
+    type_to_module_mapping[BlipITMWrapper] = blip_wrapper_type_to_module_mapping
 
 type_to_dimension_mapping = {
     hf_models.gpt2.modeling_gpt2.GPT2Model: gpt2_type_to_dimension_mapping,
@@ -85,8 +91,6 @@ type_to_dimension_mapping = {
     hf_models.gemma.modeling_gemma.GemmaForSequenceClassification: gemma_classifier_type_to_dimension_mapping,
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_dimension_mapping,
     hf_models.blip.modeling_blip.BlipForImageTextRetrieval: blip_itm_type_to_dimension_mapping,
-    BlipWrapper: blip_wrapper_type_to_dimension_mapping,
-    BlipITMWrapper: blip_itm_wrapper_type_to_dimension_mapping,
     MLPModel: mlp_type_to_dimension_mapping,
     MLPForClassification: mlp_classifier_type_to_dimension_mapping,
     GRUModel: gru_type_to_dimension_mapping,
@@ -95,4 +99,7 @@ type_to_dimension_mapping = {
     BackpackGPT2LMHeadModel: backpack_gpt2_lm_type_to_dimension_mapping,
     # new model type goes here after defining the model files
 }
+if enable_blip:
+    type_to_dimension_mapping[BlipWrapper] = blip_wrapper_type_to_dimension_mapping
+    type_to_dimension_mapping[BlipITMWrapper] = blip_itm_wrapper_type_to_dimension_mapping
 #########################################################################
