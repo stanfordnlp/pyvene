@@ -11,7 +11,7 @@ from .blip.modelings_intervenable_blip import *
 from .blip.modelings_intervenable_blip_itm import *
 from .backpack_gpt2.modelings_intervenable_backpack_gpt2 import *
 from .llava.modelings_intervenable_llava import *
-
+from .olmo.modelings_intervenable_olmo import *
 
 #########################################################################
 """
@@ -52,6 +52,8 @@ type_to_module_mapping = {
     hf_models.gemma.modeling_gemma.GemmaModel: gemma_type_to_module_mapping,
     hf_models.gemma.modeling_gemma.GemmaForCausalLM: gemma_lm_type_to_module_mapping,
     hf_models.gemma.modeling_gemma.GemmaForSequenceClassification: gemma_classifier_type_to_module_mapping,
+    hf_models.olmo.modeling_olmo.OlmoModel: olmo_type_to_module_mapping,
+    hf_models.olmo.modeling_olmo.OlmoForCausalLM: olmo_lm_type_to_module_mapping,  
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_module_mapping,
     hf_models.blip.modeling_blip.BlipForImageTextRetrieval: blip_itm_type_to_module_mapping,
     BlipWrapper: blip_wrapper_type_to_module_mapping,
@@ -83,6 +85,8 @@ type_to_dimension_mapping = {
     hf_models.gemma.modeling_gemma.GemmaModel: gemma_type_to_dimension_mapping,
     hf_models.gemma.modeling_gemma.GemmaForCausalLM: gemma_lm_type_to_dimension_mapping,
     hf_models.gemma.modeling_gemma.GemmaForSequenceClassification: gemma_classifier_type_to_dimension_mapping,
+    hf_models.olmo.modeling_olmo.OlmoModel: olmo_type_to_dimension_mapping,
+    hf_models.olmo.modeling_olmo.OlmoForCausalLM: olmo_lm_type_to_dimension_mapping, 
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_dimension_mapping,
     hf_models.blip.modeling_blip.BlipForImageTextRetrieval: blip_itm_type_to_dimension_mapping,
     BlipWrapper: blip_wrapper_type_to_dimension_mapping,
