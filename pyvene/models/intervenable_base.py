@@ -1,6 +1,7 @@
 import json, logging, torch, types
 import nnsight
 import numpy as np
+import copy
 from collections import OrderedDict
 from typing import List, Optional, Tuple, Union, Dict, Any
 
@@ -666,11 +667,21 @@ class BaseModel(nn.Module):
         _subspaces = subspaces
         if isinstance(subspaces, int):
             _subspaces = [[[subspaces]]*batch_size]*len(self.interventions)
-            
         elif isinstance(subspaces, list) and isinstance(subspaces[0], int):
             _subspaces = [[subspaces]*batch_size]*len(self.interventions)
+        elif isinstance(subspaces, list) and len(subspaces) == 1 \
+                and isinstance(subspaces[0], list) and len(subspaces[0]) == 1 \
+                and isinstance(subspaces[0][0], list):
+            _subspaces = [[subspaces[0][0]] * batch_size] * len(self.interventions)
+        elif isinstance(subspaces, list) and len(subspaces) == 1 \
+                and isinstance(subspaces[0], list) and isinstance(subspaces[0][0], list):
+            _subspaces = [subspaces[0]] * len(self.interventions)
+        elif isinstance(subspaces, list) and isinstance(subspaces[0], list) \
+                and isinstance(subspaces[0][0], list):
+            _subspaces = copy.deepcopy(subspaces)
         else:
             # TODO: subspaces is easier to add more broadcast majic.
+            print("Warning: not broadcasting subspaces. The shape of the subspace may be incorrect.")
             pass
         return _subspaces
     
@@ -2020,7 +2031,8 @@ class IntervenableModel(BaseModel):
         sources = [None]*len(self._intervention_group) if sources is None else sources
         sources = self._broadcast_sources(sources)
         activations_sources = self._broadcast_source_representations(activations_sources)
-        subspaces = self._broadcast_subspaces(get_batch_size(base), subspaces)
+        local_batch_size = get_batch_size(base)
+        subspaces = self._broadcast_subspaces(local_batch_size, subspaces)
         
         self._input_validation(
             base,
