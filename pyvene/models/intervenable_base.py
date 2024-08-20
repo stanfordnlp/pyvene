@@ -1549,6 +1549,9 @@ class IntervenableModel(BaseModel):
                 # TODO: need to figure out why clone is needed
                 if not self.is_model_stateless:
                     selected_output = selected_output.clone()
+
+                passin_kwargs = copy.deepcopy(kwargs)
+                passin_kwargs["_pyvene_model_input_args"] = args
                 
                 if isinstance(
                     intervention,
@@ -1559,6 +1562,7 @@ class IntervenableModel(BaseModel):
                         None,
                         intervention,
                         subspaces[key_i] if subspaces is not None else None,
+                        **passin_kwargs,
                     )
                     # fail if this is not a fresh collect
                     assert key not in self.activations
@@ -1574,6 +1578,7 @@ class IntervenableModel(BaseModel):
                                 None,
                                 intervention,
                                 subspaces[key_i] if subspaces is not None else None,
+                                **passin_kwargs,
                             )
                             if isinstance(intervened_representation, InterventionOutput):
                                 if intervened_representation.loss is not None:
@@ -1589,6 +1594,7 @@ class IntervenableModel(BaseModel):
                                 ),
                                 intervention,
                                 subspaces[key_i] if subspaces is not None else None,
+                                **passin_kwargs,
                             )
                     else:
                         # highly unlikely it's a primitive intervention type
@@ -1601,6 +1607,7 @@ class IntervenableModel(BaseModel):
                             ),
                             intervention,
                             subspaces[key_i] if subspaces is not None else None,
+                            **passin_kwargs,
                         )
                     if intervened_representation is None:
                         return
