@@ -1573,6 +1573,8 @@ class IntervenableModel(BaseModel):
                                 # memorize for other training objectives
                                 self.full_intervention_outputs.append(raw_intervened_representation)
                                 intervened_representation = raw_intervened_representation.output
+                            else:
+                                intervened_representation = raw_intervened_representation
                         else:
                             intervened_representation = do_intervention(
                                 selected_output,
