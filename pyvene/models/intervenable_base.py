@@ -1570,7 +1570,6 @@ class IntervenableModel(BaseModel):
                                 subspaces[key_i] if subspaces is not None else None,
                             )
                             if isinstance(raw_intervened_representation, InterventionOutput):
-                                # memorize for other training objectives
                                 self.full_intervention_outputs.append(raw_intervened_representation)
                                 intervened_representation = raw_intervened_representation.output
                             else:
