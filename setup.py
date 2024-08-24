@@ -10,7 +10,7 @@ with open('requirements.txt', 'r', encoding='utf-8') as f:
 
 setup(
     name="pyvene",
-    version="0.1.4",
+    version="0.1.5",
     description="Use Activation Intervention to Interpret Causal Mechanism of Model",
     long_description=long_description,
     long_description_content_type='text/markdown',
