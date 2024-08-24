@@ -1,5 +1,5 @@
 torch>=2.0.0
-transformers==4.44.0
+transformers>=4.40.0
 datasets>=2.16.1
 protobuf>=3.20.0
 matplotlib>=3.7.4
