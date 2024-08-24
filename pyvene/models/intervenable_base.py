@@ -1,5 +1,4 @@
 import json, logging, torch, types
-import nnsight
 import numpy as np
 from collections import OrderedDict
 from typing import List, Optional, Tuple, Union, Dict, Any
@@ -26,6 +25,12 @@ from transformers import get_linear_schedule_with_warmup
 from dataclasses import dataclass
 from transformers.utils import ModelOutput
 from tqdm import tqdm, trange
+
+try:
+    import nnsight
+except:
+    print("nnsight is not detected. Please install via 'pip install nnsight' for nnsight backend.")
+
 
 @dataclass
 class IntervenableModelOutput(ModelOutput):
@@ -226,7 +231,7 @@ class BaseModel(nn.Module):
         # cached swapped activations (hot)
         self.hot_activations = {}
 
-        self.aux_loss = []
+        self.full_intervention_outputs = []
         
         # temp fields should not be accessed outside
         self._batched_setter_activation_select = {}
@@ -1558,16 +1563,17 @@ class IntervenableModel(BaseModel):
                 else:
                     if not isinstance(self.interventions[key][0], types.FunctionType):
                         if intervention.is_source_constant:
-                            intervened_representation = do_intervention(
+                            raw_intervened_representation = do_intervention(
                                 selected_output,
                                 None,
                                 intervention,
                                 subspaces[key_i] if subspaces is not None else None,
                             )
-                            if isinstance(intervened_representation, InterventionOutput):
-                                if intervened_representation.loss is not None:
-                                    self.aux_loss.append(intervened_representation.loss)
-                                intervened_representation = intervened_representation.output
+                            if isinstance(raw_intervened_representation, InterventionOutput):
+                                self.full_intervention_outputs.append(raw_intervened_representation)
+                                intervened_representation = raw_intervened_representation.output
+                            else:
+                                intervened_representation = raw_intervened_representation
                         else:
                             intervened_representation = do_intervention(
                                 selected_output,
@@ -1866,7 +1872,7 @@ class IntervenableModel(BaseModel):
         if sources is not None and not isinstance(sources, list):
             sources = [sources]
 
-        self.aux_loss.clear()
+        self.full_intervention_outputs.clear()
 
         self._cleanup_states()
 
