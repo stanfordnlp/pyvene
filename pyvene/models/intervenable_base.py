@@ -1563,17 +1563,17 @@ class IntervenableModel(BaseModel):
                 else:
                     if not isinstance(self.interventions[key][0], types.FunctionType):
                         if intervention.is_source_constant:
-                            raw_intervened_representation = do_intervention(
+                            intervened_representation = do_intervention(
                                 selected_output,
                                 None,
                                 intervention,
                                 subspaces[key_i] if subspaces is not None else None,
                             )
-                            if isinstance(raw_intervened_representation, InterventionOutput):
-                                self.full_intervention_outputs.append(raw_intervened_representation)
-                                intervened_representation = raw_intervened_representation.output
-                            else:
-                                intervened_representation = raw_intervened_representation
+                            # if isinstance(raw_intervened_representation, InterventionOutput):
+                            #     self.full_intervention_outputs.append(raw_intervened_representation)
+                            #     intervened_representation = raw_intervened_representation.output
+                            # else:
+                            #     intervened_representation = raw_intervened_representation
                         else:
                             intervened_representation = do_intervention(
                                 selected_output,
