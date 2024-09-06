@@ -18,7 +18,7 @@ class InterventionOutput(ModelOutput):
     Output of the IntervenableModel, including original outputs, intervened outputs, and collected activations.
     """
     output: Optional[Any] = None
-    loss: Optional[Any] = None
+    latent: Optional[Any] = None
 
 
 class Intervention(torch.nn.Module):
