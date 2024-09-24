@@ -596,3 +596,47 @@ class AutoencoderIntervention(TrainableIntervention):
 
     def __str__(self):
         return f"AutoencoderIntervention()"
+
+
+class JumpReLUAutoencoderIntervention(TrainableIntervention):
+    """Interchange intervention on JumpReLU SAE's latent subspaces"""
+    def __init__(self, **kwargs):
+        # Note that we initialise these to zeros because we're loading in pre-trained weights.
+        # If you want to train your own SAEs then we recommend using blah
+        super().__init__(**kwargs, keep_last_dim=True)
+        self.W_enc = torch.nn.Parameter(torch.zeros(self.embed_dim, kwargs["low_rank_dimension"]))
+        self.W_dec = torch.nn.Parameter(torch.zeros(kwargs["low_rank_dimension"], self.embed_dim))
+        self.threshold = torch.nn.Parameter(torch.zeros(kwargs["low_rank_dimension"]))
+        self.b_enc = torch.nn.Parameter(torch.zeros(kwargs["low_rank_dimension"]))
+        self.b_dec = torch.nn.Parameter(torch.zeros(self.embed_dim))
+
+    def encode(self, input_acts):
+        pre_acts = input_acts @ self.W_enc + self.b_enc
+        mask = (pre_acts > self.threshold)
+        acts = mask * torch.nn.functional.relu(pre_acts)
+        return acts
+
+    def decode(self, acts):
+        return acts @ self.W_dec + self.b_dec
+
+    def forward(self, base, source=None, subspaces=None):
+        # generate latents for base and source runs.
+        base_latent = self.encode(base)
+        source_latent = self.encode(source)
+        # intervention.
+        intervened_latent = _do_intervention_by_swap(
+            base_latent,
+            source_latent,
+            "interchange",
+            self.interchange_dim,
+            subspaces,
+            subspace_partition=self.subspace_partition,
+            use_fast=self.use_fast,
+        )
+        # decode intervened latent.
+        recon = self.decode(intervened_latent)
+        return recon
+
+    def __str__(self):
+        return f"JumpReLUAutoencoderIntervention()"
+
