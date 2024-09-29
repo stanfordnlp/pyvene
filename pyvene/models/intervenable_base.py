@@ -1536,6 +1536,7 @@ class IntervenableModel(BaseModel):
                     if self._intervene_on_prompt ^ is_prompt:
                         return  # no-op
                 if output is None:
+                    print("output is None")
                     if len(args) == 0:  # kwargs based calls
                         # PR: https://github.com/frankaging/align-transformers/issues/11
                         # We cannot assume the dict only contain one element
@@ -1550,8 +1551,16 @@ class IntervenableModel(BaseModel):
                 if not self.is_model_stateless:
                     selected_output = selected_output.clone()
 
-                passin_kwargs = copy.deepcopy(kwargs)
-                passin_kwargs["_pyvene_model_input_args"] = args
+                try:
+                    passin_kwargs = copy.deepcopy(kwargs)
+                    passin_kwargs["_pyvene_model_input_args"] = args
+                except Exception as e:
+                    # Capture and print the error message
+                    # print(f"An error occurred: {e}")
+                    passin_kwargs = {}
+                    passin_kwargs["_pyvene_model_input_args"] = args
+                passin_kwargs["_pyvene_model_output"] = output
+
                 
                 if isinstance(
                     intervention,
