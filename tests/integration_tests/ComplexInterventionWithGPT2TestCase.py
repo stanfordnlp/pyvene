@@ -63,10 +63,11 @@ class ComplexInterventionWithGPT2TestCase(unittest.TestCase):
         base = {"input_ids": torch.randint(0, 10, (10, 5)).to(self.device)}
         golden_out = self.gpt2(**base).logits
         our_output = intervenable(base, output_original_output=True)[0][0]
-        self.assertTrue(torch.allclose(golden_out, our_output))
+        self.assertTrue(torch.allclose(golden_out, our_output, rtol=1e-05, atol=1e-06))
         # make sure the toolkit also works
         self.assertTrue(
-            torch.allclose(GPT2_RUN(self.gpt2, base["input_ids"], {}, {}), golden_out)
+            torch.allclose(GPT2_RUN(self.gpt2, base["input_ids"], {}, {}), golden_out,
+                           rtol=1e-05, atol=1e-06)
         )
 
     def _test_subspace_partition_in_forward(self, intervention_type):
@@ -134,7 +135,8 @@ class ComplexInterventionWithGPT2TestCase(unittest.TestCase):
         # make sure the toolkit also works
         self.assertTrue(
             torch.allclose(
-                with_partition_our_output[0], without_partition_our_output[0]
+                with_partition_our_output[0], without_partition_our_output[0],
+                rtol=1e-05, atol=1e-06
             )
         )
 

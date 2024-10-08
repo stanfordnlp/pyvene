@@ -132,8 +132,9 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
                     )
                 },
             )
-
-        self.assertTrue(torch.allclose(out_output[0], golden_out))
+        # Relax the atol to 1e-6 to accommodate for different Transformers versions.
+        # The max of the absolute diff is usually between 1e-8 to 1e-7.
+        self.assertTrue(torch.allclose(out_output[0], golden_out, rtol=1e-05, atol=1e-06))
 
 
     def test_with_multiple_heads_positions_vanilla_intervention_positive(self):
