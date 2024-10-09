@@ -609,6 +609,7 @@ class IntervenableBasicTestCase(unittest.TestCase):
 
         _, tokenizer, gpt2 = pv.create_gpt2()
 
+        gpt2.config.output_attentions = True
         pv_gpt2 = pv.IntervenableModel({
             "layer": 10,
             "component": "attention_weight",

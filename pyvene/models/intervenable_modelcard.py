@@ -2,6 +2,7 @@ from .constants import *
 from .llama.modelings_intervenable_llama import *
 from .mistral.modellings_intervenable_mistral import *
 from .gemma.modelings_intervenable_gemma import *
+from .gemma2.modelings_intervenable_gemma2 import *
 from .gpt2.modelings_intervenable_gpt2 import *
 from .gpt_neo.modelings_intervenable_gpt_neo import *
 from .gpt_neox.modelings_intervenable_gpt_neox import *
@@ -58,6 +59,8 @@ type_to_module_mapping = {
     hf_models.gemma.modeling_gemma.GemmaModel: gemma_type_to_module_mapping,
     hf_models.gemma.modeling_gemma.GemmaForCausalLM: gemma_lm_type_to_module_mapping,
     hf_models.gemma.modeling_gemma.GemmaForSequenceClassification: gemma_classifier_type_to_module_mapping,
+    hf_models.gemma2.modeling_gemma2.Gemma2Model: gemma2_type_to_module_mapping,
+    hf_models.gemma2.modeling_gemma2.Gemma2ForCausalLM: gemma2_lm_type_to_module_mapping,
     hf_models.olmo.modeling_olmo.OlmoModel: olmo_type_to_module_mapping,
     hf_models.olmo.modeling_olmo.OlmoForCausalLM: olmo_lm_type_to_module_mapping,  
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_module_mapping,
@@ -91,6 +94,8 @@ type_to_dimension_mapping = {
     hf_models.gemma.modeling_gemma.GemmaModel: gemma_type_to_dimension_mapping,
     hf_models.gemma.modeling_gemma.GemmaForCausalLM: gemma_lm_type_to_dimension_mapping,
     hf_models.gemma.modeling_gemma.GemmaForSequenceClassification: gemma_classifier_type_to_dimension_mapping,
+    hf_models.gemma2.modeling_gemma2.Gemma2Model: gemma2_type_to_dimension_mapping,
+    hf_models.gemma2.modeling_gemma2.Gemma2ForCausalLM: gemma2_lm_type_to_dimension_mapping,
     hf_models.olmo.modeling_olmo.OlmoModel: olmo_type_to_dimension_mapping,
     hf_models.olmo.modeling_olmo.OlmoForCausalLM: olmo_lm_type_to_dimension_mapping, 
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_dimension_mapping,
