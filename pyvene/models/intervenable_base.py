@@ -839,6 +839,7 @@ class IntervenableNdifModel(BaseModel):
                     None,
                     intervention,
                     subspaces[key_i] if subspaces is not None else None,
+                    intervenable_model=self
                 )
                 # fail if this is not a fresh collect
                 assert key not in self.activations
@@ -853,6 +854,7 @@ class IntervenableNdifModel(BaseModel):
                             None,
                             intervention,
                             subspaces[key_i] if subspaces is not None else None,
+                            intervenable_model=self
                         )
                     else:
                         intervened_representation = do_intervention(
@@ -864,6 +866,7 @@ class IntervenableNdifModel(BaseModel):
                             ),
                             intervention,
                             subspaces[key_i] if subspaces is not None else None,
+                            intervenable_model=self
                         )
                 else:
                     # highly unlikely it's a primitive intervention type
@@ -876,6 +879,7 @@ class IntervenableNdifModel(BaseModel):
                         ),
                         intervention,
                         subspaces[key_i] if subspaces is not None else None,
+                        intervenable_model=self
                     )
                 if intervened_representation is None:
                     return
@@ -1553,6 +1557,7 @@ class IntervenableModel(BaseModel):
                         None,
                         intervention,
                         subspaces[key_i] if subspaces is not None else None,
+                        intervenable_model=self
                     )
                     # fail if this is not a fresh collect
                     assert key not in self.activations
@@ -1568,6 +1573,7 @@ class IntervenableModel(BaseModel):
                                 None,
                                 intervention,
                                 subspaces[key_i] if subspaces is not None else None,
+                                intervenable_model=self
                             )
                             if isinstance(raw_intervened_representation, InterventionOutput):
                                 self.full_intervention_outputs.append(raw_intervened_representation)
@@ -1584,6 +1590,7 @@ class IntervenableModel(BaseModel):
                                 ),
                                 intervention,
                                 subspaces[key_i] if subspaces is not None else None,
+                                intervenable_model=self
                             )
                     else:
                         # highly unlikely it's a primitive intervention type
@@ -1596,6 +1603,7 @@ class IntervenableModel(BaseModel):
                             ),
                             intervention,
                             subspaces[key_i] if subspaces is not None else None,
+                            intervenable_model=self
                         )
                     if intervened_representation is None:
                         return
