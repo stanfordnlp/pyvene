@@ -167,7 +167,9 @@ class InterventionWithLlamaTestCase(unittest.TestCase):
             def __init__(self, layer_index, *args, **kwargs):
                 super().__init__()
                 self.layer_index = layer_index
-            def __call__(self, base, source=None, subspaces=None, model=None, intervenable_model=None):
+            def __call__(self, base, source=None, subspaces=None, model=None, **kwargs):
+                intervenable_model = kwargs.get('intervenable_model', None)
+                assert intervenable_model is not None
                 _lm_head_collection[self.layer_index] = intervenable_model.model.lm_head(base.to(that.device))
                 return base
         # run with new intervention type
