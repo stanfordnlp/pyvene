@@ -179,7 +179,8 @@ class InterventionWithLlamaTestCase(unittest.TestCase):
         } for layer in [1, 3]], model=self.llama)
         intervened_outputs = pv_llama(
             base=self.tokenizer("The capital of Spain is", return_tensors="pt").to(that.device), 
-            unit_locations={"base": 3}
+            unit_locations={"base": 3},
+            intervenable_model=pv_llama
         )
 
             

@@ -431,7 +431,7 @@ def scatter_neurons(
 
 
 def do_intervention(
-    base_representation, source_representation, intervention, subspaces, intervenable_model=None
+    base_representation, source_representation, intervention, subspaces, **intervention_forward_kwargs
 ):
     """Do the actual intervention."""
 
@@ -464,7 +464,7 @@ def do_intervention(
 
     intervention_output = intervention(
         base_representation_f, source_representation_f, subspaces,
-        intervenable_model=intervenable_model
+        **intervention_forward_kwargs
     )
     if isinstance(intervention_output, InterventionOutput):
         intervened_representation = intervention_output.output
