@@ -15,6 +15,7 @@ from ..constants import *
 vlbart_multitask_type_to_module_mapping = {
     "block_input": ("encoder.layers[%s]", CONST_INPUT_HOOK),
     "block_output": ("encoder.layers[%s]", CONST_OUTPUT_HOOK),
+    "decoder_block_output": ("decoder.layers[%s]", CONST_OUTPUT_HOOK),
     "mlp_activation": ("encoder.layers[%s].fc1.act_fn", CONST_OUTPUT_HOOK),
     "mlp_output": ("encoder.layers[%s].fc2", CONST_OUTPUT_HOOK),
     "mlp_input": ("encoder.layers[%s].fc1", CONST_INPUT_HOOK),
@@ -34,6 +35,7 @@ vlbart_multitask_type_to_module_mapping = {
 vlbart_multitask_type_to_dimension_mapping = {
     "block_input": ("d_model",),
     "block_output": ("d_model",),
+    "decoder_block_output": ("d_model",),
     "mlp_activation": ("encoder_ffn_dim",),
     "mlp_output": ("d_model",),
     "mlp_input": ("d_model",),
