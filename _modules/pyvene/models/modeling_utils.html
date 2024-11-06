@@ -1,0 +1,1104 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pyvene.models.modeling_utils &#8212; pyvene 0.1.2 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!-- 
+    this give us a css class that will be invisible only if js is disabled 
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=26a4bc78f4c0ddb94549" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=26a4bc78f4c0ddb94549" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/sphinx-book-theme.css?v=a3416100" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../_static/scripts/fontawesome.js?digest=26a4bc78f4c0ddb94549"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=26a4bc78f4c0ddb94549" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=26a4bc78f4c0ddb94549" />
+
+    <script src="../../../_static/documentation_options.js?v=0deb7d70"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/pyvene/models/modeling_utils';</script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">pyvene 0.1.2 documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/contributing.html">Contributing Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/causal_abstraction.html">A Little Guide to Causal Abstraction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/ndif.html">NDIF Integration</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Basic tutorials</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/pyvene_101.html">Introduction to pyvene</a></li>
+
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/basic_tutorials/Add_Activations_to_Streams.html">Activation Addition</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/basic_tutorials/Basic_Intervention.html">Interchange Intervention</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/basic_tutorials/Nested_Intervention.html">Intervening on subcomponents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/basic_tutorials/Subspace_Partition_with_Intervention.html">Subspace Interventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/basic_tutorials/Intervention_Training.html">Trainable Interventions</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced tutorials</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_tutorials/Causal_Tracing.html">Causal Tracing (ROME)</a></li>
+
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_tutorials/Probing_Gender.html">Causal Evaluation of Probes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_tutorials/DAS_Main_Introduction.html">Intro to Distributed Alignment Search (DAS)</a></li>
+
+
+
+
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_tutorials/Boundless_DAS.html">Boundless DAS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_tutorials/IOI_Replication.html">Replicating the IOI paper</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_tutorials/IOI_with_DAS.html">IOI with DAS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_tutorials/IOI_with_Mask_Intervention.html">IOI with Masked Interventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_tutorials/Interventions_with_BLIP.html">Intervening on Vision-Language Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_tutorials/MQNLI.html">Nested Hierarchical Structure with MQNLI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_tutorials/Voting_Mechanism.html">An Exploration on Voting Mechanisms</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../api/core.html"><code class="docutils literal notranslate"><span class="pre">pyvene</span></code>: Core API</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../api/pyvene.data_generators.html">pyvene.data_generators</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.data_generators.causal_model.html">pyvene.data_generators.causal_model</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.data_generators.causal_model.simple_example.html">pyvene.data_generators.causal_model.simple_example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.data_generators.causal_model.CausalModel.html">pyvene.data_generators.causal_model.CausalModel</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../api/pyvene.models.html">pyvene.models</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.backpack_gpt2.html">pyvene.models.backpack_gpt2</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.backpack_gpt2.modelings_backpack_gpt2.html">pyvene.models.backpack_gpt2.modelings_backpack_gpt2</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.backpack_gpt2.modelings_intervenable_backpack_gpt2.html">pyvene.models.backpack_gpt2.modelings_intervenable_backpack_gpt2</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.html">pyvene.models.basic_utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.GET_LOC.html">pyvene.models.basic_utils.GET_LOC</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.closeness_to_permutation_loss.html">pyvene.models.basic_utils.closeness_to_permutation_loss</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.count_parameters.html">pyvene.models.basic_utils.count_parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.create_directory.html">pyvene.models.basic_utils.create_directory</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.embed_to_distrib.html">pyvene.models.basic_utils.embed_to_distrib</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.format_token.html">pyvene.models.basic_utils.format_token</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.get_batch_size.html">pyvene.models.basic_utils.get_batch_size</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.get_list_depth.html">pyvene.models.basic_utils.get_list_depth</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.get_type_from_string.html">pyvene.models.basic_utils.get_type_from_string</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.harmonic_sigmoid_boundary.html">pyvene.models.basic_utils.harmonic_sigmoid_boundary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.random_permutation_matrix.html">pyvene.models.basic_utils.random_permutation_matrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.set_seed.html">pyvene.models.basic_utils.set_seed</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.sigmoid_boundary.html">pyvene.models.basic_utils.sigmoid_boundary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.basic_utils.top_vals.html">pyvene.models.basic_utils.top_vals</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.blip.html">pyvene.models.blip</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.blip.modelings_blip.html">pyvene.models.blip.modelings_blip</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.blip.modelings_blip_itm.html">pyvene.models.blip.modelings_blip_itm</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.blip.modelings_intervenable_blip.html">pyvene.models.blip.modelings_intervenable_blip</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.blip.modelings_intervenable_blip_itm.html">pyvene.models.blip.modelings_intervenable_blip_itm</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.configuration_intervenable_model.html">pyvene.models.configuration_intervenable_model</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.configuration_intervenable_model.IntervenableConfig.html">pyvene.models.configuration_intervenable_model.IntervenableConfig</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.configuration_intervenable_model.RepresentationConfig.html">pyvene.models.configuration_intervenable_model.RepresentationConfig</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.constants.html">pyvene.models.constants</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.constants.split_and_select.html">pyvene.models.constants.split_and_select</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.constants.split_half.html">pyvene.models.constants.split_half</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.constants.split_head_and_permute.html">pyvene.models.constants.split_head_and_permute</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.constants.split_heads.html">pyvene.models.constants.split_heads</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.constants.split_three.html">pyvene.models.constants.split_three</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.gemma.html">pyvene.models.gemma</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.gemma.modelings_intervenable_gemma.html">pyvene.models.gemma.modelings_intervenable_gemma</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.gemma2.html">pyvene.models.gemma2</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.gemma2.modelings_intervenable_gemma2.html">pyvene.models.gemma2.modelings_intervenable_gemma2</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.gpt2.html">pyvene.models.gpt2</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.gpt2.modelings_intervenable_gpt2.html">pyvene.models.gpt2.modelings_intervenable_gpt2</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.gpt_neo.html">pyvene.models.gpt_neo</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.gpt_neo.modelings_intervenable_gpt_neo.html">pyvene.models.gpt_neo.modelings_intervenable_gpt_neo</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.gpt_neox.html">pyvene.models.gpt_neox</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.gpt_neox.modelings_intervenable_gpt_neox.html">pyvene.models.gpt_neox.modelings_intervenable_gpt_neox</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.gru.html">pyvene.models.gru</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.gru.modelings_gru.html">pyvene.models.gru.modelings_gru</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.gru.modelings_intervenable_gru.html">pyvene.models.gru.modelings_intervenable_gru</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.intervenable_base.html">pyvene.models.intervenable_base</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.intervenable_base.build_intervenable_model.html">pyvene.models.intervenable_base.build_intervenable_model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.intervenable_base.BaseModel.html">pyvene.models.intervenable_base.BaseModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.intervenable_base.IntervenableModel.html">pyvene.models.intervenable_base.IntervenableModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.intervenable_base.IntervenableModelOutput.html">pyvene.models.intervenable_base.IntervenableModelOutput</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.intervenable_base.IntervenableNdifModel.html">pyvene.models.intervenable_base.IntervenableNdifModel</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/pyvene.models.intervenable_modelcard.html">pyvene.models.intervenable_modelcard</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.intervention_utils.html">pyvene.models.intervention_utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.intervention_utils.broadcast_tensor_v1.html">pyvene.models.intervention_utils.broadcast_tensor_v1</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.intervention_utils.broadcast_tensor_v2.html">pyvene.models.intervention_utils.broadcast_tensor_v2</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.intervention_utils.InterventionState.html">pyvene.models.intervention_utils.InterventionState</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.interventions.html">pyvene.models.interventions</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.AdditionIntervention.html">pyvene.models.interventions.AdditionIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.AutoencoderIntervention.html">pyvene.models.interventions.AutoencoderIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.BasisAgnosticIntervention.html">pyvene.models.interventions.BasisAgnosticIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.BoundlessRotatedSpaceIntervention.html">pyvene.models.interventions.BoundlessRotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.CollectIntervention.html">pyvene.models.interventions.CollectIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.ConstantSourceIntervention.html">pyvene.models.interventions.ConstantSourceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.DistributedRepresentationIntervention.html">pyvene.models.interventions.DistributedRepresentationIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.Intervention.html">pyvene.models.interventions.Intervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.InterventionOutput.html">pyvene.models.interventions.InterventionOutput</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.JumpReLUAutoencoderIntervention.html">pyvene.models.interventions.JumpReLUAutoencoderIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.LocalistRepresentationIntervention.html">pyvene.models.interventions.LocalistRepresentationIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.LowRankRotatedSpaceIntervention.html">pyvene.models.interventions.LowRankRotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.NoiseIntervention.html">pyvene.models.interventions.NoiseIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.PCARotatedSpaceIntervention.html">pyvene.models.interventions.PCARotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.RotatedSpaceIntervention.html">pyvene.models.interventions.RotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.SharedWeightsTrainableIntervention.html">pyvene.models.interventions.SharedWeightsTrainableIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.SigmoidMaskIntervention.html">pyvene.models.interventions.SigmoidMaskIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.SigmoidMaskRotatedSpaceIntervention.html">pyvene.models.interventions.SigmoidMaskRotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.SkipIntervention.html">pyvene.models.interventions.SkipIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.SourcelessIntervention.html">pyvene.models.interventions.SourcelessIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.SubtractionIntervention.html">pyvene.models.interventions.SubtractionIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.TrainableIntervention.html">pyvene.models.interventions.TrainableIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.VanillaIntervention.html">pyvene.models.interventions.VanillaIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.interventions.ZeroIntervention.html">pyvene.models.interventions.ZeroIntervention</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.layers.html">pyvene.models.layers</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.layers.AutoencoderLayer.html">pyvene.models.layers.AutoencoderLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.layers.AutoencoderLayerBase.html">pyvene.models.layers.AutoencoderLayerBase</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.layers.InverseRotateLayer.html">pyvene.models.layers.InverseRotateLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.layers.LowRankRotateLayer.html">pyvene.models.layers.LowRankRotateLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.layers.RotateLayer.html">pyvene.models.layers.RotateLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.layers.SubspaceLowRankRotateLayer.html">pyvene.models.layers.SubspaceLowRankRotateLayer</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.llama.html">pyvene.models.llama</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.llama.modelings_intervenable_llama.html">pyvene.models.llama.modelings_intervenable_llama</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.llava.html">pyvene.models.llava</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.llava.modelings_intervenable_llava.html">pyvene.models.llava.modelings_intervenable_llava</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.mistral.html">pyvene.models.mistral</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.mistral.modellings_intervenable_mistral.html">pyvene.models.mistral.modellings_intervenable_mistral</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.mlp.html">pyvene.models.mlp</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.mlp.modelings_intervenable_mlp.html">pyvene.models.mlp.modelings_intervenable_mlp</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.mlp.modelings_mlp.html">pyvene.models.mlp.modelings_mlp</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.html">pyvene.models.modeling_utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.b_sd_to_bsd.html">pyvene.models.modeling_utils.b_sd_to_bsd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.bhsd_to_bs_hd.html">pyvene.models.modeling_utils.bhsd_to_bs_hd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.bs_hd_to_bhsd.html">pyvene.models.modeling_utils.bs_hd_to_bhsd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.bsd_to_b_sd.html">pyvene.models.modeling_utils.bsd_to_b_sd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.do_intervention.html">pyvene.models.modeling_utils.do_intervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.gather_neurons.html">pyvene.models.modeling_utils.gather_neurons</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.get_dimension_by_component.html">pyvene.models.modeling_utils.get_dimension_by_component</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.get_internal_model_type.html">pyvene.models.modeling_utils.get_internal_model_type</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.get_module_hook.html">pyvene.models.modeling_utils.get_module_hook</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.getattr_for_torch_module.html">pyvene.models.modeling_utils.getattr_for_torch_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.is_gru.html">pyvene.models.modeling_utils.is_gru</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.is_mlp.html">pyvene.models.modeling_utils.is_mlp</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.is_stateless.html">pyvene.models.modeling_utils.is_stateless</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.is_transformer.html">pyvene.models.modeling_utils.is_transformer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.output_to_subcomponent.html">pyvene.models.modeling_utils.output_to_subcomponent</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.print_forward_hooks.html">pyvene.models.modeling_utils.print_forward_hooks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.remove_forward_hooks.html">pyvene.models.modeling_utils.remove_forward_hooks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.scatter_neurons.html">pyvene.models.modeling_utils.scatter_neurons</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.simple_output_to_subcomponent.html">pyvene.models.modeling_utils.simple_output_to_subcomponent</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.simple_scatter_intervention_output.html">pyvene.models.modeling_utils.simple_scatter_intervention_output</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.weighted_average.html">pyvene.models.modeling_utils.weighted_average</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.modeling_utils.HandlerList.html">pyvene.models.modeling_utils.HandlerList</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../api/pyvene.models.olmo.html">pyvene.models.olmo</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pyvene.models.olmo.modelings_intervenable_olmo.html">pyvene.models.olmo.modelings_intervenable_olmo</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1></h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for pyvene.models.modeling_utils</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">random</span><span class="o">,</span> <span class="nn">torch</span><span class="o">,</span> <span class="nn">types</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">nn</span>
+<span class="kn">from</span> <span class="nn">.intervenable_modelcard</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.interventions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.constants</span> <span class="kn">import</span> <span class="o">*</span>
+
+
+<div class="viewcode-block" id="get_internal_model_type">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.get_internal_model_type.html#pyvene.models.modeling_utils.get_internal_model_type">[docs]</a>
+<span class="k">def</span> <span class="nf">get_internal_model_type</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the model type.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="is_stateless">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.is_stateless.html#pyvene.models.modeling_utils.is_stateless">[docs]</a>
+<span class="k">def</span> <span class="nf">is_stateless</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Determine if the model is stateful (e.g., rnn) or stateless (e.g.,</span>
+<span class="sd">    transformer)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">is_gru</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="kc">True</span></div>
+
+
+
+<div class="viewcode-block" id="is_gru">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.is_gru.html#pyvene.models.modeling_utils.is_gru">[docs]</a>
+<span class="k">def</span> <span class="nf">is_gru</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Determine if this is a transformer model.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="p">)</span> <span class="o">==</span> <span class="n">GRUModel</span>
+        <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="p">)</span> <span class="o">==</span> <span class="n">GRULMHeadModel</span>
+        <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="p">)</span> <span class="o">==</span> <span class="n">GRUForClassification</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="kc">False</span></div>
+
+
+
+<div class="viewcode-block" id="is_mlp">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.is_mlp.html#pyvene.models.modeling_utils.is_mlp">[docs]</a>
+<span class="k">def</span> <span class="nf">is_mlp</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Determine if this is a mlp model.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="p">)</span> <span class="o">==</span> <span class="n">MLPModel</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="p">)</span> <span class="o">==</span> <span class="n">MLPForClassification</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="kc">False</span></div>
+
+
+
+<div class="viewcode-block" id="is_transformer">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.is_transformer.html#pyvene.models.modeling_utils.is_transformer">[docs]</a>
+<span class="k">def</span> <span class="nf">is_transformer</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Determine if this is a transformer model.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_gru</span><span class="p">(</span><span class="n">model</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_mlp</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="kc">False</span></div>
+
+
+
+<div class="viewcode-block" id="print_forward_hooks">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.print_forward_hooks.html#pyvene.models.modeling_utils.print_forward_hooks">[docs]</a>
+<span class="k">def</span> <span class="nf">print_forward_hooks</span><span class="p">(</span><span class="n">main_module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Function to print forward hooks of a module and its sub-modules.&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">submodule</span> <span class="ow">in</span> <span class="n">main_module</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">submodule</span><span class="p">,</span> <span class="s2">&quot;_forward_hooks&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">submodule</span><span class="o">.</span><span class="n">_forward_hooks</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Module: </span><span class="si">{</span><span class="n">name</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;Main Module&#39;</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">hook_id</span><span class="p">,</span> <span class="n">hook</span> <span class="ow">in</span> <span class="n">submodule</span><span class="o">.</span><span class="n">_forward_hooks</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  ID: </span><span class="si">{</span><span class="n">hook_id</span><span class="si">}</span><span class="s2">, Hook: </span><span class="si">{</span><span class="n">hook</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">submodule</span><span class="p">,</span> <span class="s2">&quot;_forward_pre_hooks&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">submodule</span><span class="o">.</span><span class="n">_forward_hooks</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Module: </span><span class="si">{</span><span class="n">name</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;Main Module&#39;</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">hook_id</span><span class="p">,</span> <span class="n">hook</span> <span class="ow">in</span> <span class="n">submodule</span><span class="o">.</span><span class="n">_forward_pre_hooks</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  ID: </span><span class="si">{</span><span class="n">hook_id</span><span class="si">}</span><span class="s2">, Hook: </span><span class="si">{</span><span class="n">hook</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="remove_forward_hooks">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.remove_forward_hooks.html#pyvene.models.modeling_utils.remove_forward_hooks">[docs]</a>
+<span class="k">def</span> <span class="nf">remove_forward_hooks</span><span class="p">(</span><span class="n">main_module</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Function to remove all forward and pre-forward hooks from a module and</span>
+
+<span class="sd">    its sub-modules.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Remove forward hooks</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">submodule</span> <span class="ow">in</span> <span class="n">main_module</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">submodule</span><span class="p">,</span> <span class="s2">&quot;_forward_hooks&quot;</span><span class="p">):</span>
+            <span class="n">hooks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">submodule</span><span class="o">.</span><span class="n">_forward_hooks</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>  <span class="c1"># Get a list of hook IDs</span>
+            <span class="k">for</span> <span class="n">hook_id</span> <span class="ow">in</span> <span class="n">hooks</span><span class="p">:</span>
+                <span class="n">submodule</span><span class="o">.</span><span class="n">_forward_hooks</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">hook_id</span><span class="p">)</span>
+
+        <span class="c1"># Remove pre-forward hooks</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">submodule</span><span class="p">,</span> <span class="s2">&quot;_forward_pre_hooks&quot;</span><span class="p">):</span>
+            <span class="n">pre_hooks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+                <span class="n">submodule</span><span class="o">.</span><span class="n">_forward_pre_hooks</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+            <span class="p">)</span>  <span class="c1"># Get a list of pre-hook IDs</span>
+            <span class="k">for</span> <span class="n">pre_hook_id</span> <span class="ow">in</span> <span class="n">pre_hooks</span><span class="p">:</span>
+                <span class="n">submodule</span><span class="o">.</span><span class="n">_forward_pre_hooks</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">pre_hook_id</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="getattr_for_torch_module">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.getattr_for_torch_module.html#pyvene.models.modeling_utils.getattr_for_torch_module">[docs]</a>
+<span class="k">def</span> <span class="nf">getattr_for_torch_module</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">parameter_name</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Recursively fetch the model based on the name.&quot;&quot;&quot;</span>
+    <span class="n">current_module</span> <span class="o">=</span> <span class="n">model</span>
+    <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">parameter_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s2">&quot;[&quot;</span> <span class="ow">in</span> <span class="n">param</span><span class="p">:</span>
+            <span class="n">current_module</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">current_module</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;[&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])[</span>
+                <span class="nb">int</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;[&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">&quot;]&quot;</span><span class="p">))</span>
+            <span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">current_module</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">current_module</span><span class="p">,</span> <span class="n">param</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">current_module</span></div>
+
+
+
+<div class="viewcode-block" id="get_dimension_by_component">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.get_dimension_by_component.html#pyvene.models.modeling_utils.get_dimension_by_component">[docs]</a>
+<span class="k">def</span> <span class="nf">get_dimension_by_component</span><span class="p">(</span><span class="n">model_type</span><span class="p">,</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">component</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Based on the representation, get the aligning dimension size.&quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">component</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">type_to_dimension_mapping</span><span class="p">[</span><span class="n">model_type</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">dimension_proposals</span> <span class="o">=</span> <span class="n">type_to_dimension_mapping</span><span class="p">[</span><span class="n">model_type</span><span class="p">][</span><span class="n">component</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">proposal</span> <span class="ow">in</span> <span class="n">dimension_proposals</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">proposal</span><span class="o">.</span><span class="n">isnumeric</span><span class="p">():</span>
+            <span class="n">dimension</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">proposal</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="s2">&quot;*&quot;</span> <span class="ow">in</span> <span class="n">proposal</span><span class="p">:</span>
+            <span class="c1"># often constant multiplier with MLP</span>
+            <span class="n">dimension</span> <span class="o">=</span> <span class="n">getattr_for_torch_module</span><span class="p">(</span>
+                <span class="n">model_config</span><span class="p">,</span> <span class="n">proposal</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;*&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="p">)</span> <span class="o">*</span> <span class="nb">int</span><span class="p">(</span><span class="n">proposal</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;*&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="s2">&quot;/&quot;</span> <span class="ow">in</span> <span class="n">proposal</span><span class="p">:</span>
+            <span class="c1"># often split by head number</span>
+            <span class="k">if</span> <span class="n">proposal</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">isnumeric</span><span class="p">():</span>
+                <span class="n">numr</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">proposal</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">numr</span> <span class="o">=</span> <span class="n">getattr_for_torch_module</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">proposal</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+
+            <span class="k">if</span> <span class="n">proposal</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">isnumeric</span><span class="p">():</span>
+                <span class="n">denr</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">proposal</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">denr</span> <span class="o">=</span> <span class="n">getattr_for_torch_module</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">proposal</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">dimension</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">numr</span> <span class="o">/</span> <span class="n">denr</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dimension</span> <span class="o">=</span> <span class="n">getattr_for_torch_module</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">proposal</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dimension</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dimension</span>
+
+    <span class="k">assert</span> <span class="kc">False</span></div>
+
+
+
+<div class="viewcode-block" id="get_module_hook">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.get_module_hook.html#pyvene.models.modeling_utils.get_module_hook">[docs]</a>
+<span class="k">def</span> <span class="nf">get_module_hook</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s2">&quot;native&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the intervening module with a hook.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">get_internal_model_type</span><span class="p">(</span><span class="n">model</span><span class="p">)</span> <span class="ow">in</span> <span class="n">type_to_module_mapping</span> <span class="ow">and</span>
+        <span class="n">representation</span><span class="o">.</span><span class="n">component</span>
+        <span class="ow">in</span> <span class="n">type_to_module_mapping</span><span class="p">[</span><span class="n">get_internal_model_type</span><span class="p">(</span><span class="n">model</span><span class="p">)]</span>
+    <span class="p">):</span>
+        <span class="n">type_info</span> <span class="o">=</span> <span class="n">type_to_module_mapping</span><span class="p">[</span><span class="n">get_internal_model_type</span><span class="p">(</span><span class="n">model</span><span class="p">)][</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">component</span>
+        <span class="p">]</span>
+        <span class="n">parameter_name</span> <span class="o">=</span> <span class="n">type_info</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">hook_type</span> <span class="o">=</span> <span class="n">type_info</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="ow">in</span> <span class="n">parameter_name</span> <span class="ow">and</span> <span class="n">representation</span><span class="o">.</span><span class="n">moe_key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># we assume it is for the layer.</span>
+            <span class="n">parameter_name</span> <span class="o">=</span> <span class="n">parameter_name</span> <span class="o">%</span> <span class="p">(</span><span class="n">representation</span><span class="o">.</span><span class="n">layer</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="ow">in</span> <span class="n">parameter_name</span> <span class="ow">and</span> <span class="n">representation</span><span class="o">.</span><span class="n">moe_key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">parameter_name</span> <span class="o">=</span> <span class="n">parameter_name</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="nb">int</span><span class="p">(</span><span class="n">representation</span><span class="o">.</span><span class="n">layer</span><span class="p">),</span>
+                <span class="nb">int</span><span class="p">(</span><span class="n">representation</span><span class="o">.</span><span class="n">moe_key</span><span class="p">),</span>
+            <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">parameter_name</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">representation</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">representation</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;input&quot;</span><span class="p">:</span>
+            <span class="n">hook_type</span> <span class="o">=</span> <span class="n">CONST_INPUT_HOOK</span>
+        <span class="k">elif</span> <span class="n">representation</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;output&quot;</span><span class="p">:</span>
+            <span class="n">hook_type</span> <span class="o">=</span> <span class="n">CONST_OUTPUT_HOOK</span>
+
+    <span class="n">module</span> <span class="o">=</span> <span class="n">getattr_for_torch_module</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">parameter_name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;native&quot;</span><span class="p">:</span>
+        <span class="n">module_hook</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">hook_type</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;ndif&quot;</span><span class="p">:</span>
+        <span class="c1"># we assume the input v.s. output is handled outside</span>
+        <span class="n">module_hook</span> <span class="o">=</span> <span class="n">module</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">module_hook</span><span class="p">,</span> <span class="n">hook_type</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">module_hook</span></div>
+
+
+
+<div class="viewcode-block" id="HandlerList">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.HandlerList.html#pyvene.models.modeling_utils.HandlerList">[docs]</a>
+<span class="k">class</span> <span class="nc">HandlerList</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;General class to set hooks and set off hooks.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="HandlerList.__init__">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.HandlerList.html#pyvene.models.modeling_utils.HandlerList.__init__">[docs]</a>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handlers</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handlers</span> <span class="o">=</span> <span class="n">handlers</span></div>
+
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handlers</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">handler</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">handlers</span><span class="p">:</span>
+            <span class="n">handler</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">extend</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_handlers</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handlers</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">new_handlers</span><span class="o">.</span><span class="n">handlers</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+
+<div class="viewcode-block" id="bsd_to_b_sd">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.bsd_to_b_sd.html#pyvene.models.modeling_utils.bsd_to_b_sd">[docs]</a>
+<span class="k">def</span> <span class="nf">bsd_to_b_sd</span><span class="p">(</span><span class="n">tensor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a tensor of shape (b, s, d) to (b, s*d).&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">tensor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tensor</span>
+    <span class="n">b</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span>
+    <span class="k">return</span> <span class="n">tensor</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">s</span> <span class="o">*</span> <span class="n">d</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="b_sd_to_bsd">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.b_sd_to_bsd.html#pyvene.models.modeling_utils.b_sd_to_bsd">[docs]</a>
+<span class="k">def</span> <span class="nf">b_sd_to_bsd</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">s</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a tensor of shape (b, s*d) back to (b, s, d).&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">tensor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tensor</span>
+    <span class="n">b</span><span class="p">,</span> <span class="n">sd</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">sd</span> <span class="o">//</span> <span class="n">s</span>
+    <span class="k">return</span> <span class="n">tensor</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="bhsd_to_bs_hd">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.bhsd_to_bs_hd.html#pyvene.models.modeling_utils.bhsd_to_bs_hd">[docs]</a>
+<span class="k">def</span> <span class="nf">bhsd_to_bs_hd</span><span class="p">(</span><span class="n">tensor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a tensor of shape (b, h, s, d) to (b, s, h*d).&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">tensor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tensor</span>
+    <span class="n">b</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span>
+    <span class="k">return</span> <span class="n">tensor</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">h</span> <span class="o">*</span> <span class="n">d</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="bs_hd_to_bhsd">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.bs_hd_to_bhsd.html#pyvene.models.modeling_utils.bs_hd_to_bhsd">[docs]</a>
+<span class="k">def</span> <span class="nf">bs_hd_to_bhsd</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">h</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a tensor of shape (b, s, h*d) back to (b, h, s, d).&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">tensor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tensor</span>
+    <span class="n">b</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">hd</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span>
+
+    <span class="n">d</span> <span class="o">=</span> <span class="n">hd</span> <span class="o">//</span> <span class="n">h</span>
+
+    <span class="k">return</span> <span class="n">tensor</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="output_to_subcomponent">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.output_to_subcomponent.html#pyvene.models.modeling_utils.output_to_subcomponent">[docs]</a>
+<span class="k">def</span> <span class="nf">output_to_subcomponent</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">model_type</span><span class="p">,</span> <span class="n">model_config</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Split the raw output to subcomponents if specified in the config.</span>
+
+<span class="sd">    :param output: the original output from the model component.</span>
+<span class="sd">    :param component: types of model component, such as</span>
+<span class="sd">    &quot;block_output&quot; and &quot;query_output&quot; or it can be direct referece, such as</span>
+<span class="sd">    &quot;h[0].mlp.act&quot; which we will not splice into any subcomponent.</span>
+<span class="sd">    :param model_type: Hugging Face Model Type</span>
+<span class="sd">    :param model_config: Hugging Face Model Config</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">subcomponent</span> <span class="o">=</span> <span class="n">output</span>
+    <span class="k">if</span> <span class="n">model_type</span> <span class="ow">in</span> <span class="n">type_to_module_mapping</span> <span class="ow">and</span> \
+        <span class="n">component</span> <span class="ow">in</span> <span class="n">type_to_module_mapping</span><span class="p">[</span><span class="n">model_type</span><span class="p">]:</span>
+        <span class="n">split_last_dim_by</span> <span class="o">=</span> <span class="n">type_to_module_mapping</span><span class="p">[</span><span class="n">model_type</span><span class="p">][</span><span class="n">component</span><span class="p">][</span><span class="mi">2</span><span class="p">:]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">split_last_dim_by</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">split_last_dim_by</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported </span><span class="si">{</span><span class="n">split_last_dim_by</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">split_fn</span><span class="p">,</span> <span class="n">param</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">split_last_dim_by</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">param</span> <span class="o">=</span> <span class="n">get_dimension_by_component</span><span class="p">(</span><span class="n">model_type</span><span class="p">,</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">param</span><span class="p">)</span>
+            <span class="n">subcomponent</span> <span class="o">=</span> <span class="n">split_fn</span><span class="p">(</span><span class="n">subcomponent</span><span class="p">,</span> <span class="n">param</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">subcomponent</span></div>
+
+
+
+<div class="viewcode-block" id="gather_neurons">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.gather_neurons.html#pyvene.models.modeling_utils.gather_neurons">[docs]</a>
+<span class="k">def</span> <span class="nf">gather_neurons</span><span class="p">(</span><span class="n">tensor_input</span><span class="p">,</span> <span class="n">unit</span><span class="p">,</span> <span class="n">unit_locations_as_list</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Gather intervening neurons.</span>
+
+<span class="sd">    :param tensor_input: tensors of shape (batch_size, sequence_length, ...) if</span>
+<span class="sd">    `unit` is &quot;pos&quot; or &quot;h&quot;, tensors of shape (batch_size, num_heads,</span>
+<span class="sd">    sequence_length, ...) if `unit` is &quot;h.pos&quot;</span>
+<span class="sd">    :param unit: the intervention units to gather. Units could be &quot;h&quot; - head</span>
+<span class="sd">    number, &quot;pos&quot; - position in the sequence, or &quot;dim&quot; - a particular dimension in</span>
+<span class="sd">    the embedding space. If intervening multiple units, they are ordered and</span>
+<span class="sd">    separated by `.`. Currently only support &quot;pos&quot;, &quot;h&quot;, and &quot;h.pos&quot; units.</span>
+<span class="sd">    :param unit_locations_as_list: tuple of lists of lists of positions to gather</span>
+<span class="sd">    in tensor_input, according to the unit.</span>
+<span class="sd">    :return the gathered tensor as tensor_output</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">unit</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;t&quot;</span><span class="p">}:</span>
+        <span class="k">return</span> <span class="n">tensor_input</span>
+
+    <span class="k">if</span> <span class="s2">&quot;.&quot;</span> <span class="ow">in</span> <span class="n">unit</span><span class="p">:</span>
+        <span class="n">unit_locations</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">unit_locations_as_list</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> 
+                         <span class="n">device</span><span class="o">=</span><span class="n">tensor_input</span><span class="o">.</span><span class="n">device</span> <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">device</span><span class="p">),</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">unit_locations_as_list</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> 
+                         <span class="n">device</span><span class="o">=</span><span class="n">tensor_input</span><span class="o">.</span><span class="n">device</span> <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">device</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="c1"># we assume unit_locations is a tuple</span>
+        <span class="n">head_unit_locations</span> <span class="o">=</span> <span class="n">unit_locations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">pos_unit_locations</span> <span class="o">=</span> <span class="n">unit_locations</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">head_tensor_output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+            <span class="n">tensor_input</span><span class="p">,</span>
+            <span class="mi">1</span><span class="p">,</span>
+            <span class="n">head_unit_locations</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+                <span class="o">*</span><span class="n">head_unit_locations</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="p">,)</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">tensor_input</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">tensor_input</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">:]),</span>
+        <span class="p">)</span>  <span class="c1"># b, h, s, d</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">head_tensor_output</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">pos_tensor_input</span> <span class="o">=</span> <span class="n">bhsd_to_bs_hd</span><span class="p">(</span><span class="n">head_tensor_output</span><span class="p">)</span>
+        <span class="n">pos_tensor_output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+            <span class="n">pos_tensor_input</span><span class="p">,</span>
+            <span class="mi">1</span><span class="p">,</span>
+            <span class="n">pos_unit_locations</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+                <span class="o">*</span><span class="n">pos_unit_locations</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="p">,)</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">pos_tensor_input</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">pos_tensor_input</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">:]),</span>
+        <span class="p">)</span>  <span class="c1"># b, num_unit (pos), num_unit (h)*d</span>
+        <span class="n">tensor_output</span> <span class="o">=</span> <span class="n">bs_hd_to_bhsd</span><span class="p">(</span><span class="n">pos_tensor_output</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">tensor_output</span>  <span class="c1"># b, num_unit (h), num_unit (pos), d</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">unit_locations</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="n">unit_locations_as_list</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor_input</span><span class="o">.</span><span class="n">device</span> <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">device</span>
+        <span class="p">)</span>
+
+        <span class="n">tensor_output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+            <span class="n">tensor_input</span><span class="p">,</span>
+            <span class="mi">1</span><span class="p">,</span>
+            <span class="n">unit_locations</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+                <span class="o">*</span><span class="n">unit_locations</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="p">,)</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">tensor_input</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">tensor_input</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">:]),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">tensor_output</span></div>
+
+
+
+<div class="viewcode-block" id="scatter_neurons">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.scatter_neurons.html#pyvene.models.modeling_utils.scatter_neurons">[docs]</a>
+<span class="k">def</span> <span class="nf">scatter_neurons</span><span class="p">(</span>
+    <span class="n">tensor_input</span><span class="p">,</span>
+    <span class="n">replacing_tensor_input</span><span class="p">,</span>
+    <span class="n">component</span><span class="p">,</span>
+    <span class="n">unit</span><span class="p">,</span>
+    <span class="n">unit_locations_as_list</span><span class="p">,</span>
+    <span class="n">model_type</span><span class="p">,</span>
+    <span class="n">model_config</span><span class="p">,</span>
+    <span class="n">use_fast</span><span class="p">,</span>
+    <span class="n">device</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Replace selected neurons in `tensor_input` by `replacing_tensor_input`.</span>
+
+<span class="sd">    :param tensor_input: tensors of shape (batch_size, sequence_length, ...) if</span>
+<span class="sd">    `unit` is &quot;pos&quot; or &quot;h&quot;, tensors of shape (batch_size, num_heads,</span>
+<span class="sd">    sequence_length, ...) if `unit` is &quot;h.pos&quot;</span>
+<span class="sd">    :param replacing_tensor_input: tensors of shape (batch_size, sequence_length,</span>
+<span class="sd">    ...) if `unit` is &quot;pos&quot; or</span>
+<span class="sd">    &quot;h&quot;, tensors of shape (batch_size, num_heads, sequence_length, ...) if</span>
+<span class="sd">    `unit` is &quot;h.pos&quot;.</span>
+<span class="sd">    :param component: types of intervention representations, such as</span>
+<span class="sd">    &quot;block_output&quot; and &quot;query_output&quot;</span>
+<span class="sd">    :param unit: the intervention units to gather. Units could be &quot;h&quot; - head</span>
+<span class="sd">    number, &quot;pos&quot; - position in the sequence, or &quot;dim&quot; - a particular dimension in</span>
+<span class="sd">    the embedding space. If intervening multiple units, they are ordered and</span>
+<span class="sd">    separated by `.`. Currently only support &quot;pos&quot;, &quot;h&quot;, and &quot;h.pos&quot; units.</span>
+<span class="sd">    :param unit_locations_as_list: tuple of lists of lists of positions to gather</span>
+<span class="sd">    in tensor_input, according to the unit.</span>
+<span class="sd">    :param model_type: Hugging Face Model Type</span>
+<span class="sd">    :param model_config: Hugging Face Model Config</span>
+<span class="sd">    :param use_fast: whether to use fast path (TODO: fast path condition)</span>
+<span class="sd">    :return the in-place modified tensor_input</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="s2">&quot;.&quot;</span> <span class="ow">in</span> <span class="n">unit</span><span class="p">:</span>
+        <span class="c1"># extra dimension for multi-level intervention</span>
+        <span class="n">unit_locations</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">unit_locations_as_list</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> 
+                         <span class="n">device</span><span class="o">=</span><span class="n">tensor_input</span><span class="o">.</span><span class="n">device</span> <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">device</span><span class="p">),</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">unit_locations_as_list</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> 
+                         <span class="n">device</span><span class="o">=</span><span class="n">tensor_input</span><span class="o">.</span><span class="n">device</span> <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">device</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">unit_locations</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="n">unit_locations_as_list</span><span class="p">,</span> 
+            <span class="n">device</span><span class="o">=</span><span class="n">tensor_input</span><span class="o">.</span><span class="n">device</span> <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">device</span>
+        <span class="p">)</span>
+
+    <span class="c1"># if tensor is splitted, we need to get the start and end indices</span>
+    <span class="n">meta_component</span> <span class="o">=</span> <span class="n">output_to_subcomponent</span><span class="p">(</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">tensor_input</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="n">component</span><span class="p">,</span>
+        <span class="n">model_type</span><span class="p">,</span>
+        <span class="n">model_config</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">start_index</span><span class="p">,</span> <span class="n">end_index</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">meta_component</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="n">meta_component</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">last_dim</span> <span class="o">=</span> <span class="n">meta_component</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">_batch_idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">tensor_input</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># in case it is time step, there is no sequence-related index</span>
+    <span class="k">if</span> <span class="n">unit</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;t&quot;</span><span class="p">}:</span>
+        <span class="c1"># time series models, e.g., gru</span>
+        <span class="n">tensor_input</span><span class="p">[</span><span class="n">_batch_idx</span><span class="p">,</span> <span class="n">start_index</span><span class="p">:</span><span class="n">end_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">replacing_tensor_input</span>
+        <span class="k">return</span> <span class="n">tensor_input</span>
+    <span class="k">elif</span> <span class="n">unit</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;pos&quot;</span><span class="p">}:</span>
+        <span class="k">if</span> <span class="n">use_fast</span><span class="p">:</span>
+            <span class="c1"># maybe this is all redundant, but maybe faster slightly?</span>
+            <span class="n">tensor_input</span><span class="p">[</span>
+                <span class="n">_batch_idx</span><span class="p">,</span> <span class="n">unit_locations</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">start_index</span><span class="p">:</span><span class="n">end_index</span>
+            <span class="p">]</span> <span class="o">=</span> <span class="n">replacing_tensor_input</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tensor_input</span><span class="p">[</span>
+                <span class="n">_batch_idx</span><span class="p">,</span> <span class="n">unit_locations</span><span class="p">,</span> <span class="n">start_index</span><span class="p">:</span><span class="n">end_index</span>
+            <span class="p">]</span> <span class="o">=</span> <span class="n">replacing_tensor_input</span>
+        <span class="k">return</span> <span class="n">tensor_input</span>
+    <span class="k">elif</span> <span class="n">unit</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;h&quot;</span><span class="p">,</span> <span class="s2">&quot;h.pos&quot;</span><span class="p">}:</span>
+        <span class="c1"># head-based scattering is only special for transformer-based model</span>
+        <span class="c1"># replacing_tensor_input: b_s, num_h, s, h_dim -&gt; b_s, s, num_h*h_dim</span>
+        <span class="n">old_shape</span> <span class="o">=</span> <span class="n">tensor_input</span><span class="o">.</span><span class="n">size</span><span class="p">()</span>  <span class="c1"># b_s, s, -1*num_h*d</span>
+        <span class="n">new_shape</span> <span class="o">=</span> <span class="n">tensor_input</span><span class="o">.</span><span class="n">size</span><span class="p">()[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span>
+            <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">meta_component</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">last_dim</span><span class="p">,</span>
+        <span class="p">)</span>  <span class="c1"># b_s, s, -1, num_h, d</span>
+        <span class="c1"># get whether split by QKV</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">component</span> <span class="ow">in</span> <span class="n">type_to_module_mapping</span><span class="p">[</span><span class="n">model_type</span><span class="p">]</span>
+            <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">type_to_module_mapping</span><span class="p">[</span><span class="n">model_type</span><span class="p">][</span><span class="n">component</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">2</span>
+            <span class="ow">and</span> <span class="n">type_to_module_mapping</span><span class="p">[</span><span class="n">model_type</span><span class="p">][</span><span class="n">component</span><span class="p">][</span><span class="mi">2</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">split_three</span>
+        <span class="p">):</span>
+            <span class="n">_slice_idx</span> <span class="o">=</span> <span class="n">type_to_module_mapping</span><span class="p">[</span><span class="n">model_type</span><span class="p">][</span><span class="n">component</span><span class="p">][</span><span class="mi">2</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_slice_idx</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">tensor_permute</span> <span class="o">=</span> <span class="n">tensor_input</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">new_shape</span><span class="p">)</span>  <span class="c1"># b_s, s, -1, num_h, d</span>
+        <span class="n">tensor_permute</span> <span class="o">=</span> <span class="n">tensor_permute</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>  <span class="c1"># b_s, num_h, -1, s, d</span>
+        <span class="k">if</span> <span class="s2">&quot;.&quot;</span> <span class="ow">in</span> <span class="n">unit</span><span class="p">:</span>
+            <span class="c1"># cannot advance indexing on two columns, thus a single for loop is unavoidable.</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">unit_locations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+                <span class="n">tensor_permute</span><span class="p">[</span>
+                    <span class="n">_batch_idx</span><span class="p">,</span> <span class="n">unit_locations</span><span class="p">[</span><span class="mi">0</span><span class="p">][:,</span> <span class="p">[</span><span class="n">i</span><span class="p">]],</span> <span class="n">_slice_idx</span><span class="p">,</span> <span class="n">unit_locations</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="p">]</span> <span class="o">=</span> <span class="n">replacing_tensor_input</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tensor_permute</span><span class="p">[</span>
+                <span class="n">_batch_idx</span><span class="p">,</span> <span class="n">unit_locations</span><span class="p">,</span> <span class="n">_slice_idx</span>
+            <span class="p">]</span> <span class="o">=</span> <span class="n">replacing_tensor_input</span>
+        <span class="c1"># permute back and reshape</span>
+        <span class="n">tensor_output</span> <span class="o">=</span> <span class="n">tensor_permute</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>  <span class="c1"># b_s, s, -1, num_h, d</span>
+        <span class="n">tensor_output</span> <span class="o">=</span> <span class="n">tensor_output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">old_shape</span><span class="p">)</span>  <span class="c1"># b_s, s, -1*num_h*d</span>
+        <span class="k">return</span> <span class="n">tensor_output</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">&quot;.&quot;</span> <span class="ow">in</span> <span class="n">unit</span><span class="p">:</span>
+            <span class="c1"># cannot advance indexing on two columns, thus a single for loop is unavoidable.</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">unit_locations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+                <span class="n">tensor_input</span><span class="p">[</span>
+                    <span class="n">_batch_idx</span><span class="p">,</span> <span class="n">unit_locations</span><span class="p">[</span><span class="mi">0</span><span class="p">][:,</span> <span class="p">[</span><span class="n">i</span><span class="p">]],</span> <span class="n">unit_locations</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="p">]</span> <span class="o">=</span> <span class="n">replacing_tensor_input</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tensor_input</span><span class="p">[</span><span class="n">_batch_idx</span><span class="p">,</span> <span class="n">unit_locations</span><span class="p">]</span> <span class="o">=</span> <span class="n">replacing_tensor_input</span>
+        <span class="k">return</span> <span class="n">tensor_input</span>
+    <span class="k">assert</span> <span class="kc">False</span></div>
+
+
+
+<div class="viewcode-block" id="do_intervention">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.do_intervention.html#pyvene.models.modeling_utils.do_intervention">[docs]</a>
+<span class="k">def</span> <span class="nf">do_intervention</span><span class="p">(</span>
+    <span class="n">base_representation</span><span class="p">,</span> <span class="n">source_representation</span><span class="p">,</span> <span class="n">intervention</span><span class="p">,</span> <span class="n">subspaces</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Do the actual intervention.&quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">intervention</span><span class="p">,</span> <span class="n">types</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">subspaces</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">intervention</span><span class="p">(</span><span class="n">base_representation</span><span class="p">,</span> <span class="n">source_representation</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">intervention</span><span class="p">(</span><span class="n">base_representation</span><span class="p">,</span> <span class="n">source_representation</span><span class="p">,</span> <span class="n">subspaces</span><span class="p">)</span>
+
+    <span class="n">num_unit</span> <span class="o">=</span> <span class="n">base_representation</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># flatten</span>
+    <span class="n">original_base_shape</span> <span class="o">=</span> <span class="n">base_representation</span><span class="o">.</span><span class="n">shape</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">original_base_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">or</span> <span class="p">(</span>
+        <span class="nb">isinstance</span><span class="p">(</span><span class="n">intervention</span><span class="p">,</span> <span class="n">LocalistRepresentationIntervention</span><span class="p">)</span>
+    <span class="p">)</span> <span class="ow">or</span> <span class="n">intervention</span><span class="o">.</span><span class="n">keep_last_dim</span><span class="p">:</span>
+        <span class="c1"># no pos dimension, e.g., gru, or opt-out concate last two dims</span>
+        <span class="n">base_representation_f</span> <span class="o">=</span> <span class="n">base_representation</span>
+        <span class="n">source_representation_f</span> <span class="o">=</span> <span class="n">source_representation</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">original_base_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="c1"># b, num_unit (pos), d -&gt; b, num_unit*d</span>
+        <span class="n">base_representation_f</span> <span class="o">=</span> <span class="n">bsd_to_b_sd</span><span class="p">(</span><span class="n">base_representation</span><span class="p">)</span>
+        <span class="n">source_representation_f</span> <span class="o">=</span> <span class="n">bsd_to_b_sd</span><span class="p">(</span><span class="n">source_representation</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">original_base_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="c1"># b, num_unit (h), s, d -&gt; b, s, num_unit*d</span>
+        <span class="n">base_representation_f</span> <span class="o">=</span> <span class="n">bhsd_to_bs_hd</span><span class="p">(</span><span class="n">base_representation</span><span class="p">)</span>
+        <span class="n">source_representation_f</span> <span class="o">=</span> <span class="n">bhsd_to_bs_hd</span><span class="p">(</span><span class="n">source_representation</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="kc">False</span>  <span class="c1"># what&#39;s going on?</span>
+
+    <span class="n">intervention_output</span> <span class="o">=</span> <span class="n">intervention</span><span class="p">(</span>
+        <span class="n">base_representation_f</span><span class="p">,</span> <span class="n">source_representation_f</span><span class="p">,</span> <span class="n">subspaces</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">intervention_output</span><span class="p">,</span> <span class="n">InterventionOutput</span><span class="p">):</span>
+        <span class="n">intervened_representation</span> <span class="o">=</span> <span class="n">intervention_output</span><span class="o">.</span><span class="n">output</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">intervened_representation</span> <span class="o">=</span> <span class="n">intervention_output</span>
+
+    <span class="n">post_d</span> <span class="o">=</span> <span class="n">intervened_representation</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># unflatten</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">original_base_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span>
+        <span class="n">intervention</span><span class="p">,</span> <span class="n">LocalistRepresentationIntervention</span>
+    <span class="p">)</span> <span class="ow">or</span> <span class="n">intervention</span><span class="o">.</span><span class="n">keep_last_dim</span><span class="p">:</span>
+        <span class="c1"># no pos dimension, e.g., gru or opt-out concate last two dims</span>
+        <span class="k">pass</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">original_base_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">intervened_representation</span> <span class="o">=</span> <span class="n">b_sd_to_bsd</span><span class="p">(</span><span class="n">intervened_representation</span><span class="p">,</span> <span class="n">num_unit</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">original_base_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="n">intervened_representation</span> <span class="o">=</span> <span class="n">bs_hd_to_bhsd</span><span class="p">(</span><span class="n">intervened_representation</span><span class="p">,</span> <span class="n">num_unit</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="kc">False</span>  <span class="c1"># what&#39;s going on?</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">intervention_output</span><span class="p">,</span> <span class="n">InterventionOutput</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">intervened_representation</span>
+
+    <span class="n">intervention_output</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="n">intervened_representation</span>
+    <span class="k">return</span> <span class="n">intervention_output</span></div>
+
+
+
+<div class="viewcode-block" id="simple_output_to_subcomponent">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.simple_output_to_subcomponent.html#pyvene.models.modeling_utils.simple_output_to_subcomponent">[docs]</a>
+<span class="k">def</span> <span class="nf">simple_output_to_subcomponent</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">representation_type</span><span class="p">,</span> <span class="n">model_config</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This is an oversimplied version for demo.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">output</span></div>
+
+
+
+<div class="viewcode-block" id="simple_scatter_intervention_output">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.simple_scatter_intervention_output.html#pyvene.models.modeling_utils.simple_scatter_intervention_output">[docs]</a>
+<span class="k">def</span> <span class="nf">simple_scatter_intervention_output</span><span class="p">(</span>
+    <span class="n">original_output</span><span class="p">,</span>
+    <span class="n">intervened_representation</span><span class="p">,</span>
+    <span class="n">representation_type</span><span class="p">,</span>
+    <span class="n">unit</span><span class="p">,</span>
+    <span class="n">unit_locations</span><span class="p">,</span>
+    <span class="n">model_config</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This is an oversimplied version for demo.&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">batch_i</span><span class="p">,</span> <span class="n">locations</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">unit_locations</span><span class="p">):</span>
+        <span class="n">original_output</span><span class="p">[</span><span class="n">batch_i</span><span class="p">,</span> <span class="n">locations</span><span class="p">]</span> <span class="o">=</span> <span class="n">intervened_representation</span><span class="p">[</span><span class="n">batch_i</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="weighted_average">
+<a class="viewcode-back" href="../../../api/pyvene.models.modeling_utils.weighted_average.html#pyvene.models.modeling_utils.weighted_average">[docs]</a>
+<span class="k">def</span> <span class="nf">weighted_average</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">weights</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">weights</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The length of values and weights must be the same.&quot;</span><span class="p">)</span>
+
+    <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">w</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">weights</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">total</span> <span class="o">/</span> <span class="nb">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span></div>
+
+</pre></div>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Stanford NLP
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2024, Stanford NLP.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=26a4bc78f4c0ddb94549"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=26a4bc78f4c0ddb94549"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
