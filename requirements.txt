@@ -1,5 +1,5 @@
 torch>=2.0.0
-transformers==4.45.1
+transformers>=4.45.1
 tokenizers>=0.20.0
 datasets>=3.0.1
 protobuf>=3.20.0
