@@ -1,0 +1,1479 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Replicating the IOI paper &#8212; pyvene 0.1.2 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=a3416100" />
+    <link rel="stylesheet" type="text/css" href="../../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/documentation_options.js?v=0deb7d70"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'tutorials/advanced_tutorials/IOI_Replication';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="IOI with DAS" href="IOI_with_DAS.html" />
+    <link rel="prev" title="Boundless DAS" href="Boundless_DAS.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">pyvene 0.1.2 documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../guides/contributing.html">Contributing Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guides/causal_abstraction.html">A Little Guide to Causal Abstraction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guides/ndif.html">NDIF Integration</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Basic tutorials</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../pyvene_101.html">Introduction to pyvene</a></li>
+
+<li class="toctree-l1"><a class="reference internal" href="../basic_tutorials/Add_Activations_to_Streams.html">Activation Addition</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../basic_tutorials/Basic_Intervention.html">Interchange Intervention</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../basic_tutorials/Nested_Intervention.html">Intervening on subcomponents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../basic_tutorials/Subspace_Partition_with_Intervention.html">Subspace Interventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../basic_tutorials/Intervention_Training.html">Trainable Interventions</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced tutorials</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="Causal_Tracing.html">Causal Tracing (ROME)</a></li>
+
+<li class="toctree-l1"><a class="reference internal" href="Probing_Gender.html">Causal Evaluation of Probes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="DAS_Main_Introduction.html">Intro to Distributed Alignment Search (DAS)</a></li>
+
+
+
+
+<li class="toctree-l1"><a class="reference internal" href="Boundless_DAS.html">Boundless DAS</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Replicating the IOI paper</a></li>
+<li class="toctree-l1"><a class="reference internal" href="IOI_with_DAS.html">IOI with DAS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="IOI_with_Mask_Intervention.html">IOI with Masked Interventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Interventions_with_BLIP.html">Intervening on Vision-Language Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="MQNLI.html">Nested Hierarchical Structure with MQNLI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Voting_Mechanism.html">An Exploration on Voting Mechanisms</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../api/core.html"><code class="docutils literal notranslate"><span class="pre">pyvene</span></code>: Core API</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../api/pyvene.data_generators.html">pyvene.data_generators</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.data_generators.causal_model.html">pyvene.data_generators.causal_model</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.data_generators.causal_model.simple_example.html">pyvene.data_generators.causal_model.simple_example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.data_generators.causal_model.CausalModel.html">pyvene.data_generators.causal_model.CausalModel</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../api/pyvene.models.html">pyvene.models</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.backpack_gpt2.html">pyvene.models.backpack_gpt2</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.backpack_gpt2.modelings_backpack_gpt2.html">pyvene.models.backpack_gpt2.modelings_backpack_gpt2</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.backpack_gpt2.modelings_intervenable_backpack_gpt2.html">pyvene.models.backpack_gpt2.modelings_intervenable_backpack_gpt2</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.basic_utils.html">pyvene.models.basic_utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.GET_LOC.html">pyvene.models.basic_utils.GET_LOC</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.closeness_to_permutation_loss.html">pyvene.models.basic_utils.closeness_to_permutation_loss</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.count_parameters.html">pyvene.models.basic_utils.count_parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.create_directory.html">pyvene.models.basic_utils.create_directory</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.embed_to_distrib.html">pyvene.models.basic_utils.embed_to_distrib</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.format_token.html">pyvene.models.basic_utils.format_token</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.get_batch_size.html">pyvene.models.basic_utils.get_batch_size</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.get_list_depth.html">pyvene.models.basic_utils.get_list_depth</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.get_type_from_string.html">pyvene.models.basic_utils.get_type_from_string</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.harmonic_sigmoid_boundary.html">pyvene.models.basic_utils.harmonic_sigmoid_boundary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.random_permutation_matrix.html">pyvene.models.basic_utils.random_permutation_matrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.set_seed.html">pyvene.models.basic_utils.set_seed</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.sigmoid_boundary.html">pyvene.models.basic_utils.sigmoid_boundary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.top_vals.html">pyvene.models.basic_utils.top_vals</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.blip.html">pyvene.models.blip</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.blip.modelings_blip.html">pyvene.models.blip.modelings_blip</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.blip.modelings_blip_itm.html">pyvene.models.blip.modelings_blip_itm</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.blip.modelings_intervenable_blip.html">pyvene.models.blip.modelings_intervenable_blip</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.blip.modelings_intervenable_blip_itm.html">pyvene.models.blip.modelings_intervenable_blip_itm</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.configuration_intervenable_model.html">pyvene.models.configuration_intervenable_model</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.configuration_intervenable_model.IntervenableConfig.html">pyvene.models.configuration_intervenable_model.IntervenableConfig</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.configuration_intervenable_model.RepresentationConfig.html">pyvene.models.configuration_intervenable_model.RepresentationConfig</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.constants.html">pyvene.models.constants</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.constants.split_and_select.html">pyvene.models.constants.split_and_select</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.constants.split_half.html">pyvene.models.constants.split_half</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.constants.split_head_and_permute.html">pyvene.models.constants.split_head_and_permute</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.constants.split_heads.html">pyvene.models.constants.split_heads</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.constants.split_three.html">pyvene.models.constants.split_three</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.gemma.html">pyvene.models.gemma</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.gemma.modelings_intervenable_gemma.html">pyvene.models.gemma.modelings_intervenable_gemma</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.gemma2.html">pyvene.models.gemma2</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.gemma2.modelings_intervenable_gemma2.html">pyvene.models.gemma2.modelings_intervenable_gemma2</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.gpt2.html">pyvene.models.gpt2</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.gpt2.modelings_intervenable_gpt2.html">pyvene.models.gpt2.modelings_intervenable_gpt2</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.gpt_neo.html">pyvene.models.gpt_neo</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.gpt_neo.modelings_intervenable_gpt_neo.html">pyvene.models.gpt_neo.modelings_intervenable_gpt_neo</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.gpt_neox.html">pyvene.models.gpt_neox</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.gpt_neox.modelings_intervenable_gpt_neox.html">pyvene.models.gpt_neox.modelings_intervenable_gpt_neox</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.gru.html">pyvene.models.gru</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.gru.modelings_gru.html">pyvene.models.gru.modelings_gru</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.gru.modelings_intervenable_gru.html">pyvene.models.gru.modelings_intervenable_gru</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.intervenable_base.html">pyvene.models.intervenable_base</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervenable_base.build_intervenable_model.html">pyvene.models.intervenable_base.build_intervenable_model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervenable_base.BaseModel.html">pyvene.models.intervenable_base.BaseModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervenable_base.IntervenableModel.html">pyvene.models.intervenable_base.IntervenableModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervenable_base.IntervenableModelOutput.html">pyvene.models.intervenable_base.IntervenableModelOutput</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervenable_base.IntervenableNdifModel.html">pyvene.models.intervenable_base.IntervenableNdifModel</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/pyvene.models.intervenable_modelcard.html">pyvene.models.intervenable_modelcard</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.intervention_utils.html">pyvene.models.intervention_utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervention_utils.broadcast_tensor_v1.html">pyvene.models.intervention_utils.broadcast_tensor_v1</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervention_utils.broadcast_tensor_v2.html">pyvene.models.intervention_utils.broadcast_tensor_v2</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervention_utils.InterventionState.html">pyvene.models.intervention_utils.InterventionState</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.interventions.html">pyvene.models.interventions</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.AdditionIntervention.html">pyvene.models.interventions.AdditionIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.AutoencoderIntervention.html">pyvene.models.interventions.AutoencoderIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.BasisAgnosticIntervention.html">pyvene.models.interventions.BasisAgnosticIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.BoundlessRotatedSpaceIntervention.html">pyvene.models.interventions.BoundlessRotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.CollectIntervention.html">pyvene.models.interventions.CollectIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.ConstantSourceIntervention.html">pyvene.models.interventions.ConstantSourceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.DistributedRepresentationIntervention.html">pyvene.models.interventions.DistributedRepresentationIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.Intervention.html">pyvene.models.interventions.Intervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.InterventionOutput.html">pyvene.models.interventions.InterventionOutput</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.JumpReLUAutoencoderIntervention.html">pyvene.models.interventions.JumpReLUAutoencoderIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.LocalistRepresentationIntervention.html">pyvene.models.interventions.LocalistRepresentationIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.LowRankRotatedSpaceIntervention.html">pyvene.models.interventions.LowRankRotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.NoiseIntervention.html">pyvene.models.interventions.NoiseIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.PCARotatedSpaceIntervention.html">pyvene.models.interventions.PCARotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.RotatedSpaceIntervention.html">pyvene.models.interventions.RotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.SharedWeightsTrainableIntervention.html">pyvene.models.interventions.SharedWeightsTrainableIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.SigmoidMaskIntervention.html">pyvene.models.interventions.SigmoidMaskIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.SigmoidMaskRotatedSpaceIntervention.html">pyvene.models.interventions.SigmoidMaskRotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.SkipIntervention.html">pyvene.models.interventions.SkipIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.SourcelessIntervention.html">pyvene.models.interventions.SourcelessIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.SubtractionIntervention.html">pyvene.models.interventions.SubtractionIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.TrainableIntervention.html">pyvene.models.interventions.TrainableIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.VanillaIntervention.html">pyvene.models.interventions.VanillaIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.ZeroIntervention.html">pyvene.models.interventions.ZeroIntervention</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.layers.html">pyvene.models.layers</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.layers.AutoencoderLayer.html">pyvene.models.layers.AutoencoderLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.layers.AutoencoderLayerBase.html">pyvene.models.layers.AutoencoderLayerBase</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.layers.InverseRotateLayer.html">pyvene.models.layers.InverseRotateLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.layers.LowRankRotateLayer.html">pyvene.models.layers.LowRankRotateLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.layers.RotateLayer.html">pyvene.models.layers.RotateLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.layers.SubspaceLowRankRotateLayer.html">pyvene.models.layers.SubspaceLowRankRotateLayer</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.llama.html">pyvene.models.llama</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.llama.modelings_intervenable_llama.html">pyvene.models.llama.modelings_intervenable_llama</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.llava.html">pyvene.models.llava</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.llava.modelings_intervenable_llava.html">pyvene.models.llava.modelings_intervenable_llava</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.mistral.html">pyvene.models.mistral</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.mistral.modellings_intervenable_mistral.html">pyvene.models.mistral.modellings_intervenable_mistral</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.mlp.html">pyvene.models.mlp</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.mlp.modelings_intervenable_mlp.html">pyvene.models.mlp.modelings_intervenable_mlp</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.mlp.modelings_mlp.html">pyvene.models.mlp.modelings_mlp</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.html">pyvene.models.modeling_utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.b_sd_to_bsd.html">pyvene.models.modeling_utils.b_sd_to_bsd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.bhsd_to_bs_hd.html">pyvene.models.modeling_utils.bhsd_to_bs_hd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.bs_hd_to_bhsd.html">pyvene.models.modeling_utils.bs_hd_to_bhsd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.bsd_to_b_sd.html">pyvene.models.modeling_utils.bsd_to_b_sd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.do_intervention.html">pyvene.models.modeling_utils.do_intervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.gather_neurons.html">pyvene.models.modeling_utils.gather_neurons</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.get_dimension_by_component.html">pyvene.models.modeling_utils.get_dimension_by_component</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.get_internal_model_type.html">pyvene.models.modeling_utils.get_internal_model_type</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.get_module_hook.html">pyvene.models.modeling_utils.get_module_hook</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.getattr_for_torch_module.html">pyvene.models.modeling_utils.getattr_for_torch_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.is_gru.html">pyvene.models.modeling_utils.is_gru</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.is_mlp.html">pyvene.models.modeling_utils.is_mlp</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.is_stateless.html">pyvene.models.modeling_utils.is_stateless</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.is_transformer.html">pyvene.models.modeling_utils.is_transformer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.output_to_subcomponent.html">pyvene.models.modeling_utils.output_to_subcomponent</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.print_forward_hooks.html">pyvene.models.modeling_utils.print_forward_hooks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.remove_forward_hooks.html">pyvene.models.modeling_utils.remove_forward_hooks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.scatter_neurons.html">pyvene.models.modeling_utils.scatter_neurons</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.simple_output_to_subcomponent.html">pyvene.models.modeling_utils.simple_output_to_subcomponent</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.simple_scatter_intervention_output.html">pyvene.models.modeling_utils.simple_scatter_intervention_output</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.weighted_average.html">pyvene.models.modeling_utils.weighted_average</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.HandlerList.html">pyvene.models.modeling_utils.HandlerList</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.olmo.html">pyvene.models.olmo</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.olmo.modelings_intervenable_olmo.html">pyvene.models.olmo.modelings_intervenable_olmo</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../../_sources/tutorials/advanced_tutorials/IOI_Replication.ipynb" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.ipynb</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Replicating the IOI paper</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setup">Setup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#path-patching-config">Path patching config</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-utils">Dataset + Utils</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#name-mover-heads">Name mover heads</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="replicating-the-ioi-paper">
+<h1>Replicating the IOI paper<a class="headerlink" href="#replicating-the-ioi-paper" title="Link to this heading">#</a></h1>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Aryaman Arora&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;1/24/2023&quot;</span>
+</pre></div>
+</div>
+</div>
+</div>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<p>We’re going to try to replicate some results of the original IOI paper (<a class="reference external" href="https://arxiv.org/abs/2211.00593">Wang et al., 2022</a>) using <code class="docutils literal notranslate"><span class="pre">pyvene</span></code>, as a demonstration of path patching and verification of their results.</p>
+</section>
+<section id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Link to this heading">#</a></h2>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">try</span><span class="p">:</span>
+    <span class="c1"># This library is our indicator that the required installs</span>
+    <span class="c1"># need to be done.</span>
+    <span class="kn">import</span> <span class="nn">pyvene</span>
+
+<span class="k">except</span> <span class="ne">ModuleNotFoundError</span><span class="p">:</span>
+    <span class="o">!</span>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/frankaging/pyvene.git
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">tutorial_ioi_utils</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">import</span> <span class="nn">pyvene</span> <span class="k">as</span> <span class="nn">pv</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="o">%</span><span class="k">config</span> InlineBackend.figure_formats = [&#39;svg&#39;]
+<span class="kn">from</span> <span class="nn">plotnine</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ggplot</span><span class="p">,</span>
+    <span class="n">geom_tile</span><span class="p">,</span>
+    <span class="n">aes</span><span class="p">,</span>
+    <span class="n">scale_y_reverse</span><span class="p">,</span>
+    <span class="n">scale_fill_cmap</span><span class="p">,</span>
+    <span class="n">geom_text</span><span class="p">,</span>
+    <span class="n">theme_bw</span><span class="p">,</span>
+    <span class="n">xlim</span><span class="p">,</span>
+    <span class="n">ylim</span><span class="p">,</span>
+    <span class="n">scale_x_continuous</span>
+<span class="p">)</span>
+
+<span class="c1"># please try not to do this, the plot somehow throw warnings though :(</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>
+
+<span class="n">config</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">gpt2</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">create_gpt2_lm</span><span class="p">(</span><span class="n">cache_dir</span><span class="o">=</span><span class="s2">&quot;/Users/aryamanarora/.cache/huggingface/hub/&quot;</span><span class="p">)</span>
+<span class="n">_</span> <span class="o">=</span> <span class="n">gpt2</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+<span class="n">titles</span><span class="o">=</span><span class="p">{</span>
+    <span class="s2">&quot;block_output&quot;</span><span class="p">:</span> <span class="s2">&quot;single restored layer in GPT2-XL&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;mlp_activation&quot;</span><span class="p">:</span> <span class="s2">&quot;center of interval of 10 patched mlp layer&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;attention_output&quot;</span><span class="p">:</span> <span class="s2">&quot;center of interval of 10 patched attn layer&quot;</span>
+<span class="p">}</span>
+
+<span class="n">colors</span><span class="o">=</span><span class="p">{</span>
+    <span class="s2">&quot;block_output&quot;</span><span class="p">:</span> <span class="s2">&quot;Purples&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;mlp_activation&quot;</span><span class="p">:</span> <span class="s2">&quot;Greens&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;attention_output&quot;</span><span class="p">:</span> <span class="s2">&quot;Reds&quot;</span>
+<span class="p">}</span> 
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
+<span class="ne">KeyboardInterrupt</span><span class="g g-Whitespace">                         </span>Traceback (most recent call last)
+<span class="n">Cell</span> <span class="n">In</span> <span class="p">[</span><span class="mi">58</span><span class="p">],</span> <span class="n">line</span> <span class="mi">27</span>
+<span class="g g-Whitespace">     </span><span class="mi">23</span> <span class="kn">import</span> <span class="nn">warnings</span>
+<span class="g g-Whitespace">     </span><span class="mi">25</span> <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>
+<span class="ne">---&gt; </span><span class="mi">27</span> <span class="n">config</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">gpt2</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">create_gpt2_lm</span><span class="p">(</span><span class="n">cache_dir</span><span class="o">=</span><span class="s2">&quot;/Users/aryamanarora/.cache/huggingface/hub/&quot;</span><span class="p">)</span>
+<span class="g g-Whitespace">     </span><span class="mi">28</span> <span class="n">_</span> <span class="o">=</span> <span class="n">gpt2</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+<span class="g g-Whitespace">     </span><span class="mi">30</span> <span class="n">titles</span><span class="o">=</span><span class="p">{</span>
+<span class="g g-Whitespace">     </span><span class="mi">31</span>     <span class="s2">&quot;block_output&quot;</span><span class="p">:</span> <span class="s2">&quot;single restored layer in GPT2-XL&quot;</span><span class="p">,</span>
+<span class="g g-Whitespace">     </span><span class="mi">32</span>     <span class="s2">&quot;mlp_activation&quot;</span><span class="p">:</span> <span class="s2">&quot;center of interval of 10 patched mlp layer&quot;</span><span class="p">,</span>
+<span class="g g-Whitespace">     </span><span class="mi">33</span>     <span class="s2">&quot;attention_output&quot;</span><span class="p">:</span> <span class="s2">&quot;center of interval of 10 patched attn layer&quot;</span>
+<span class="g g-Whitespace">     </span><span class="mi">34</span> <span class="p">}</span>
+
+<span class="nn">File ~/Documents/Code/pyvene/pyvene/models/gpt2/modelings_intervenable_gpt2.py:84,</span> in <span class="ni">create_gpt2_lm</span><span class="nt">(name, config, cache_dir)</span>
+<span class="g g-Whitespace">     </span><span class="mi">81</span><span class="w"> </span><span class="sd">&quot;&quot;&quot;Creates a GPT2 LM, config, and tokenizer from the given name and revision&quot;&quot;&quot;</span>
+<span class="g g-Whitespace">     </span><span class="mi">82</span> <span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">GPT2LMHeadModel</span><span class="p">,</span> <span class="n">GPT2Tokenizer</span><span class="p">,</span> <span class="n">GPT2Config</span>
+<span class="ne">---&gt; </span><span class="mi">84</span> <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">GPT2Tokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s2">&quot;gpt2&quot;</span><span class="p">)</span>
+<span class="g g-Whitespace">     </span><span class="mi">85</span> <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<span class="g g-Whitespace">     </span><span class="mi">86</span>     <span class="n">config</span> <span class="o">=</span> <span class="n">GPT2Config</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/transformers/tokenization_utils_base.py:1968,</span> in <span class="ni">PreTrainedTokenizerBase.from_pretrained</span><span class="nt">(cls, pretrained_model_name_or_path, cache_dir, force_download, local_files_only, token, revision, *init_inputs, **kwargs)</span>
+<span class="g g-Whitespace">   </span><span class="mi">1965</span> <span class="k">if</span> <span class="s2">&quot;tokenizer_file&quot;</span> <span class="ow">in</span> <span class="n">vocab_files</span><span class="p">:</span>
+<span class="g g-Whitespace">   </span><span class="mi">1966</span>     <span class="c1"># Try to get the tokenizer config to see if there are versioned tokenizer files.</span>
+<span class="g g-Whitespace">   </span><span class="mi">1967</span>     <span class="n">fast_tokenizer_file</span> <span class="o">=</span> <span class="n">FULL_TOKENIZER_FILE</span>
+<span class="ne">-&gt; </span><span class="mi">1968</span>     <span class="n">resolved_config_file</span> <span class="o">=</span> <span class="n">cached_file</span><span class="p">(</span>
+<span class="g g-Whitespace">   </span><span class="mi">1969</span>         <span class="n">pretrained_model_name_or_path</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1970</span>         <span class="n">TOKENIZER_CONFIG_FILE</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1971</span>         <span class="n">cache_dir</span><span class="o">=</span><span class="n">cache_dir</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1972</span>         <span class="n">force_download</span><span class="o">=</span><span class="n">force_download</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1973</span>         <span class="n">resume_download</span><span class="o">=</span><span class="n">resume_download</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1974</span>         <span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1975</span>         <span class="n">token</span><span class="o">=</span><span class="n">token</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1976</span>         <span class="n">revision</span><span class="o">=</span><span class="n">revision</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1977</span>         <span class="n">local_files_only</span><span class="o">=</span><span class="n">local_files_only</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1978</span>         <span class="n">subfolder</span><span class="o">=</span><span class="n">subfolder</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1979</span>         <span class="n">user_agent</span><span class="o">=</span><span class="n">user_agent</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1980</span>         <span class="n">_raise_exceptions_for_missing_entries</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1981</span>         <span class="n">_raise_exceptions_for_connection_errors</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1982</span>         <span class="n">_commit_hash</span><span class="o">=</span><span class="n">commit_hash</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1983</span>     <span class="p">)</span>
+<span class="g g-Whitespace">   </span><span class="mi">1984</span>     <span class="n">commit_hash</span> <span class="o">=</span> <span class="n">extract_commit_hash</span><span class="p">(</span><span class="n">resolved_config_file</span><span class="p">,</span> <span class="n">commit_hash</span><span class="p">)</span>
+<span class="g g-Whitespace">   </span><span class="mi">1985</span>     <span class="k">if</span> <span class="n">resolved_config_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/transformers/utils/hub.py:429,</span> in <span class="ni">cached_file</span><span class="nt">(path_or_repo_id, filename, cache_dir, force_download, resume_download, proxies, token, revision, local_files_only, subfolder, repo_type, user_agent, _raise_exceptions_for_missing_entries, _raise_exceptions_for_connection_errors, _commit_hash, **deprecated_kwargs)</span>
+<span class="g g-Whitespace">    </span><span class="mi">426</span> <span class="n">user_agent</span> <span class="o">=</span> <span class="n">http_user_agent</span><span class="p">(</span><span class="n">user_agent</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">427</span> <span class="k">try</span><span class="p">:</span>
+<span class="g g-Whitespace">    </span><span class="mi">428</span>     <span class="c1"># Load from URL or cache if already cached</span>
+<span class="ne">--&gt; </span><span class="mi">429</span>     <span class="n">resolved_file</span> <span class="o">=</span> <span class="n">hf_hub_download</span><span class="p">(</span>
+<span class="g g-Whitespace">    </span><span class="mi">430</span>         <span class="n">path_or_repo_id</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">431</span>         <span class="n">filename</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">432</span>         <span class="n">subfolder</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subfolder</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">subfolder</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">433</span>         <span class="n">repo_type</span><span class="o">=</span><span class="n">repo_type</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">434</span>         <span class="n">revision</span><span class="o">=</span><span class="n">revision</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">435</span>         <span class="n">cache_dir</span><span class="o">=</span><span class="n">cache_dir</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">436</span>         <span class="n">user_agent</span><span class="o">=</span><span class="n">user_agent</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">437</span>         <span class="n">force_download</span><span class="o">=</span><span class="n">force_download</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">438</span>         <span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">439</span>         <span class="n">resume_download</span><span class="o">=</span><span class="n">resume_download</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">440</span>         <span class="n">token</span><span class="o">=</span><span class="n">token</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">441</span>         <span class="n">local_files_only</span><span class="o">=</span><span class="n">local_files_only</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">442</span>     <span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">443</span> <span class="k">except</span> <span class="n">GatedRepoError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<span class="g g-Whitespace">    </span><span class="mi">444</span>     <span class="k">raise</span> <span class="ne">EnvironmentError</span><span class="p">(</span>
+<span class="g g-Whitespace">    </span><span class="mi">445</span>         <span class="s2">&quot;You are trying to access a gated repo.</span><span class="se">\n</span><span class="s2">Make sure to request access at &quot;</span>
+<span class="g g-Whitespace">    </span><span class="mi">446</span>         <span class="sa">f</span><span class="s2">&quot;https://huggingface.co/</span><span class="si">{</span><span class="n">path_or_repo_id</span><span class="si">}</span><span class="s2"> and pass a token having permission to this repo either &quot;</span>
+<span class="g g-Whitespace">    </span><span class="mi">447</span>         <span class="s2">&quot;by logging in with `huggingface-cli login` or by passing `token=&lt;your_token&gt;`.&quot;</span>
+<span class="g g-Whitespace">    </span><span class="mi">448</span>     <span class="p">)</span> <span class="kn">from</span> <span class="nn">e</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/huggingface_hub/utils/_validators.py:118,</span> in <span class="ni">validate_hf_hub_args.&lt;locals&gt;._inner_fn</span><span class="nt">(*args, **kwargs)</span>
+<span class="g g-Whitespace">    </span><span class="mi">115</span> <span class="k">if</span> <span class="n">check_use_auth_token</span><span class="p">:</span>
+<span class="g g-Whitespace">    </span><span class="mi">116</span>     <span class="n">kwargs</span> <span class="o">=</span> <span class="n">smoothly_deprecate_use_auth_token</span><span class="p">(</span><span class="n">fn_name</span><span class="o">=</span><span class="n">fn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">has_token</span><span class="o">=</span><span class="n">has_token</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="n">kwargs</span><span class="p">)</span>
+<span class="ne">--&gt; </span><span class="mi">118</span> <span class="k">return</span> <span class="n">fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/huggingface_hub/file_download.py:1232,</span> in <span class="ni">hf_hub_download</span><span class="nt">(repo_id, filename, subfolder, repo_type, revision, endpoint, library_name, library_version, cache_dir, local_dir, local_dir_use_symlinks, user_agent, force_download, force_filename, proxies, etag_timeout, resume_download, token, local_files_only, legacy_cache_layout)</span>
+<span class="g g-Whitespace">   </span><span class="mi">1230</span> <span class="k">try</span><span class="p">:</span>
+<span class="g g-Whitespace">   </span><span class="mi">1231</span>     <span class="k">try</span><span class="p">:</span>
+<span class="ne">-&gt; </span><span class="mi">1232</span>         <span class="n">metadata</span> <span class="o">=</span> <span class="n">get_hf_file_metadata</span><span class="p">(</span>
+<span class="g g-Whitespace">   </span><span class="mi">1233</span>             <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1234</span>             <span class="n">token</span><span class="o">=</span><span class="n">token</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1235</span>             <span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1236</span>             <span class="n">timeout</span><span class="o">=</span><span class="n">etag_timeout</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1237</span>         <span class="p">)</span>
+<span class="g g-Whitespace">   </span><span class="mi">1238</span>     <span class="k">except</span> <span class="n">EntryNotFoundError</span> <span class="k">as</span> <span class="n">http_error</span><span class="p">:</span>
+<span class="g g-Whitespace">   </span><span class="mi">1239</span>         <span class="c1"># Cache the non-existence of the file and raise</span>
+<span class="g g-Whitespace">   </span><span class="mi">1240</span>         <span class="n">commit_hash</span> <span class="o">=</span> <span class="n">http_error</span><span class="o">.</span><span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">HUGGINGFACE_HEADER_X_REPO_COMMIT</span><span class="p">)</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/huggingface_hub/utils/_validators.py:118,</span> in <span class="ni">validate_hf_hub_args.&lt;locals&gt;._inner_fn</span><span class="nt">(*args, **kwargs)</span>
+<span class="g g-Whitespace">    </span><span class="mi">115</span> <span class="k">if</span> <span class="n">check_use_auth_token</span><span class="p">:</span>
+<span class="g g-Whitespace">    </span><span class="mi">116</span>     <span class="n">kwargs</span> <span class="o">=</span> <span class="n">smoothly_deprecate_use_auth_token</span><span class="p">(</span><span class="n">fn_name</span><span class="o">=</span><span class="n">fn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">has_token</span><span class="o">=</span><span class="n">has_token</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="n">kwargs</span><span class="p">)</span>
+<span class="ne">--&gt; </span><span class="mi">118</span> <span class="k">return</span> <span class="n">fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/huggingface_hub/file_download.py:1599,</span> in <span class="ni">get_hf_file_metadata</span><span class="nt">(url, token, proxies, timeout)</span>
+<span class="g g-Whitespace">   </span><span class="mi">1596</span> <span class="n">headers</span><span class="p">[</span><span class="s2">&quot;Accept-Encoding&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;identity&quot;</span>  <span class="c1"># prevent any compression =&gt; we want to know the real size of the file</span>
+<span class="g g-Whitespace">   </span><span class="mi">1598</span> <span class="c1"># Retrieve metadata</span>
+<span class="ne">-&gt; </span><span class="mi">1599</span> <span class="n">r</span> <span class="o">=</span> <span class="n">_request_wrapper</span><span class="p">(</span>
+<span class="g g-Whitespace">   </span><span class="mi">1600</span>     <span class="n">method</span><span class="o">=</span><span class="s2">&quot;HEAD&quot;</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1601</span>     <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1602</span>     <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1603</span>     <span class="n">allow_redirects</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1604</span>     <span class="n">follow_relative_redirects</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1605</span>     <span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1606</span>     <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1607</span> <span class="p">)</span>
+<span class="g g-Whitespace">   </span><span class="mi">1608</span> <span class="n">hf_raise_for_status</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+<span class="g g-Whitespace">   </span><span class="mi">1610</span> <span class="c1"># Return</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/huggingface_hub/file_download.py:417,</span> in <span class="ni">_request_wrapper</span><span class="nt">(method, url, max_retries, base_wait_time, max_wait_time, timeout, follow_relative_redirects, **params)</span>
+<span class="g g-Whitespace">    </span><span class="mi">415</span> <span class="c1"># 2. Force relative redirection</span>
+<span class="g g-Whitespace">    </span><span class="mi">416</span> <span class="k">if</span> <span class="n">follow_relative_redirects</span><span class="p">:</span>
+<span class="ne">--&gt; </span><span class="mi">417</span>     <span class="n">response</span> <span class="o">=</span> <span class="n">_request_wrapper</span><span class="p">(</span>
+<span class="g g-Whitespace">    </span><span class="mi">418</span>         <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">419</span>         <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">420</span>         <span class="n">max_retries</span><span class="o">=</span><span class="n">max_retries</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">421</span>         <span class="n">base_wait_time</span><span class="o">=</span><span class="n">base_wait_time</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">422</span>         <span class="n">max_wait_time</span><span class="o">=</span><span class="n">max_wait_time</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">423</span>         <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">424</span>         <span class="n">follow_relative_redirects</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">425</span>         <span class="o">**</span><span class="n">params</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">426</span>     <span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">428</span>     <span class="c1"># If redirection, we redirect only relative paths.</span>
+<span class="g g-Whitespace">    </span><span class="mi">429</span>     <span class="c1"># This is useful in case of a renamed repository.</span>
+<span class="g g-Whitespace">    </span><span class="mi">430</span>     <span class="k">if</span> <span class="mi">300</span> <span class="o">&lt;=</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">&lt;=</span> <span class="mi">399</span><span class="p">:</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/huggingface_hub/file_download.py:452,</span> in <span class="ni">_request_wrapper</span><span class="nt">(method, url, max_retries, base_wait_time, max_wait_time, timeout, follow_relative_redirects, **params)</span>
+<span class="g g-Whitespace">    </span><span class="mi">449</span>     <span class="k">return</span> <span class="n">response</span>
+<span class="g g-Whitespace">    </span><span class="mi">451</span> <span class="c1"># 3. Exponential backoff</span>
+<span class="ne">--&gt; </span><span class="mi">452</span> <span class="k">return</span> <span class="n">http_backoff</span><span class="p">(</span>
+<span class="g g-Whitespace">    </span><span class="mi">453</span>     <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">454</span>     <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">455</span>     <span class="n">max_retries</span><span class="o">=</span><span class="n">max_retries</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">456</span>     <span class="n">base_wait_time</span><span class="o">=</span><span class="n">base_wait_time</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">457</span>     <span class="n">max_wait_time</span><span class="o">=</span><span class="n">max_wait_time</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">458</span>     <span class="n">retry_on_exceptions</span><span class="o">=</span><span class="p">(</span><span class="n">Timeout</span><span class="p">,</span> <span class="n">ProxyError</span><span class="p">),</span>
+<span class="g g-Whitespace">    </span><span class="mi">459</span>     <span class="n">retry_on_status_codes</span><span class="o">=</span><span class="p">(),</span>
+<span class="g g-Whitespace">    </span><span class="mi">460</span>     <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">461</span>     <span class="o">**</span><span class="n">params</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">462</span> <span class="p">)</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/huggingface_hub/utils/_http.py:258,</span> in <span class="ni">http_backoff</span><span class="nt">(method, url, max_retries, base_wait_time, max_wait_time, retry_on_exceptions, retry_on_status_codes, **kwargs)</span>
+<span class="g g-Whitespace">    </span><span class="mi">255</span>     <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">io_obj_initial_pos</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">257</span> <span class="c1"># Perform request and return if status_code is not in the retry list.</span>
+<span class="ne">--&gt; </span><span class="mi">258</span> <span class="n">response</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">259</span> <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">retry_on_status_codes</span><span class="p">:</span>
+<span class="g g-Whitespace">    </span><span class="mi">260</span>     <span class="k">return</span> <span class="n">response</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/requests/sessions.py:589,</span> in <span class="ni">Session.request</span><span class="nt">(self, method, url, params, data, headers, cookies, files, auth, timeout, allow_redirects, proxies, hooks, stream, verify, cert, json)</span>
+<span class="g g-Whitespace">    </span><span class="mi">584</span> <span class="n">send_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+<span class="g g-Whitespace">    </span><span class="mi">585</span>     <span class="s2">&quot;timeout&quot;</span><span class="p">:</span> <span class="n">timeout</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">586</span>     <span class="s2">&quot;allow_redirects&quot;</span><span class="p">:</span> <span class="n">allow_redirects</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">587</span> <span class="p">}</span>
+<span class="g g-Whitespace">    </span><span class="mi">588</span> <span class="n">send_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">settings</span><span class="p">)</span>
+<span class="ne">--&gt; </span><span class="mi">589</span> <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">prep</span><span class="p">,</span> <span class="o">**</span><span class="n">send_kwargs</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">591</span> <span class="k">return</span> <span class="n">resp</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/requests/sessions.py:703,</span> in <span class="ni">Session.send</span><span class="nt">(self, request, **kwargs)</span>
+<span class="g g-Whitespace">    </span><span class="mi">700</span> <span class="n">start</span> <span class="o">=</span> <span class="n">preferred_clock</span><span class="p">()</span>
+<span class="g g-Whitespace">    </span><span class="mi">702</span> <span class="c1"># Send the request</span>
+<span class="ne">--&gt; </span><span class="mi">703</span> <span class="n">r</span> <span class="o">=</span> <span class="n">adapter</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">705</span> <span class="c1"># Total elapsed time of the request (approximately)</span>
+<span class="g g-Whitespace">    </span><span class="mi">706</span> <span class="n">elapsed</span> <span class="o">=</span> <span class="n">preferred_clock</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/huggingface_hub/utils/_http.py:63,</span> in <span class="ni">UniqueRequestIdAdapter.send</span><span class="nt">(self, request, *args, **kwargs)</span>
+<span class="g g-Whitespace">     </span><span class="mi">61</span><span class="w"> </span><span class="sd">&quot;&quot;&quot;Catch any RequestException to append request id to the error message for debugging.&quot;&quot;&quot;</span>
+<span class="g g-Whitespace">     </span><span class="mi">62</span> <span class="k">try</span><span class="p">:</span>
+<span class="ne">---&gt; </span><span class="mi">63</span>     <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<span class="g g-Whitespace">     </span><span class="mi">64</span> <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">RequestException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<span class="g g-Whitespace">     </span><span class="mi">65</span>     <span class="n">request_id</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">X_AMZN_TRACE_ID</span><span class="p">)</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/requests/adapters.py:486,</span> in <span class="ni">HTTPAdapter.send</span><span class="nt">(self, request, stream, timeout, verify, cert, proxies)</span>
+<span class="g g-Whitespace">    </span><span class="mi">483</span>     <span class="n">timeout</span> <span class="o">=</span> <span class="n">TimeoutSauce</span><span class="p">(</span><span class="n">connect</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span> <span class="n">read</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">485</span> <span class="k">try</span><span class="p">:</span>
+<span class="ne">--&gt; </span><span class="mi">486</span>     <span class="n">resp</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">urlopen</span><span class="p">(</span>
+<span class="g g-Whitespace">    </span><span class="mi">487</span>         <span class="n">method</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">488</span>         <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">489</span>         <span class="n">body</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">body</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">490</span>         <span class="n">headers</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">491</span>         <span class="n">redirect</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">492</span>         <span class="n">assert_same_host</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">493</span>         <span class="n">preload_content</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">494</span>         <span class="n">decode_content</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">495</span>         <span class="n">retries</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_retries</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">496</span>         <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">497</span>         <span class="n">chunked</span><span class="o">=</span><span class="n">chunked</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">498</span>     <span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">500</span> <span class="k">except</span> <span class="p">(</span><span class="n">ProtocolError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">)</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+<span class="g g-Whitespace">    </span><span class="mi">501</span>     <span class="k">raise</span> <span class="ne">ConnectionError</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">)</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/urllib3/connectionpool.py:703,</span> in <span class="ni">HTTPConnectionPool.urlopen</span><span class="nt">(self, method, url, body, headers, retries, redirect, assert_same_host, timeout, pool_timeout, release_conn, chunked, body_pos, **response_kw)</span>
+<span class="g g-Whitespace">    </span><span class="mi">700</span>     <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_proxy</span><span class="p">(</span><span class="n">conn</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">702</span> <span class="c1"># Make the request on the httplib connection object.</span>
+<span class="ne">--&gt; </span><span class="mi">703</span> <span class="n">httplib_response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span>
+<span class="g g-Whitespace">    </span><span class="mi">704</span>     <span class="n">conn</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">705</span>     <span class="n">method</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">706</span>     <span class="n">url</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">707</span>     <span class="n">timeout</span><span class="o">=</span><span class="n">timeout_obj</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">708</span>     <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">709</span>     <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">710</span>     <span class="n">chunked</span><span class="o">=</span><span class="n">chunked</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">711</span> <span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">713</span> <span class="c1"># If we&#39;re going to release the connection in ``finally:``, then</span>
+<span class="g g-Whitespace">    </span><span class="mi">714</span> <span class="c1"># the response doesn&#39;t need to know about the connection. Otherwise</span>
+<span class="g g-Whitespace">    </span><span class="mi">715</span> <span class="c1"># it will also try to release it and we&#39;ll have a double-release</span>
+<span class="g g-Whitespace">    </span><span class="mi">716</span> <span class="c1"># mess.</span>
+<span class="g g-Whitespace">    </span><span class="mi">717</span> <span class="n">response_conn</span> <span class="o">=</span> <span class="n">conn</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">release_conn</span> <span class="k">else</span> <span class="kc">None</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/urllib3/connectionpool.py:386,</span> in <span class="ni">HTTPConnectionPool._make_request</span><span class="nt">(self, conn, method, url, timeout, chunked, **httplib_request_kw)</span>
+<span class="g g-Whitespace">    </span><span class="mi">384</span> <span class="c1"># Trigger any extra validation we need to do.</span>
+<span class="g g-Whitespace">    </span><span class="mi">385</span> <span class="k">try</span><span class="p">:</span>
+<span class="ne">--&gt; </span><span class="mi">386</span>     <span class="bp">self</span><span class="o">.</span><span class="n">_validate_conn</span><span class="p">(</span><span class="n">conn</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">387</span> <span class="k">except</span> <span class="p">(</span><span class="n">SocketTimeout</span><span class="p">,</span> <span class="n">BaseSSLError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<span class="g g-Whitespace">    </span><span class="mi">388</span>     <span class="c1"># Py2 raises this as a BaseSSLError, Py3 raises it as socket timeout.</span>
+<span class="g g-Whitespace">    </span><span class="mi">389</span>     <span class="bp">self</span><span class="o">.</span><span class="n">_raise_timeout</span><span class="p">(</span><span class="n">err</span><span class="o">=</span><span class="n">e</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">timeout_value</span><span class="o">=</span><span class="n">conn</span><span class="o">.</span><span class="n">timeout</span><span class="p">)</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/urllib3/connectionpool.py:1042,</span> in <span class="ni">HTTPSConnectionPool._validate_conn</span><span class="nt">(self, conn)</span>
+<span class="g g-Whitespace">   </span><span class="mi">1040</span> <span class="c1"># Force connect early to allow us to validate the connection.</span>
+<span class="g g-Whitespace">   </span><span class="mi">1041</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="s2">&quot;sock&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>  <span class="c1"># AppEngine might not have  `.sock`</span>
+<span class="ne">-&gt; </span><span class="mi">1042</span>     <span class="n">conn</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+<span class="g g-Whitespace">   </span><span class="mi">1044</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">conn</span><span class="o">.</span><span class="n">is_verified</span><span class="p">:</span>
+<span class="g g-Whitespace">   </span><span class="mi">1045</span>     <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+<span class="g g-Whitespace">   </span><span class="mi">1046</span>         <span class="p">(</span>
+<span class="g g-Whitespace">   </span><span class="mi">1047</span>             <span class="s2">&quot;Unverified HTTPS request is being made to host &#39;</span><span class="si">%s</span><span class="s2">&#39;. &quot;</span>
+   <span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="g g-Whitespace">   </span><span class="mi">1052</span>         <span class="n">InsecureRequestWarning</span><span class="p">,</span>
+<span class="g g-Whitespace">   </span><span class="mi">1053</span>     <span class="p">)</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/urllib3/connection.py:358,</span> in <span class="ni">HTTPSConnection.connect</span><span class="nt">(self)</span>
+<span class="g g-Whitespace">    </span><span class="mi">356</span> <span class="k">def</span> <span class="nf">connect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="g g-Whitespace">    </span><span class="mi">357</span>     <span class="c1"># Add certificate verification</span>
+<span class="ne">--&gt; </span><span class="mi">358</span>     <span class="bp">self</span><span class="o">.</span><span class="n">sock</span> <span class="o">=</span> <span class="n">conn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_conn</span><span class="p">()</span>
+<span class="g g-Whitespace">    </span><span class="mi">359</span>     <span class="n">hostname</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">host</span>
+<span class="g g-Whitespace">    </span><span class="mi">360</span>     <span class="n">tls_in_tls</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/urllib3/connection.py:174,</span> in <span class="ni">HTTPConnection._new_conn</span><span class="nt">(self)</span>
+<span class="g g-Whitespace">    </span><span class="mi">171</span>     <span class="n">extra_kw</span><span class="p">[</span><span class="s2">&quot;socket_options&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">socket_options</span>
+<span class="g g-Whitespace">    </span><span class="mi">173</span> <span class="k">try</span><span class="p">:</span>
+<span class="ne">--&gt; </span><span class="mi">174</span>     <span class="n">conn</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">create_connection</span><span class="p">(</span>
+<span class="g g-Whitespace">    </span><span class="mi">175</span>         <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dns_host</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">,</span> <span class="o">**</span><span class="n">extra_kw</span>
+<span class="g g-Whitespace">    </span><span class="mi">176</span>     <span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">178</span> <span class="k">except</span> <span class="n">SocketTimeout</span><span class="p">:</span>
+<span class="g g-Whitespace">    </span><span class="mi">179</span>     <span class="k">raise</span> <span class="n">ConnectTimeoutError</span><span class="p">(</span>
+<span class="g g-Whitespace">    </span><span class="mi">180</span>         <span class="bp">self</span><span class="p">,</span>
+<span class="g g-Whitespace">    </span><span class="mi">181</span>         <span class="s2">&quot;Connection to </span><span class="si">%s</span><span class="s2"> timed out. (connect timeout=</span><span class="si">%s</span><span class="s2">)&quot;</span>
+<span class="g g-Whitespace">    </span><span class="mi">182</span>         <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">),</span>
+<span class="g g-Whitespace">    </span><span class="mi">183</span>     <span class="p">)</span>
+
+<span class="nn">File ~/opt/miniconda3/lib/python3.9/site-packages/urllib3/util/connection.py:85,</span> in <span class="ni">create_connection</span><span class="nt">(address, timeout, source_address, socket_options)</span>
+<span class="g g-Whitespace">     </span><span class="mi">83</span>     <span class="k">if</span> <span class="n">source_address</span><span class="p">:</span>
+<span class="g g-Whitespace">     </span><span class="mi">84</span>         <span class="n">sock</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span><span class="n">source_address</span><span class="p">)</span>
+<span class="ne">---&gt; </span><span class="mi">85</span>     <span class="n">sock</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">sa</span><span class="p">)</span>
+<span class="g g-Whitespace">     </span><span class="mi">86</span>     <span class="k">return</span> <span class="n">sock</span>
+<span class="g g-Whitespace">     </span><span class="mi">88</span> <span class="k">except</span> <span class="n">socket</span><span class="o">.</span><span class="n">error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+
+<span class="ne">KeyboardInterrupt</span>: 
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="path-patching-config">
+<h2>Path patching config<a class="headerlink" href="#path-patching-config" title="Link to this heading">#</a></h2>
+<p>This is taken from the <code class="docutils literal notranslate"><span class="pre">pyvene</span></code> 101 tutorial. Basically, we’ll intervene at all positions for a single attention head, and restore the base input for all upstream model components. This will get the direct effect of the intervention on the logits.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">path_patching_config</span><span class="p">(</span>
+    <span class="n">layer</span><span class="p">,</span> <span class="n">last_layer</span><span class="p">,</span> 
+    <span class="n">component</span><span class="o">=</span><span class="s2">&quot;head_attention_value_output&quot;</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;h.pos&quot;</span>
+<span class="p">):</span>
+    <span class="n">intervening_component</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span><span class="s2">&quot;layer&quot;</span><span class="p">:</span> <span class="n">layer</span><span class="p">,</span> <span class="s2">&quot;component&quot;</span><span class="p">:</span> <span class="n">component</span><span class="p">,</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">unit</span><span class="p">,</span> <span class="s2">&quot;group_key&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}]</span>
+    <span class="n">restoring_components</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">component</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;mlp_&quot;</span><span class="p">):</span>
+        <span class="n">restoring_components</span> <span class="o">+=</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s2">&quot;layer&quot;</span><span class="p">:</span> <span class="n">layer</span><span class="p">,</span> <span class="s2">&quot;component&quot;</span><span class="p">:</span> <span class="s2">&quot;mlp_output&quot;</span><span class="p">,</span> <span class="s2">&quot;group_key&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">layer</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">last_layer</span><span class="p">):</span>
+        <span class="n">restoring_components</span> <span class="o">+=</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s2">&quot;layer&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;component&quot;</span><span class="p">:</span> <span class="s2">&quot;attention_output&quot;</span><span class="p">,</span> <span class="s2">&quot;group_key&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+            <span class="p">{</span><span class="s2">&quot;layer&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;component&quot;</span><span class="p">:</span> <span class="s2">&quot;mlp_output&quot;</span><span class="p">,</span> <span class="s2">&quot;group_key&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
+        <span class="p">]</span>
+    <span class="n">intervenable_config</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">IntervenableConfig</span><span class="p">(</span>
+        <span class="n">intervening_component</span> <span class="o">+</span> <span class="n">restoring_components</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">intervenable_config</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">restoring_components</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="dataset-utils">
+<h2>Dataset + Utils<a class="headerlink" href="#dataset-utils" title="Link to this heading">#</a></h2>
+<p>Just sampling prompts for the IOI task.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">test_distribution</span> <span class="o">=</span> <span class="n">PromptDistribution</span><span class="p">(</span>
+    <span class="n">names</span><span class="o">=</span><span class="n">NAMES</span><span class="p">,</span>
+    <span class="n">objects</span><span class="o">=</span><span class="n">OBJECTS</span><span class="p">,</span>
+    <span class="n">places</span><span class="o">=</span><span class="n">PLACES</span><span class="p">,</span>
+    <span class="n">templates</span><span class="o">=</span><span class="n">TEMPLATES</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">D_test</span> <span class="o">=</span> <span class="n">test_distribution</span><span class="o">.</span><span class="n">sample_das</span><span class="p">(</span>
+    <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span>
+    <span class="n">base_patterns</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;ABB&quot;</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="n">source_patterns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;DCE&quot;</span><span class="p">],</span>
+    <span class="n">labels</span><span class="o">=</span><span class="s2">&quot;name&quot;</span><span class="p">,</span>
+    <span class="n">samples_per_combination</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">+</span> <span class="n">test_distribution</span><span class="o">.</span><span class="n">sample_das</span><span class="p">(</span>
+    <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span>
+    <span class="n">base_patterns</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;BAB&quot;</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="n">source_patterns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;DCE&quot;</span><span class="p">],</span>
+    <span class="n">labels</span><span class="o">=</span><span class="s2">&quot;name&quot;</span><span class="p">,</span>
+    <span class="n">samples_per_combination</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">tokenizer</span><span class="o">.</span><span class="n">pad_token</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">eos_token</span>
+
+<span class="k">def</span> <span class="nf">get_last_token</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span> <span class="n">attention_mask</span><span class="p">):</span>
+    <span class="n">last_token_indices</span> <span class="o">=</span> <span class="n">attention_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">batch_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">logits</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">logits</span><span class="p">[</span><span class="n">batch_indices</span><span class="p">,</span> <span class="n">last_token_indices</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">D_test</span><span class="o">.</span><span class="n">batches</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">base</span><span class="p">,</span> <span class="n">batch</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">tokens</span><span class="p">[</span><span class="s1">&#39;input_ids&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">patched_answer_tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">batch</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">tokens</span><span class="p">[</span><span class="s1">&#39;input_ids&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">patched_answer_tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]))</span>
+    <span class="k">break</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[&lt;===PROMPT=== Then, Justin and Bryan went to the hospital. Justin gave a necklace to&gt;] torch.Size([1, 15])  Bryan
+[&lt;===PROMPT=== Then, Courtney and Thomas went to the hospital. Ashley gave a necklace to&gt;] torch.Size([1, 15])  None
+</pre></div>
+</div>
+</div>
+</div>
+<p>We’re also implementing the logit diff metric, which checks the difference in logits between the two names in the sentence. Positive logit diff means a correct prediction is more likely (the IO, i.e. non-subject name).</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">compute_logit_diff</span><span class="p">(</span><span class="n">logits</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> <span class="n">batch</span><span class="p">):</span>
+    <span class="n">base_logit</span> <span class="o">=</span> <span class="n">get_last_token</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span> <span class="n">batch</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">tokens</span><span class="p">[</span><span class="s1">&#39;attention_mask&#39;</span><span class="p">])</span>
+    <span class="n">base_label</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">patched_answer_tokens</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">gpt2</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">logit_diffs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">batch_i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">base_logit</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)):</span>
+        <span class="n">correct_name</span> <span class="o">=</span> <span class="n">base_label</span><span class="p">[</span><span class="n">batch_i</span><span class="p">]</span>
+        <span class="n">other_name</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39; &#39;</span> <span class="o">+</span> <span class="n">batch</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">prompts</span><span class="p">[</span><span class="n">batch_i</span><span class="p">]</span><span class="o">.</span><span class="n">s_name</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">logit_diffs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">base_logit</span><span class="p">[</span><span class="n">batch_i</span><span class="p">,</span> <span class="n">correct_name</span><span class="p">]</span> <span class="o">-</span> <span class="n">base_logit</span><span class="p">[</span><span class="n">batch_i</span><span class="p">,</span> <span class="n">other_name</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">logit_diffs</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>They reported a baseline logit difference of 3.56 and a task accuracy of 99.3% for GPT-2 in the paper. Let’s check if this holds on our dataset (it pretty much does):</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">logit_diffs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">argmax_acc</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">D_test</span><span class="o">.</span><span class="n">batches</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span> <span class="n">total</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+        <span class="n">base_label</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">patched_answer_tokens</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">gpt2</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">base_logit</span> <span class="o">=</span> <span class="n">get_last_token</span><span class="p">(</span><span class="n">gpt2</span><span class="p">(</span><span class="o">**</span><span class="n">batch</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">tokens</span><span class="p">)</span><span class="o">.</span><span class="n">logits</span><span class="p">,</span> <span class="n">batch</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">tokens</span><span class="p">[</span><span class="s1">&#39;attention_mask&#39;</span><span class="p">])</span>
+        <span class="n">src_logit</span> <span class="o">=</span> <span class="n">get_last_token</span><span class="p">(</span><span class="n">gpt2</span><span class="p">(</span><span class="o">**</span><span class="n">batch</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">tokens</span><span class="p">)</span><span class="o">.</span><span class="n">logits</span><span class="p">,</span> <span class="n">batch</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">tokens</span><span class="p">[</span><span class="s1">&#39;attention_mask&#39;</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">batch_i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+            <span class="n">other_name</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39; &#39;</span> <span class="o">+</span> <span class="n">batch</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">prompts</span><span class="p">[</span><span class="n">batch_i</span><span class="p">]</span><span class="o">.</span><span class="n">s_name</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">correct_name</span> <span class="o">=</span> <span class="n">base_label</span><span class="p">[</span><span class="n">batch_i</span><span class="p">]</span>
+
+            <span class="c1"># logit diff</span>
+            <span class="n">logit_diffs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">base_logit</span><span class="p">[</span><span class="n">batch_i</span><span class="p">,</span> <span class="n">base_label</span><span class="p">[</span><span class="n">batch_i</span><span class="p">]]</span> <span class="o">-</span> <span class="n">base_logit</span><span class="p">[</span><span class="n">batch_i</span><span class="p">,</span> <span class="n">other_name</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+
+            <span class="c1"># baseline accuracy</span>
+            <span class="n">argmax</span> <span class="o">=</span> <span class="n">base_logit</span><span class="p">[</span><span class="n">batch_i</span><span class="p">]</span><span class="o">.</span><span class="n">argmax</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">argmax</span> <span class="o">==</span> <span class="n">base_label</span><span class="p">[</span><span class="n">batch_i</span><span class="p">]:</span>
+                <span class="n">argmax_acc</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="n">logit_diff</span> <span class="o">=</span> <span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">logit_diffs</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">logit_diffs</span><span class="p">))</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;avg logit diff:&quot;</span><span class="p">,</span> <span class="n">logit_diff</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;argmax acc:&quot;</span><span class="p">,</span> <span class="n">argmax_acc</span> <span class="o">/</span> <span class="mi">50</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 10/10 [00:02&lt;00:00,  4.54it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>avg logit diff: 3.7562549114227295
+argmax acc: 0.94
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="name-mover-heads">
+<h2>Name mover heads<a class="headerlink" href="#name-mover-heads" title="Link to this heading">#</a></h2>
+<p>We will replicate figure 3, which identifies heads which directly affect the logits.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">data</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">12</span><span class="p">):</span>
+        <span class="n">intervenable_config</span><span class="p">,</span> <span class="n">num_restores</span> <span class="o">=</span> <span class="n">path_patching_config</span><span class="p">(</span><span class="n">layer</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+        <span class="n">intervenable</span> <span class="o">=</span> <span class="n">IntervenableModel</span><span class="p">(</span><span class="n">intervenable_config</span><span class="p">,</span> <span class="n">gpt2</span><span class="p">,</span> <span class="n">use_fast</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">head</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gpt2</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">n_head</span><span class="p">):</span>
+            <span class="n">eval_labels</span><span class="p">,</span> <span class="n">eval_preds</span><span class="p">,</span> <span class="n">logit_diffs</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">batch_dataset</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">D_test</span><span class="o">.</span><span class="n">batches</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">total</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
+                <span class="c1"># prepare</span>
+                <span class="n">base_inputs</span> <span class="o">=</span> <span class="n">batch_dataset</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">tokens</span>
+                <span class="n">source_inputs</span> <span class="o">=</span> <span class="n">batch_dataset</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">tokens</span>
+                <span class="n">labels</span> <span class="o">=</span> <span class="n">batch_dataset</span><span class="o">.</span><span class="n">patched_answer_tokens</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">gpt2</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+                <span class="n">pos</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">base_inputs</span><span class="p">[</span><span class="s2">&quot;input_ids&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+
+                <span class="c1"># inference</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">counterfactual_outputs</span> <span class="o">=</span> <span class="n">intervenable</span><span class="p">(</span>
+                    <span class="p">{</span><span class="s2">&quot;input_ids&quot;</span><span class="p">:</span> <span class="n">base_inputs</span><span class="p">[</span><span class="s2">&quot;input_ids&quot;</span><span class="p">]},</span> 
+                    <span class="p">[{</span><span class="s2">&quot;input_ids&quot;</span><span class="p">:</span> <span class="n">source_inputs</span><span class="p">[</span><span class="s2">&quot;input_ids&quot;</span><span class="p">]},</span> <span class="p">{</span><span class="s2">&quot;input_ids&quot;</span><span class="p">:</span> <span class="n">base_inputs</span><span class="p">[</span><span class="s2">&quot;input_ids&quot;</span><span class="p">]}],</span>
+                    <span class="p">{</span><span class="s2">&quot;sources-&gt;base&quot;</span><span class="p">:</span> <span class="p">((</span>
+                        <span class="p">[[[[</span><span class="n">head</span><span class="p">]],</span> <span class="p">[</span><span class="n">pos</span><span class="p">]]]</span><span class="o">+</span><span class="p">[[</span><span class="n">pos</span><span class="p">]]</span><span class="o">*</span><span class="n">num_restores</span><span class="p">,</span> 
+                        <span class="p">[[[[</span><span class="n">head</span><span class="p">]],</span> <span class="p">[</span><span class="n">pos</span><span class="p">]]]</span><span class="o">+</span><span class="p">[[</span><span class="n">pos</span><span class="p">]]</span><span class="o">*</span><span class="n">num_restores</span>
+                    <span class="p">))}</span>
+                <span class="p">)</span>
+                <span class="n">logit_diffs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">compute_logit_diff</span><span class="p">(</span><span class="n">counterfactual_outputs</span><span class="o">.</span><span class="n">logits</span><span class="p">,</span> <span class="n">batch_dataset</span><span class="p">))</span>
+                <span class="n">eval_labels</span> <span class="o">+=</span> <span class="p">[</span><span class="n">labels</span><span class="p">]</span>
+                <span class="n">last_token_logits</span> <span class="o">=</span> <span class="n">get_last_token</span><span class="p">(</span><span class="n">counterfactual_outputs</span><span class="o">.</span><span class="n">logits</span><span class="p">,</span> <span class="n">batch_dataset</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">tokens</span><span class="p">[</span><span class="s1">&#39;attention_mask&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">eval_preds</span> <span class="o">+=</span> <span class="p">[</span><span class="n">last_token_logits</span><span class="p">]</span>
+            
+            <span class="c1"># metrics</span>
+            <span class="n">eval_metrics</span> <span class="o">=</span> <span class="n">compute_metrics</span><span class="p">(</span>
+                <span class="n">eval_preds</span><span class="p">,</span> <span class="n">eval_labels</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">mean_logit_diff</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">logit_diffs</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">logit_diffs</span><span class="p">)</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;layer&quot;</span><span class="p">:</span> <span class="n">layer</span><span class="p">,</span> <span class="s2">&quot;head&quot;</span><span class="p">:</span> <span class="n">head</span><span class="p">,</span> <span class="s2">&quot;logit_diff&quot;</span><span class="p">:</span> <span class="n">mean_logit_diff</span><span class="p">,</span> <span class="o">**</span><span class="n">eval_metrics</span><span class="p">})</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>WARNING:root:Detected use_fast=True means the intervention location will be static within a batch.
+
+In case multiple location tags are passed only the first one will be considered
+100%|██████████| 50/50 [00:07&lt;00:00,  6.68it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 8, &#39;head&#39;: 0, &#39;logit_diff&#39;: tensor(3.7504), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.3469), &#39;label_logit&#39;: -74.34694038391113, &#39;label_prob&#39;: 0.5380359962582588}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.44it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 8, &#39;head&#39;: 1, &#39;logit_diff&#39;: tensor(3.7568), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4057), &#39;label_logit&#39;: -74.40572700500488, &#39;label_prob&#39;: 0.5395114549994469}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.22it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 8, &#39;head&#39;: 2, &#39;logit_diff&#39;: tensor(3.8010), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4281), &#39;label_logit&#39;: -74.42814888000488, &#39;label_prob&#39;: 0.5384641465544701}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.38it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 8, &#39;head&#39;: 3, &#39;logit_diff&#39;: tensor(3.7179), &#39;accuracy&#39;: 0.92, &#39;kl_div&#39;: tensor(-74.5966), &#39;label_logit&#39;: -74.59663963317871, &#39;label_prob&#39;: 0.5215314196050167}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:08&lt;00:00,  5.84it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 8, &#39;head&#39;: 4, &#39;logit_diff&#39;: tensor(3.7548), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4089), &#39;label_logit&#39;: -74.40891792297363, &#39;label_prob&#39;: 0.5398365586996079}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.36it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 8, &#39;head&#39;: 5, &#39;logit_diff&#39;: tensor(3.7737), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4948), &#39;label_logit&#39;: -74.49480590820312, &#39;label_prob&#39;: 0.5443936404585838}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:08&lt;00:00,  6.24it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 8, &#39;head&#39;: 6, &#39;logit_diff&#39;: tensor(3.8182), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4737), &#39;label_logit&#39;: -74.47373725891113, &#39;label_prob&#39;: 0.5551303905248642}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.79it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 8, &#39;head&#39;: 7, &#39;logit_diff&#39;: tensor(3.7553), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4145), &#39;label_logit&#39;: -74.41451263427734, &#39;label_prob&#39;: 0.5396078166365623}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  7.13it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 8, &#39;head&#39;: 8, &#39;logit_diff&#39;: tensor(3.7844), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4013), &#39;label_logit&#39;: -74.40127014160156, &#39;label_prob&#39;: 0.536662351489067}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  7.08it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 8, &#39;head&#39;: 9, &#39;logit_diff&#39;: tensor(3.7546), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4106), &#39;label_logit&#39;: -74.41055702209472, &#39;label_prob&#39;: 0.5401303231716156}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.89it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 8, &#39;head&#39;: 10, &#39;logit_diff&#39;: tensor(3.5075), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.2388), &#39;label_logit&#39;: -74.23884353637695, &#39;label_prob&#39;: 0.5428883665800095}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.37it/s]
+WARNING:root:Detected use_fast=True means the intervention location will be static within a batch.
+
+In case multiple location tags are passed only the first one will be considered
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 8, &#39;head&#39;: 11, &#39;logit_diff&#39;: tensor(3.7405), &#39;accuracy&#39;: 0.92, &#39;kl_div&#39;: tensor(-74.6022), &#39;label_logit&#39;: -74.60216705322266, &#39;label_prob&#39;: 0.5177586142718792}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.30it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 9, &#39;head&#39;: 0, &#39;logit_diff&#39;: tensor(3.7050), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.6208), &#39;label_logit&#39;: -74.620824508667, &#39;label_prob&#39;: 0.5102730639278888}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.15it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 9, &#39;head&#39;: 1, &#39;logit_diff&#39;: tensor(3.7559), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4151), &#39;label_logit&#39;: -74.41508010864258, &#39;label_prob&#39;: 0.5392078700661659}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.28it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 9, &#39;head&#39;: 2, &#39;logit_diff&#39;: tensor(3.7019), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.6157), &#39;label_logit&#39;: -74.61571449279785, &#39;label_prob&#39;: 0.5136157578229904}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:08&lt;00:00,  6.16it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 9, &#39;head&#39;: 3, &#39;logit_diff&#39;: tensor(3.7431), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.3672), &#39;label_logit&#39;: -74.3671482849121, &#39;label_prob&#39;: 0.5368358224630356}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.46it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 9, &#39;head&#39;: 4, &#39;logit_diff&#39;: tensor(3.7632), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4501), &#39;label_logit&#39;: -74.45014938354493, &#39;label_prob&#39;: 0.5293045191466809}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.86it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 9, &#39;head&#39;: 5, &#39;logit_diff&#39;: tensor(3.7335), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4766), &#39;label_logit&#39;: -74.47663719177245, &#39;label_prob&#39;: 0.5465028408169746}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:08&lt;00:00,  5.85it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 9, &#39;head&#39;: 6, &#39;logit_diff&#39;: tensor(2.7914), &#39;accuracy&#39;: 0.7, &#39;kl_div&#39;: tensor(-76.0374), &#39;label_logit&#39;: -76.03742889404298, &#39;label_prob&#39;: 0.29187622375786304}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  7.05it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 9, &#39;head&#39;: 7, &#39;logit_diff&#39;: tensor(3.7026), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.3311), &#39;label_logit&#39;: -74.33110733032227, &#39;label_prob&#39;: 0.5488018499314785}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  7.05it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 9, &#39;head&#39;: 8, &#39;logit_diff&#39;: tensor(3.7859), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.8128), &#39;label_logit&#39;: -74.81278228759766, &#39;label_prob&#39;: 0.4744531024992466}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.61it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 9, &#39;head&#39;: 9, &#39;logit_diff&#39;: tensor(1.4911), &#39;accuracy&#39;: 0.22, &#39;kl_div&#39;: tensor(-77.3908), &#39;label_logit&#39;: -77.39078643798828, &#39;label_prob&#39;: 0.12255394758656621}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.70it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 9, &#39;head&#39;: 10, &#39;logit_diff&#39;: tensor(3.7551), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.3962), &#39;label_logit&#39;: -74.39617370605468, &#39;label_prob&#39;: 0.5393955698609352}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.31it/s]
+WARNING:root:Detected use_fast=True means the intervention location will be static within a batch.
+
+In case multiple location tags are passed only the first one will be considered
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 9, &#39;head&#39;: 11, &#39;logit_diff&#39;: tensor(3.7567), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4002), &#39;label_logit&#39;: -74.40017051696778, &#39;label_prob&#39;: 0.5373660787940026}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.85it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 10, &#39;head&#39;: 0, &#39;logit_diff&#39;: tensor(3.1255), &#39;accuracy&#39;: 0.66, &#39;kl_div&#39;: tensor(-75.9131), &#39;label_logit&#39;: -75.91307647705078, &#39;label_prob&#39;: 0.3100175105780363}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.76it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 10, &#39;head&#39;: 1, &#39;logit_diff&#39;: tensor(3.6291), &#39;accuracy&#39;: 0.92, &#39;kl_div&#39;: tensor(-74.7467), &#39;label_logit&#39;: -74.74669570922852, &#39;label_prob&#39;: 0.4808885481953621}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.71it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 10, &#39;head&#39;: 2, &#39;logit_diff&#39;: tensor(3.6425), &#39;accuracy&#39;: 0.88, &#39;kl_div&#39;: tensor(-74.8445), &#39;label_logit&#39;: -74.84453872680665, &#39;label_prob&#39;: 0.4534783412516117}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.57it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 10, &#39;head&#39;: 3, &#39;logit_diff&#39;: tensor(3.7048), &#39;accuracy&#39;: 0.92, &#39;kl_div&#39;: tensor(-74.5217), &#39;label_logit&#39;: -74.52171600341796, &#39;label_prob&#39;: 0.5153644406795501}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.59it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 10, &#39;head&#39;: 4, &#39;logit_diff&#39;: tensor(3.7698), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.6806), &#39;label_logit&#39;: -74.68061622619629, &#39;label_prob&#39;: 0.5424765661358834}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.19it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 10, &#39;head&#39;: 5, &#39;logit_diff&#39;: tensor(3.7580), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.3888), &#39;label_logit&#39;: -74.3887621307373, &#39;label_prob&#39;: 0.5407887950539589}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  7.00it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 10, &#39;head&#39;: 6, &#39;logit_diff&#39;: tensor(3.4450), &#39;accuracy&#39;: 0.9, &#39;kl_div&#39;: tensor(-75.0385), &#39;label_logit&#39;: -75.0384928894043, &#39;label_prob&#39;: 0.4376738278567791}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.58it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 10, &#39;head&#39;: 7, &#39;logit_diff&#39;: tensor(5.1090), &#39;accuracy&#39;: 0.98, &#39;kl_div&#39;: tensor(-72.2116), &#39;label_logit&#39;: -72.21165046691894, &#39;label_prob&#39;: 0.8099988362193108}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.89it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 10, &#39;head&#39;: 8, &#39;logit_diff&#39;: tensor(3.7607), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4309), &#39;label_logit&#39;: -74.43088127136231, &#39;label_prob&#39;: 0.5412813138961792}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.34it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 10, &#39;head&#39;: 9, &#39;logit_diff&#39;: tensor(3.7759), &#39;accuracy&#39;: 0.92, &#39;kl_div&#39;: tensor(-74.4457), &#39;label_logit&#39;: -74.44571556091309, &#39;label_prob&#39;: 0.5376637886464596}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.46it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 10, &#39;head&#39;: 10, &#39;logit_diff&#39;: tensor(3.1971), &#39;accuracy&#39;: 0.8, &#39;kl_div&#39;: tensor(-75.1706), &#39;label_logit&#39;: -75.17062294006348, &#39;label_prob&#39;: 0.38778901934623716}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.67it/s]
+WARNING:root:Detected use_fast=True means the intervention location will be static within a batch.
+
+In case multiple location tags are passed only the first one will be considered
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 10, &#39;head&#39;: 11, &#39;logit_diff&#39;: tensor(3.7515), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4513), &#39;label_logit&#39;: -74.4512720489502, &#39;label_prob&#39;: 0.5345661920309067}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.49it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 11, &#39;head&#39;: 0, &#39;logit_diff&#39;: tensor(3.7527), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4928), &#39;label_logit&#39;: -74.49275856018066, &#39;label_prob&#39;: 0.5453835587203503}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.53it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 11, &#39;head&#39;: 1, &#39;logit_diff&#39;: tensor(3.6884), &#39;accuracy&#39;: 0.9, &#39;kl_div&#39;: tensor(-74.3526), &#39;label_logit&#39;: -74.35264060974121, &#39;label_prob&#39;: 0.5213113659620285}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.46it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 11, &#39;head&#39;: 2, &#39;logit_diff&#39;: tensor(4.2981), &#39;accuracy&#39;: 0.88, &#39;kl_div&#39;: tensor(-74.8699), &#39;label_logit&#39;: -74.86986404418946, &#39;label_prob&#39;: 0.4666699156165123}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.71it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 11, &#39;head&#39;: 3, &#39;logit_diff&#39;: tensor(3.7677), &#39;accuracy&#39;: 0.9, &#39;kl_div&#39;: tensor(-74.9174), &#39;label_logit&#39;: -74.91741744995117, &#39;label_prob&#39;: 0.47216988608241084}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.60it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 11, &#39;head&#39;: 4, &#39;logit_diff&#39;: tensor(3.7532), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.3741), &#39;label_logit&#39;: -74.37413780212403, &#39;label_prob&#39;: 0.5394928365945816}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:06&lt;00:00,  7.54it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 11, &#39;head&#39;: 5, &#39;logit_diff&#39;: tensor(3.7504), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.3879), &#39;label_logit&#39;: -74.38786392211914, &#39;label_prob&#39;: 0.5406103874742985}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.85it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 11, &#39;head&#39;: 6, &#39;logit_diff&#39;: tensor(3.7768), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.6573), &#39;label_logit&#39;: -74.65733688354493, &#39;label_prob&#39;: 0.4942662340402603}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.83it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 11, &#39;head&#39;: 7, &#39;logit_diff&#39;: tensor(3.7518), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.4400), &#39;label_logit&#39;: -74.44003486633301, &#39;label_prob&#39;: 0.5410507157444954}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.28it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 11, &#39;head&#39;: 8, &#39;logit_diff&#39;: tensor(3.7459), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.9492), &#39;label_logit&#39;: -74.94922843933105, &#39;label_prob&#39;: 0.535863026380539}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:08&lt;00:00,  6.13it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 11, &#39;head&#39;: 9, &#39;logit_diff&#39;: tensor(3.6901), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-74.6614), &#39;label_logit&#39;: -74.66142028808594, &#39;label_prob&#39;: 0.4914996309578419}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.31it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 11, &#39;head&#39;: 10, &#39;logit_diff&#39;: tensor(4.5615), &#39;accuracy&#39;: 0.96, &#39;kl_div&#39;: tensor(-72.9968), &#39;label_logit&#39;: -72.99680526733398, &#39;label_prob&#39;: 0.7122889611124993}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 50/50 [00:07&lt;00:00,  6.59it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;layer&#39;: 11, &#39;head&#39;: 11, &#39;logit_diff&#39;: tensor(3.7668), &#39;accuracy&#39;: 0.94, &#39;kl_div&#39;: tensor(-76.5733), &#39;label_logit&#39;: -76.57328651428223, &#39;label_prob&#39;: 0.507421883046627}
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">&quot;logit_diff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;logit_diff&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">&quot;logit_diff_relative&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;logit_diff&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">logit_diff</span><span class="p">)</span> <span class="o">/</span> <span class="n">logit_diff</span>
+<span class="n">lim</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;logit_diff_relative&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">&quot;formatted&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;logit_diff_relative&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">x</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">plot</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">ggplot</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">aes</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="s2">&quot;head&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="s2">&quot;layer&quot;</span><span class="p">,</span> <span class="n">fill</span><span class="o">=</span><span class="s2">&quot;logit_diff_relative&quot;</span><span class="p">))</span> <span class="o">+</span> <span class="n">geom_tile</span><span class="p">()</span>
+    <span class="o">+</span> <span class="n">scale_fill_cmap</span><span class="p">(</span><span class="s2">&quot;RdBu&quot;</span><span class="p">,</span> <span class="n">limits</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="n">lim</span><span class="p">,</span> <span class="n">lim</span><span class="p">))</span> <span class="o">+</span> <span class="n">scale_y_reverse</span><span class="p">(</span><span class="n">expand</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+    <span class="o">+</span> <span class="n">geom_text</span><span class="p">(</span><span class="n">aes</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="s2">&quot;formatted&quot;</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+    <span class="o">+</span> <span class="n">theme_bw</span><span class="p">()</span> <span class="o">+</span> <span class="n">scale_x_continuous</span><span class="p">(</span><span class="n">expand</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">plot</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="../../_images/dfc3bb8512eb7e3c6be222658aee1fe5a23474554a0ab68a0beb92752d1b4669.svg" src="../../_images/dfc3bb8512eb7e3c6be222658aee1fe5a23474554a0ab68a0beb92752d1b4669.svg" /><div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="Boundless_DAS.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Boundless DAS</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="IOI_with_DAS.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">IOI with DAS</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setup">Setup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#path-patching-config">Path patching config</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-utils">Dataset + Utils</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#name-mover-heads">Name mover heads</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Stanford NLP
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2024, Stanford NLP.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

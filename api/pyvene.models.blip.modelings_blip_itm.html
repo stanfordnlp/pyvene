@@ -1,0 +1,600 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>pyvene.models.blip.modelings_blip_itm &#8212; pyvene 0.1.2 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=a3416100" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=0deb7d70"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'api/pyvene.models.blip.modelings_blip_itm';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="pyvene.models.blip.modelings_blip_itm.BlipITMWrapper" href="pyvene.models.blip.modelings_blip_itm.BlipITMWrapper.html" />
+    <link rel="prev" title="pyvene.models.blip.modelings_blip.BlipWrapper" href="pyvene.models.blip.modelings_blip.BlipWrapper.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">pyvene 0.1.2 documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../guides/contributing.html">Contributing Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/causal_abstraction.html">A Little Guide to Causal Abstraction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/ndif.html">NDIF Integration</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Basic tutorials</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/pyvene_101.html">Introduction to pyvene</a></li>
+
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/basic_tutorials/Add_Activations_to_Streams.html">Activation Addition</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/basic_tutorials/Basic_Intervention.html">Interchange Intervention</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/basic_tutorials/Nested_Intervention.html">Intervening on subcomponents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/basic_tutorials/Subspace_Partition_with_Intervention.html">Subspace Interventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/basic_tutorials/Intervention_Training.html">Trainable Interventions</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced tutorials</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_tutorials/Causal_Tracing.html">Causal Tracing (ROME)</a></li>
+
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_tutorials/Probing_Gender.html">Causal Evaluation of Probes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_tutorials/DAS_Main_Introduction.html">Intro to Distributed Alignment Search (DAS)</a></li>
+
+
+
+
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_tutorials/Boundless_DAS.html">Boundless DAS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_tutorials/IOI_Replication.html">Replicating the IOI paper</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_tutorials/IOI_with_DAS.html">IOI with DAS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_tutorials/IOI_with_Mask_Intervention.html">IOI with Masked Interventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_tutorials/Interventions_with_BLIP.html">Intervening on Vision-Language Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_tutorials/MQNLI.html">Nested Hierarchical Structure with MQNLI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_tutorials/Voting_Mechanism.html">An Exploration on Voting Mechanisms</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="core.html"><code class="docutils literal notranslate"><span class="pre">pyvene</span></code>: Core API</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="pyvene.data_generators.html">pyvene.data_generators</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.data_generators.causal_model.html">pyvene.data_generators.causal_model</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.data_generators.causal_model.simple_example.html">pyvene.data_generators.causal_model.simple_example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.data_generators.causal_model.CausalModel.html">pyvene.data_generators.causal_model.CausalModel</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="pyvene.models.html">pyvene.models</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.backpack_gpt2.html">pyvene.models.backpack_gpt2</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.backpack_gpt2.modelings_backpack_gpt2.html">pyvene.models.backpack_gpt2.modelings_backpack_gpt2</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.backpack_gpt2.modelings_intervenable_backpack_gpt2.html">pyvene.models.backpack_gpt2.modelings_intervenable_backpack_gpt2</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.basic_utils.html">pyvene.models.basic_utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.basic_utils.GET_LOC.html">pyvene.models.basic_utils.GET_LOC</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.basic_utils.closeness_to_permutation_loss.html">pyvene.models.basic_utils.closeness_to_permutation_loss</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.basic_utils.count_parameters.html">pyvene.models.basic_utils.count_parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.basic_utils.create_directory.html">pyvene.models.basic_utils.create_directory</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.basic_utils.embed_to_distrib.html">pyvene.models.basic_utils.embed_to_distrib</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.basic_utils.format_token.html">pyvene.models.basic_utils.format_token</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.basic_utils.get_batch_size.html">pyvene.models.basic_utils.get_batch_size</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.basic_utils.get_list_depth.html">pyvene.models.basic_utils.get_list_depth</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.basic_utils.get_type_from_string.html">pyvene.models.basic_utils.get_type_from_string</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.basic_utils.harmonic_sigmoid_boundary.html">pyvene.models.basic_utils.harmonic_sigmoid_boundary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.basic_utils.random_permutation_matrix.html">pyvene.models.basic_utils.random_permutation_matrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.basic_utils.set_seed.html">pyvene.models.basic_utils.set_seed</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.basic_utils.sigmoid_boundary.html">pyvene.models.basic_utils.sigmoid_boundary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.basic_utils.top_vals.html">pyvene.models.basic_utils.top_vals</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 current active has-children"><a class="reference internal" href="pyvene.models.blip.html">pyvene.models.blip</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.blip.modelings_blip.html">pyvene.models.blip.modelings_blip</a></li>
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">pyvene.models.blip.modelings_blip_itm</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.blip.modelings_intervenable_blip.html">pyvene.models.blip.modelings_intervenable_blip</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.blip.modelings_intervenable_blip_itm.html">pyvene.models.blip.modelings_intervenable_blip_itm</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.configuration_intervenable_model.html">pyvene.models.configuration_intervenable_model</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.configuration_intervenable_model.IntervenableConfig.html">pyvene.models.configuration_intervenable_model.IntervenableConfig</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.configuration_intervenable_model.RepresentationConfig.html">pyvene.models.configuration_intervenable_model.RepresentationConfig</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.constants.html">pyvene.models.constants</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.constants.split_and_select.html">pyvene.models.constants.split_and_select</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.constants.split_half.html">pyvene.models.constants.split_half</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.constants.split_head_and_permute.html">pyvene.models.constants.split_head_and_permute</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.constants.split_heads.html">pyvene.models.constants.split_heads</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.constants.split_three.html">pyvene.models.constants.split_three</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.gemma.html">pyvene.models.gemma</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.gemma.modelings_intervenable_gemma.html">pyvene.models.gemma.modelings_intervenable_gemma</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.gemma2.html">pyvene.models.gemma2</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.gemma2.modelings_intervenable_gemma2.html">pyvene.models.gemma2.modelings_intervenable_gemma2</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.gpt2.html">pyvene.models.gpt2</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.gpt2.modelings_intervenable_gpt2.html">pyvene.models.gpt2.modelings_intervenable_gpt2</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.gpt_neo.html">pyvene.models.gpt_neo</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.gpt_neo.modelings_intervenable_gpt_neo.html">pyvene.models.gpt_neo.modelings_intervenable_gpt_neo</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.gpt_neox.html">pyvene.models.gpt_neox</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.gpt_neox.modelings_intervenable_gpt_neox.html">pyvene.models.gpt_neox.modelings_intervenable_gpt_neox</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.gru.html">pyvene.models.gru</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.gru.modelings_gru.html">pyvene.models.gru.modelings_gru</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.gru.modelings_intervenable_gru.html">pyvene.models.gru.modelings_intervenable_gru</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.intervenable_base.html">pyvene.models.intervenable_base</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.intervenable_base.build_intervenable_model.html">pyvene.models.intervenable_base.build_intervenable_model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.intervenable_base.BaseModel.html">pyvene.models.intervenable_base.BaseModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.intervenable_base.IntervenableModel.html">pyvene.models.intervenable_base.IntervenableModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.intervenable_base.IntervenableModelOutput.html">pyvene.models.intervenable_base.IntervenableModelOutput</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.intervenable_base.IntervenableNdifModel.html">pyvene.models.intervenable_base.IntervenableNdifModel</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3"><a class="reference internal" href="pyvene.models.intervenable_modelcard.html">pyvene.models.intervenable_modelcard</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.intervention_utils.html">pyvene.models.intervention_utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.intervention_utils.broadcast_tensor_v1.html">pyvene.models.intervention_utils.broadcast_tensor_v1</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.intervention_utils.broadcast_tensor_v2.html">pyvene.models.intervention_utils.broadcast_tensor_v2</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.intervention_utils.InterventionState.html">pyvene.models.intervention_utils.InterventionState</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.interventions.html">pyvene.models.interventions</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.AdditionIntervention.html">pyvene.models.interventions.AdditionIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.AutoencoderIntervention.html">pyvene.models.interventions.AutoencoderIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.BasisAgnosticIntervention.html">pyvene.models.interventions.BasisAgnosticIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.BoundlessRotatedSpaceIntervention.html">pyvene.models.interventions.BoundlessRotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.CollectIntervention.html">pyvene.models.interventions.CollectIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.ConstantSourceIntervention.html">pyvene.models.interventions.ConstantSourceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.DistributedRepresentationIntervention.html">pyvene.models.interventions.DistributedRepresentationIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.Intervention.html">pyvene.models.interventions.Intervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.InterventionOutput.html">pyvene.models.interventions.InterventionOutput</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.JumpReLUAutoencoderIntervention.html">pyvene.models.interventions.JumpReLUAutoencoderIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.LocalistRepresentationIntervention.html">pyvene.models.interventions.LocalistRepresentationIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.LowRankRotatedSpaceIntervention.html">pyvene.models.interventions.LowRankRotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.NoiseIntervention.html">pyvene.models.interventions.NoiseIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.PCARotatedSpaceIntervention.html">pyvene.models.interventions.PCARotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.RotatedSpaceIntervention.html">pyvene.models.interventions.RotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.SharedWeightsTrainableIntervention.html">pyvene.models.interventions.SharedWeightsTrainableIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.SigmoidMaskIntervention.html">pyvene.models.interventions.SigmoidMaskIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.SigmoidMaskRotatedSpaceIntervention.html">pyvene.models.interventions.SigmoidMaskRotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.SkipIntervention.html">pyvene.models.interventions.SkipIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.SourcelessIntervention.html">pyvene.models.interventions.SourcelessIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.SubtractionIntervention.html">pyvene.models.interventions.SubtractionIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.TrainableIntervention.html">pyvene.models.interventions.TrainableIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.VanillaIntervention.html">pyvene.models.interventions.VanillaIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.interventions.ZeroIntervention.html">pyvene.models.interventions.ZeroIntervention</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.layers.html">pyvene.models.layers</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.layers.AutoencoderLayer.html">pyvene.models.layers.AutoencoderLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.layers.AutoencoderLayerBase.html">pyvene.models.layers.AutoencoderLayerBase</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.layers.InverseRotateLayer.html">pyvene.models.layers.InverseRotateLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.layers.LowRankRotateLayer.html">pyvene.models.layers.LowRankRotateLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.layers.RotateLayer.html">pyvene.models.layers.RotateLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.layers.SubspaceLowRankRotateLayer.html">pyvene.models.layers.SubspaceLowRankRotateLayer</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.llama.html">pyvene.models.llama</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.llama.modelings_intervenable_llama.html">pyvene.models.llama.modelings_intervenable_llama</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.llava.html">pyvene.models.llava</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.llava.modelings_intervenable_llava.html">pyvene.models.llava.modelings_intervenable_llava</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.mistral.html">pyvene.models.mistral</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.mistral.modellings_intervenable_mistral.html">pyvene.models.mistral.modellings_intervenable_mistral</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.mlp.html">pyvene.models.mlp</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.mlp.modelings_intervenable_mlp.html">pyvene.models.mlp.modelings_intervenable_mlp</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.mlp.modelings_mlp.html">pyvene.models.mlp.modelings_mlp</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.modeling_utils.html">pyvene.models.modeling_utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.b_sd_to_bsd.html">pyvene.models.modeling_utils.b_sd_to_bsd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.bhsd_to_bs_hd.html">pyvene.models.modeling_utils.bhsd_to_bs_hd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.bs_hd_to_bhsd.html">pyvene.models.modeling_utils.bs_hd_to_bhsd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.bsd_to_b_sd.html">pyvene.models.modeling_utils.bsd_to_b_sd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.do_intervention.html">pyvene.models.modeling_utils.do_intervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.gather_neurons.html">pyvene.models.modeling_utils.gather_neurons</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.get_dimension_by_component.html">pyvene.models.modeling_utils.get_dimension_by_component</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.get_internal_model_type.html">pyvene.models.modeling_utils.get_internal_model_type</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.get_module_hook.html">pyvene.models.modeling_utils.get_module_hook</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.getattr_for_torch_module.html">pyvene.models.modeling_utils.getattr_for_torch_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.is_gru.html">pyvene.models.modeling_utils.is_gru</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.is_mlp.html">pyvene.models.modeling_utils.is_mlp</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.is_stateless.html">pyvene.models.modeling_utils.is_stateless</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.is_transformer.html">pyvene.models.modeling_utils.is_transformer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.output_to_subcomponent.html">pyvene.models.modeling_utils.output_to_subcomponent</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.print_forward_hooks.html">pyvene.models.modeling_utils.print_forward_hooks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.remove_forward_hooks.html">pyvene.models.modeling_utils.remove_forward_hooks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.scatter_neurons.html">pyvene.models.modeling_utils.scatter_neurons</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.simple_output_to_subcomponent.html">pyvene.models.modeling_utils.simple_output_to_subcomponent</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.simple_scatter_intervention_output.html">pyvene.models.modeling_utils.simple_scatter_intervention_output</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.weighted_average.html">pyvene.models.modeling_utils.weighted_average</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.modeling_utils.HandlerList.html">pyvene.models.modeling_utils.HandlerList</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="pyvene.models.olmo.html">pyvene.models.olmo</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyvene.models.olmo.modelings_intervenable_olmo.html">pyvene.models.olmo.modelings_intervenable_olmo</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/api/pyvene.models.blip.modelings_blip_itm.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>pyvene.models.blip.modelings_blip_itm</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="module-pyvene.models.blip.modelings_blip_itm">
+<span id="pyvene-models-blip-modelings-blip-itm"></span><h1>pyvene.models.blip.modelings_blip_itm<a class="headerlink" href="#module-pyvene.models.blip.modelings_blip_itm" title="Link to this heading">#</a></h1>
+<p class="rubric">Classes</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="pyvene.models.blip.modelings_blip_itm.BlipITMWrapper.html#pyvene.models.blip.modelings_blip_itm.BlipITMWrapper" title="pyvene.models.blip.modelings_blip_itm.BlipITMWrapper"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BlipITMWrapper</span></code></a>(model[, use_itm_not_contrastive])</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="pyvene.models.blip.modelings_blip.BlipWrapper.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">pyvene.models.blip.modelings_blip.BlipWrapper</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="pyvene.models.blip.modelings_blip_itm.BlipITMWrapper.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">pyvene.models.blip.modelings_blip_itm.BlipITMWrapper</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Stanford NLP
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2024, Stanford NLP.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

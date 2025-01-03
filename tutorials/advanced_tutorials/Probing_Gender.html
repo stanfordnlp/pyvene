@@ -1,0 +1,1700 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Causal Evaluation of Probes &#8212; pyvene 0.1.2 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=a3416100" />
+    <link rel="stylesheet" type="text/css" href="../../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/documentation_options.js?v=0deb7d70"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'tutorials/advanced_tutorials/Probing_Gender';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Intro to Distributed Alignment Search (DAS)" href="DAS_Main_Introduction.html" />
+    <link rel="prev" title="Causal Tracing (ROME)" href="Causal_Tracing.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">pyvene 0.1.2 documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../guides/contributing.html">Contributing Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guides/causal_abstraction.html">A Little Guide to Causal Abstraction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guides/ndif.html">NDIF Integration</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Basic tutorials</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../pyvene_101.html">Introduction to pyvene</a></li>
+
+<li class="toctree-l1"><a class="reference internal" href="../basic_tutorials/Add_Activations_to_Streams.html">Activation Addition</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../basic_tutorials/Basic_Intervention.html">Interchange Intervention</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../basic_tutorials/Nested_Intervention.html">Intervening on subcomponents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../basic_tutorials/Subspace_Partition_with_Intervention.html">Subspace Interventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../basic_tutorials/Intervention_Training.html">Trainable Interventions</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced tutorials</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="Causal_Tracing.html">Causal Tracing (ROME)</a></li>
+
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Causal Evaluation of Probes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="DAS_Main_Introduction.html">Intro to Distributed Alignment Search (DAS)</a></li>
+
+
+
+
+<li class="toctree-l1"><a class="reference internal" href="Boundless_DAS.html">Boundless DAS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="IOI_Replication.html">Replicating the IOI paper</a></li>
+<li class="toctree-l1"><a class="reference internal" href="IOI_with_DAS.html">IOI with DAS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="IOI_with_Mask_Intervention.html">IOI with Masked Interventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Interventions_with_BLIP.html">Intervening on Vision-Language Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="MQNLI.html">Nested Hierarchical Structure with MQNLI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Voting_Mechanism.html">An Exploration on Voting Mechanisms</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../api/core.html"><code class="docutils literal notranslate"><span class="pre">pyvene</span></code>: Core API</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../api/pyvene.data_generators.html">pyvene.data_generators</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.data_generators.causal_model.html">pyvene.data_generators.causal_model</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.data_generators.causal_model.simple_example.html">pyvene.data_generators.causal_model.simple_example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.data_generators.causal_model.CausalModel.html">pyvene.data_generators.causal_model.CausalModel</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../api/pyvene.models.html">pyvene.models</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.backpack_gpt2.html">pyvene.models.backpack_gpt2</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.backpack_gpt2.modelings_backpack_gpt2.html">pyvene.models.backpack_gpt2.modelings_backpack_gpt2</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.backpack_gpt2.modelings_intervenable_backpack_gpt2.html">pyvene.models.backpack_gpt2.modelings_intervenable_backpack_gpt2</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.basic_utils.html">pyvene.models.basic_utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.GET_LOC.html">pyvene.models.basic_utils.GET_LOC</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.closeness_to_permutation_loss.html">pyvene.models.basic_utils.closeness_to_permutation_loss</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.count_parameters.html">pyvene.models.basic_utils.count_parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.create_directory.html">pyvene.models.basic_utils.create_directory</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.embed_to_distrib.html">pyvene.models.basic_utils.embed_to_distrib</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.format_token.html">pyvene.models.basic_utils.format_token</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.get_batch_size.html">pyvene.models.basic_utils.get_batch_size</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.get_list_depth.html">pyvene.models.basic_utils.get_list_depth</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.get_type_from_string.html">pyvene.models.basic_utils.get_type_from_string</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.harmonic_sigmoid_boundary.html">pyvene.models.basic_utils.harmonic_sigmoid_boundary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.random_permutation_matrix.html">pyvene.models.basic_utils.random_permutation_matrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.set_seed.html">pyvene.models.basic_utils.set_seed</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.sigmoid_boundary.html">pyvene.models.basic_utils.sigmoid_boundary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.basic_utils.top_vals.html">pyvene.models.basic_utils.top_vals</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.blip.html">pyvene.models.blip</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.blip.modelings_blip.html">pyvene.models.blip.modelings_blip</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.blip.modelings_blip_itm.html">pyvene.models.blip.modelings_blip_itm</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.blip.modelings_intervenable_blip.html">pyvene.models.blip.modelings_intervenable_blip</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.blip.modelings_intervenable_blip_itm.html">pyvene.models.blip.modelings_intervenable_blip_itm</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.configuration_intervenable_model.html">pyvene.models.configuration_intervenable_model</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.configuration_intervenable_model.IntervenableConfig.html">pyvene.models.configuration_intervenable_model.IntervenableConfig</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.configuration_intervenable_model.RepresentationConfig.html">pyvene.models.configuration_intervenable_model.RepresentationConfig</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.constants.html">pyvene.models.constants</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.constants.split_and_select.html">pyvene.models.constants.split_and_select</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.constants.split_half.html">pyvene.models.constants.split_half</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.constants.split_head_and_permute.html">pyvene.models.constants.split_head_and_permute</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.constants.split_heads.html">pyvene.models.constants.split_heads</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.constants.split_three.html">pyvene.models.constants.split_three</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.gemma.html">pyvene.models.gemma</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.gemma.modelings_intervenable_gemma.html">pyvene.models.gemma.modelings_intervenable_gemma</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.gemma2.html">pyvene.models.gemma2</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.gemma2.modelings_intervenable_gemma2.html">pyvene.models.gemma2.modelings_intervenable_gemma2</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.gpt2.html">pyvene.models.gpt2</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.gpt2.modelings_intervenable_gpt2.html">pyvene.models.gpt2.modelings_intervenable_gpt2</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.gpt_neo.html">pyvene.models.gpt_neo</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.gpt_neo.modelings_intervenable_gpt_neo.html">pyvene.models.gpt_neo.modelings_intervenable_gpt_neo</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.gpt_neox.html">pyvene.models.gpt_neox</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.gpt_neox.modelings_intervenable_gpt_neox.html">pyvene.models.gpt_neox.modelings_intervenable_gpt_neox</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.gru.html">pyvene.models.gru</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.gru.modelings_gru.html">pyvene.models.gru.modelings_gru</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.gru.modelings_intervenable_gru.html">pyvene.models.gru.modelings_intervenable_gru</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.intervenable_base.html">pyvene.models.intervenable_base</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervenable_base.build_intervenable_model.html">pyvene.models.intervenable_base.build_intervenable_model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervenable_base.BaseModel.html">pyvene.models.intervenable_base.BaseModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervenable_base.IntervenableModel.html">pyvene.models.intervenable_base.IntervenableModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervenable_base.IntervenableModelOutput.html">pyvene.models.intervenable_base.IntervenableModelOutput</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervenable_base.IntervenableNdifModel.html">pyvene.models.intervenable_base.IntervenableNdifModel</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/pyvene.models.intervenable_modelcard.html">pyvene.models.intervenable_modelcard</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.intervention_utils.html">pyvene.models.intervention_utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervention_utils.broadcast_tensor_v1.html">pyvene.models.intervention_utils.broadcast_tensor_v1</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervention_utils.broadcast_tensor_v2.html">pyvene.models.intervention_utils.broadcast_tensor_v2</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.intervention_utils.InterventionState.html">pyvene.models.intervention_utils.InterventionState</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.interventions.html">pyvene.models.interventions</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.AdditionIntervention.html">pyvene.models.interventions.AdditionIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.AutoencoderIntervention.html">pyvene.models.interventions.AutoencoderIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.BasisAgnosticIntervention.html">pyvene.models.interventions.BasisAgnosticIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.BoundlessRotatedSpaceIntervention.html">pyvene.models.interventions.BoundlessRotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.CollectIntervention.html">pyvene.models.interventions.CollectIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.ConstantSourceIntervention.html">pyvene.models.interventions.ConstantSourceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.DistributedRepresentationIntervention.html">pyvene.models.interventions.DistributedRepresentationIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.Intervention.html">pyvene.models.interventions.Intervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.InterventionOutput.html">pyvene.models.interventions.InterventionOutput</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.JumpReLUAutoencoderIntervention.html">pyvene.models.interventions.JumpReLUAutoencoderIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.LocalistRepresentationIntervention.html">pyvene.models.interventions.LocalistRepresentationIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.LowRankRotatedSpaceIntervention.html">pyvene.models.interventions.LowRankRotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.NoiseIntervention.html">pyvene.models.interventions.NoiseIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.PCARotatedSpaceIntervention.html">pyvene.models.interventions.PCARotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.RotatedSpaceIntervention.html">pyvene.models.interventions.RotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.SharedWeightsTrainableIntervention.html">pyvene.models.interventions.SharedWeightsTrainableIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.SigmoidMaskIntervention.html">pyvene.models.interventions.SigmoidMaskIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.SigmoidMaskRotatedSpaceIntervention.html">pyvene.models.interventions.SigmoidMaskRotatedSpaceIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.SkipIntervention.html">pyvene.models.interventions.SkipIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.SourcelessIntervention.html">pyvene.models.interventions.SourcelessIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.SubtractionIntervention.html">pyvene.models.interventions.SubtractionIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.TrainableIntervention.html">pyvene.models.interventions.TrainableIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.VanillaIntervention.html">pyvene.models.interventions.VanillaIntervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.interventions.ZeroIntervention.html">pyvene.models.interventions.ZeroIntervention</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.layers.html">pyvene.models.layers</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.layers.AutoencoderLayer.html">pyvene.models.layers.AutoencoderLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.layers.AutoencoderLayerBase.html">pyvene.models.layers.AutoencoderLayerBase</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.layers.InverseRotateLayer.html">pyvene.models.layers.InverseRotateLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.layers.LowRankRotateLayer.html">pyvene.models.layers.LowRankRotateLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.layers.RotateLayer.html">pyvene.models.layers.RotateLayer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.layers.SubspaceLowRankRotateLayer.html">pyvene.models.layers.SubspaceLowRankRotateLayer</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.llama.html">pyvene.models.llama</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.llama.modelings_intervenable_llama.html">pyvene.models.llama.modelings_intervenable_llama</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.llava.html">pyvene.models.llava</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.llava.modelings_intervenable_llava.html">pyvene.models.llava.modelings_intervenable_llava</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.mistral.html">pyvene.models.mistral</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.mistral.modellings_intervenable_mistral.html">pyvene.models.mistral.modellings_intervenable_mistral</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.mlp.html">pyvene.models.mlp</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.mlp.modelings_intervenable_mlp.html">pyvene.models.mlp.modelings_intervenable_mlp</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.mlp.modelings_mlp.html">pyvene.models.mlp.modelings_mlp</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.html">pyvene.models.modeling_utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.b_sd_to_bsd.html">pyvene.models.modeling_utils.b_sd_to_bsd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.bhsd_to_bs_hd.html">pyvene.models.modeling_utils.bhsd_to_bs_hd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.bs_hd_to_bhsd.html">pyvene.models.modeling_utils.bs_hd_to_bhsd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.bsd_to_b_sd.html">pyvene.models.modeling_utils.bsd_to_b_sd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.do_intervention.html">pyvene.models.modeling_utils.do_intervention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.gather_neurons.html">pyvene.models.modeling_utils.gather_neurons</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.get_dimension_by_component.html">pyvene.models.modeling_utils.get_dimension_by_component</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.get_internal_model_type.html">pyvene.models.modeling_utils.get_internal_model_type</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.get_module_hook.html">pyvene.models.modeling_utils.get_module_hook</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.getattr_for_torch_module.html">pyvene.models.modeling_utils.getattr_for_torch_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.is_gru.html">pyvene.models.modeling_utils.is_gru</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.is_mlp.html">pyvene.models.modeling_utils.is_mlp</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.is_stateless.html">pyvene.models.modeling_utils.is_stateless</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.is_transformer.html">pyvene.models.modeling_utils.is_transformer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.output_to_subcomponent.html">pyvene.models.modeling_utils.output_to_subcomponent</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.print_forward_hooks.html">pyvene.models.modeling_utils.print_forward_hooks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.remove_forward_hooks.html">pyvene.models.modeling_utils.remove_forward_hooks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.scatter_neurons.html">pyvene.models.modeling_utils.scatter_neurons</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.simple_output_to_subcomponent.html">pyvene.models.modeling_utils.simple_output_to_subcomponent</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.simple_scatter_intervention_output.html">pyvene.models.modeling_utils.simple_scatter_intervention_output</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.weighted_average.html">pyvene.models.modeling_utils.weighted_average</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.modeling_utils.HandlerList.html">pyvene.models.modeling_utils.HandlerList</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../api/pyvene.models.olmo.html">pyvene.models.olmo</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyvene.models.olmo.modelings_intervenable_olmo.html">pyvene.models.olmo.modelings_intervenable_olmo</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../../_sources/tutorials/advanced_tutorials/Probing_Gender.ipynb" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.ipynb</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Causal Evaluation of Probes</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setup">Setup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load-model-and-data">Load model and data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#das">DAS</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#probing">Probing</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="causal-evaluation-of-probes">
+<h1>Causal Evaluation of Probes<a class="headerlink" href="#causal-evaluation-of-probes" title="Link to this heading">#</a></h1>
+<p>This is a simple tutorial showing you to collect activations from intervention-points in a model. We’ll compare 1D DAS IIA on each layer and position for <code class="docutils literal notranslate"><span class="pre">block_output</span></code> in pythia-70M with logistic regression probing accuracy. The task we’ll look at is gender prediction, where gendered names are used in templates like “[name] walked because”, which elicits the associated gendered pronoun “he” or “she” as the next-token prediction for this model.</p>
+<p><a class="reference external" href="https://colab.research.google.com/github/frankaging/pyvene/blob/main/tutorials/advance_tutorials/Probing_Gender.ipynb"><img alt="Open In Colab" src="https://colab.research.google.com/assets/colab-badge.svg" /></a></p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Aryaman Arora&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;01/10/2024&quot;</span>
+</pre></div>
+</div>
+</div>
+</div>
+<section id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Link to this heading">#</a></h2>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">try</span><span class="p">:</span>
+    <span class="c1"># This library is our indicator that the required installs</span>
+    <span class="c1"># need to be done.</span>
+    <span class="kn">import</span> <span class="nn">pyvene</span> <span class="k">as</span> <span class="nn">pv</span>
+
+<span class="k">except</span> <span class="ne">ModuleNotFoundError</span><span class="p">:</span>
+    <span class="o">!</span>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/stanfordnlp/pyvene.git
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AutoModelForCausalLM</span><span class="p">,</span>
+    <span class="n">AutoTokenizer</span><span class="p">,</span>
+    <span class="n">get_linear_schedule_with_warmup</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">LogisticRegression</span>
+<span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="kn">import</span> <span class="n">f1_score</span>
+
+<span class="o">%</span><span class="k">config</span> InlineBackend.figure_formats = [&#39;svg&#39;]
+<span class="kn">from</span> <span class="nn">plotnine</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ggplot</span><span class="p">,</span>
+    <span class="n">geom_tile</span><span class="p">,</span>
+    <span class="n">aes</span><span class="p">,</span>
+    <span class="n">facet_wrap</span><span class="p">,</span>
+    <span class="n">theme</span><span class="p">,</span>
+    <span class="n">element_text</span><span class="p">,</span>
+    <span class="n">geom_bar</span><span class="p">,</span>
+    <span class="n">geom_hline</span><span class="p">,</span>
+    <span class="n">scale_y_log10</span><span class="p">,</span>
+    <span class="n">geom_line</span><span class="p">,</span>
+    <span class="n">geom_point</span><span class="p">,</span>
+    <span class="n">geom_text</span><span class="p">,</span>
+    <span class="n">ggtitle</span><span class="p">,</span> <span class="n">xlab</span><span class="p">,</span> <span class="n">ylab</span><span class="p">,</span> 
+    <span class="n">ggsave</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">plotnine.scales</span> <span class="kn">import</span> <span class="n">scale_y_reverse</span><span class="p">,</span> <span class="n">scale_fill_cmap</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="load-model-and-data">
+<h2>Load model and data<a class="headerlink" href="#load-model-and-data" title="Link to this heading">#</a></h2>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cuda:0&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span>
+<span class="n">model</span> <span class="o">=</span> <span class="s2">&quot;EleutherAI/pythia-70m&quot;</span> <span class="c1"># &quot;EleutherAI/pythia-6.9B&quot;</span>
+<span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+<span class="n">tokenizer</span><span class="o">.</span><span class="n">pad_token</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">eos_token</span>
+<span class="n">gpt</span> <span class="o">=</span> <span class="n">AutoModelForCausalLM</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">,</span>
+    <span class="n">revision</span><span class="o">=</span><span class="s2">&quot;main&quot;</span><span class="p">,</span>
+    <span class="n">torch_dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span> <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;EleutherAI/pythia-6.9b&quot;</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+<span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>We have a list of 100 names for each gender, and we’ll filter for names that are one token in length. We’ll further filter for examples the model agrees with our labels for, since some of these names might be ambiguous or the model might not have the expected behaviour. This ensures that baseline IIA is 0.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">Example</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s2">&quot;Example&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;base&quot;</span><span class="p">,</span> <span class="s2">&quot;src&quot;</span><span class="p">,</span> <span class="s2">&quot;base_label&quot;</span><span class="p">,</span> <span class="s2">&quot;src_label&quot;</span><span class="p">])</span>
+
+<span class="n">names</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;he&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;James&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Robert&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;John&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Michael&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;David&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;William&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Richard&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Joseph&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Thomas&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Christopher&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Charles&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Daniel&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Matthew&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Anthony&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Mark&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Donald&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Steven&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Andrew&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Paul&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Joshua&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Kenneth&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Kevin&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Brian&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;George&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Timothy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Ronald&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Jason&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Edward&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Jeffrey&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Ryan&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Jacob&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Gary&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Nicholas&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Eric&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Jonathan&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Stephen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Larry&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Justin&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Scott&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Brandon&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Benjamin&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Samuel&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Gregory&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Alexander&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Patrick&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Frank&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Raymond&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Jack&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Dennis&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Jerry&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Tyler&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Aaron&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Jose&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Adam&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Nathan&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Henry&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Zachary&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Douglas&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Peter&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Kyle&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Noah&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Ethan&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Jeremy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Walter&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Christian&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Keith&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Roger&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Terry&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Austin&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Sean&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Gerald&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Carl&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Harold&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Dylan&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Arthur&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Lawrence&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Jordan&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Jesse&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Bryan&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Billy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Bruce&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Gabriel&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Joe&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Logan&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Alan&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Juan&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Albert&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Willie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Elijah&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Wayne&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Randy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Vincent&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Mason&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Roy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Ralph&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Bobby&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Russell&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Bradley&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Philip&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Eugene&quot;</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;she&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;Mary&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Patricia&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Jennifer&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Linda&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Elizabeth&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Barbara&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Susan&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Jessica&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Sarah&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Karen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Lisa&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Nancy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Betty&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Sandra&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Margaret&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Ashley&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Kimberly&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Emily&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Donna&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Michelle&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Carol&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Amanda&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Melissa&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Deborah&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Stephanie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Dorothy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Rebecca&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Sharon&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Laura&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Cynthia&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Amy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Kathleen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Angela&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Shirley&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Brenda&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Emma&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Anna&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Pamela&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Nicole&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Samantha&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Katherine&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Christine&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Helen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Debra&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Rachel&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Carolyn&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Janet&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Maria&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Catherine&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Heather&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Diane&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Olivia&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Julie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Joyce&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Victoria&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Ruth&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Virginia&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Lauren&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Kelly&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Christina&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Joan&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Evelyn&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Judith&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Andrea&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Hannah&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Megan&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Cheryl&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Jacqueline&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Martha&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Madison&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Teresa&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Gloria&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Sara&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Janice&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Ann&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Kathryn&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Abigail&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Sophia&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Frances&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Jean&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Alice&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Judy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Isabella&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Julia&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Grace&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Amber&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Denise&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Danielle&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Marilyn&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Beverly&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Charlotte&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Natalie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Theresa&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Diana&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Brittany&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Doris&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Kayla&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Alexis&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Lori&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Marie&quot;</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">}</span>
+
+<span class="c1"># filter names that are &gt; 1 token</span>
+<span class="n">names</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">key</span><span class="p">:</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">tokenize</span><span class="p">(</span><span class="n">name</span><span class="p">))</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">names</span>
+<span class="p">}</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">[</span><span class="s2">&quot;he&quot;</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">[</span><span class="s2">&quot;she&quot;</span><span class="p">]))</span>
+
+
+<span class="k">def</span> <span class="nf">sample_example</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">):</span>
+    <span class="c1"># sample labels (not matching)</span>
+    <span class="n">base_label</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">names</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+    <span class="n">src_label</span> <span class="o">=</span> <span class="p">[</span><span class="n">key</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">names</span> <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="n">base_label</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># sample names</span>
+    <span class="n">base_name</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">names</span><span class="p">[</span><span class="n">base_label</span><span class="p">])</span>
+    <span class="n">src_name</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">names</span><span class="p">[</span><span class="n">src_label</span><span class="p">])</span>
+
+    <span class="c1"># make pair</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;|endoftext|&gt;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2"> walked because&quot;</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">&quot;pt&quot;</span><span class="p">)</span>
+    <span class="n">src</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;|endoftext|&gt;</span><span class="si">{</span><span class="n">src_name</span><span class="si">}</span><span class="s2"> walked because&quot;</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">&quot;pt&quot;</span><span class="p">)</span>
+    <span class="n">base_label</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">base_label</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">src_label</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">src_label</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">Example</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">base_label</span><span class="p">,</span> <span class="n">src_label</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>47 10
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">sample_example</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Example(base={&#39;input_ids&#39;: tensor([[    0, 37376,  7428,   984]]), &#39;attention_mask&#39;: tensor([[1, 1, 1, 1]])}, src={&#39;input_ids&#39;: tensor([[    0, 44305,  7428,   984]]), &#39;attention_mask&#39;: tensor([[1, 1, 1, 1]])}, base_label=344, src_label=703)
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_n_doable_examples</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">):</span>
+    <span class="n">examples</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">iterator</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">examples</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">:</span>
+        <span class="n">ex</span> <span class="o">=</span> <span class="n">sample_example</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">ex</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                <span class="n">ex</span><span class="o">.</span><span class="n">base</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">ex</span><span class="o">.</span><span class="n">src</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                <span class="n">ex</span><span class="o">.</span><span class="n">src</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">logits_base</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">ex</span><span class="o">.</span><span class="n">base</span><span class="p">)</span><span class="o">.</span><span class="n">logits</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">logits_src</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">ex</span><span class="o">.</span><span class="n">src</span><span class="p">)</span><span class="o">.</span><span class="n">logits</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">logits_base</span><span class="p">[</span><span class="n">ex</span><span class="o">.</span><span class="n">base_label</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">logits_base</span><span class="p">[</span><span class="n">ex</span><span class="o">.</span><span class="n">src_label</span><span class="p">]</span>
+            <span class="ow">and</span> <span class="n">logits_src</span><span class="p">[</span><span class="n">ex</span><span class="o">.</span><span class="n">src_label</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">logits_src</span><span class="p">[</span><span class="n">ex</span><span class="o">.</span><span class="n">base_label</span><span class="p">]</span>
+        <span class="p">):</span>
+            <span class="n">examples</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
+            <span class="n">iterator</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">examples</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># make dataset</span>
+<span class="n">total_steps</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">trainset</span> <span class="o">=</span> <span class="n">generate_n_doable_examples</span><span class="p">(</span><span class="n">total_steps</span><span class="p">,</span> <span class="n">gpt</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">)</span>
+<span class="n">evalset</span> <span class="o">=</span> <span class="n">generate_n_doable_examples</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="n">gpt</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+100%|██████████| 100/100 [00:05&lt;00:00, 17.51it/s]
+100%|██████████| 50/50 [00:02&lt;00:00, 19.85it/s]
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="das">
+<h2>DAS<a class="headerlink" href="#das" title="Link to this heading">#</a></h2>
+<p>This is the usual 1D DAS setup, training on batch size of 1.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">intervention_config</span><span class="p">(</span><span class="n">intervention_site</span><span class="p">,</span> <span class="n">layer</span><span class="p">,</span> <span class="n">num_dims</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">IntervenableConfig</span><span class="p">([</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;layer&quot;</span><span class="p">:</span> <span class="n">layer</span><span class="p">,</span>
+            <span class="s2">&quot;component&quot;</span><span class="p">:</span> <span class="n">intervention_site</span><span class="p">,</span>
+            <span class="s2">&quot;intervention_type&quot;</span><span class="p">:</span> <span class="n">pv</span><span class="o">.</span><span class="n">LowRankRotatedSpaceIntervention</span><span class="p">,</span>
+            <span class="s2">&quot;low_rank_dimension&quot;</span><span class="p">:</span> <span class="n">num_dims</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">])</span>
+    <span class="k">return</span> <span class="n">config</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># loss function</span>
+<span class="n">loss_fct</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">calculate_loss</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span> <span class="n">label</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate cross entropy between logits and a single target label (can be batched)&quot;&quot;&quot;</span>
+    <span class="n">shift_labels</span> <span class="o">=</span> <span class="n">label</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">logits</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">loss_fct</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span> <span class="n">shift_labels</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">loss</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># intervention settings</span>
+<span class="n">stats</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">num_layers</span> <span class="o">=</span> <span class="n">gpt</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">num_hidden_layers</span>
+
+<span class="c1"># loop over layers and positions</span>
+<span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">position</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;layer: </span><span class="si">{</span><span class="n">layer</span><span class="si">}</span><span class="s2">, position: </span><span class="si">{</span><span class="n">position</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># set up intervenable model</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">intervention_config</span><span class="p">(</span><span class="s2">&quot;block_output&quot;</span><span class="p">,</span> <span class="n">layer</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">intervenable</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">IntervenableModel</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">gpt</span><span class="p">)</span>
+        <span class="n">intervenable</span><span class="o">.</span><span class="n">set_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">intervenable</span><span class="o">.</span><span class="n">disable_model_gradients</span><span class="p">()</span>
+
+        <span class="c1"># set up optimizer</span>
+        <span class="n">optimizer_params</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">intervenable</span><span class="o">.</span><span class="n">interventions</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">optimizer_params</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">rotate_layer</span><span class="o">.</span><span class="n">parameters</span><span class="p">()})</span>
+            <span class="k">except</span><span class="p">:</span>
+                <span class="k">pass</span>
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">optimizer_params</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+        <span class="n">scheduler</span> <span class="o">=</span> <span class="n">get_linear_schedule_with_warmup</span><span class="p">(</span>
+            <span class="n">optimizer</span><span class="p">,</span>
+            <span class="n">num_warmup_steps</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="mf">0.1</span> <span class="o">*</span> <span class="n">total_steps</span><span class="p">),</span>
+            <span class="n">num_training_steps</span><span class="o">=</span><span class="n">total_steps</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># training loop</span>
+        <span class="n">iterator</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">trainset</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">example</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
+            <span class="c1"># forward pass</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">counterfactual_outputs</span> <span class="o">=</span> <span class="n">intervenable</span><span class="p">(</span>
+                <span class="n">example</span><span class="o">.</span><span class="n">base</span><span class="p">,</span>
+                <span class="p">[</span><span class="n">example</span><span class="o">.</span><span class="n">src</span><span class="p">],</span>
+                <span class="p">{</span><span class="s2">&quot;sources-&gt;base&quot;</span><span class="p">:</span> <span class="n">position</span><span class="p">},</span>
+            <span class="p">)</span>
+
+            <span class="c1"># loss</span>
+            <span class="n">logits</span> <span class="o">=</span> <span class="n">counterfactual_outputs</span><span class="o">.</span><span class="n">logits</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="n">calculate_loss</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">example</span><span class="o">.</span><span class="n">src_label</span><span class="p">])</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">))</span>
+            <span class="n">iterator</span><span class="o">.</span><span class="n">set_postfix</span><span class="p">({</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">})</span>
+
+            <span class="c1"># backward</span>
+            <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+            <span class="n">scheduler</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+
+        <span class="c1"># eval</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="n">iia</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">iterator</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">evalset</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">example</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
+                <span class="c1"># forward</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">counterfactual_outputs</span> <span class="o">=</span> <span class="n">intervenable</span><span class="p">(</span>
+                    <span class="n">example</span><span class="o">.</span><span class="n">base</span><span class="p">,</span>
+                    <span class="p">[</span><span class="n">example</span><span class="o">.</span><span class="n">src</span><span class="p">],</span>
+                    <span class="p">{</span><span class="s2">&quot;sources-&gt;base&quot;</span><span class="p">:</span> <span class="n">position</span><span class="p">},</span>
+                <span class="p">)</span>
+
+                <span class="c1"># calculate iia</span>
+                <span class="n">logits</span> <span class="o">=</span> <span class="n">counterfactual_outputs</span><span class="o">.</span><span class="n">logits</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">logits</span><span class="p">[</span><span class="n">example</span><span class="o">.</span><span class="n">src_label</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">logits</span><span class="p">[</span><span class="n">example</span><span class="o">.</span><span class="n">base_label</span><span class="p">]:</span>
+                    <span class="n">iia</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="c1"># stats</span>
+            <span class="n">iia</span> <span class="o">=</span> <span class="n">iia</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">evalset</span><span class="p">)</span>
+            <span class="n">stats</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;layer&quot;</span><span class="p">:</span> <span class="n">layer</span><span class="p">,</span> <span class="s2">&quot;position&quot;</span><span class="p">:</span> <span class="n">position</span><span class="p">,</span> <span class="s2">&quot;iia&quot;</span><span class="p">:</span> <span class="n">iia</span><span class="p">})</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;iia: </span><span class="si">{</span><span class="n">iia</span><span class="si">:</span><span class="s2">.3%</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
+<span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;./tutorial_data/pyvene_gender_das.csv&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>layer: 0, position: 0
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:09&lt;00:00, 10.66it/s, loss=4.355]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.26it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 0.000%
+layer: 0, position: 1
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:09&lt;00:00, 10.97it/s, loss=1.268]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.35it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 98.000%
+layer: 0, position: 2
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:09&lt;00:00, 10.93it/s, loss=4.130]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.28it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 0.000%
+layer: 0, position: 3
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:09&lt;00:00, 10.83it/s, loss=4.276]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.28it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 0.000%
+layer: 1, position: 0
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:09&lt;00:00, 10.94it/s, loss=4.355]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.20it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 0.000%
+layer: 1, position: 1
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:09&lt;00:00, 10.93it/s, loss=1.231]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.20it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 100.000%
+layer: 1, position: 2
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:09&lt;00:00, 10.94it/s, loss=4.422]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.19it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 0.000%
+layer: 1, position: 3
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:09&lt;00:00, 10.92it/s, loss=4.308]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.13it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 0.000%
+layer: 2, position: 0
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.26it/s, loss=4.355]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.30it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 0.000%
+layer: 2, position: 1
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.27it/s, loss=1.305]
+100%|██████████| 50/50 [00:03&lt;00:00, 12.93it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 98.000%
+layer: 2, position: 2
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.28it/s, loss=1.938]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.27it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 16.000%
+layer: 2, position: 3
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.24it/s, loss=2.408]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.02it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 10.000%
+layer: 3, position: 0
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.40it/s, loss=4.355]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.34it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 0.000%
+layer: 3, position: 1
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.37it/s, loss=3.477]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.22it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 52.000%
+layer: 3, position: 2
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.34it/s, loss=2.225]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.22it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 6.000%
+layer: 3, position: 3
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.42it/s, loss=1.945]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.32it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 10.000%
+layer: 4, position: 0
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.59it/s, loss=4.355]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.33it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 0.000%
+layer: 4, position: 1
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.62it/s, loss=4.355]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.38it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 0.000%
+layer: 4, position: 2
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.67it/s, loss=4.034]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.40it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 0.000%
+layer: 4, position: 3
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.76it/s, loss=1.062]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.25it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 98.000%
+layer: 5, position: 0
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.70it/s, loss=4.355]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.22it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 0.000%
+layer: 5, position: 1
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.39it/s, loss=4.355]
+100%|██████████| 50/50 [00:03&lt;00:00, 12.83it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 0.000%
+layer: 5, position: 2
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.81it/s, loss=4.355]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.43it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 0.000%
+layer: 5, position: 3
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:08&lt;00:00, 11.44it/s, loss=1.113]
+100%|██████████| 50/50 [00:03&lt;00:00, 13.33it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>iia: 98.000%
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>And this is the plot of IIA. In layers 2 and 3 it seems the gender is represented across positions 1-3, and entirely in position 3 in later layers.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;./tutorial_data/pyvene_gender_das.csv&quot;</span><span class="p">)</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">&quot;layer&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;layer&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">&quot;pos&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;position&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">&quot;IIA&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;iia&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+<span class="n">custom_labels</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;EOS&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;name&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;walked&quot;</span><span class="p">,</span> <span class="s2">&quot;because&quot;</span><span class="p">]</span>
+<span class="n">breaks</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+
+<span class="n">plot</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">ggplot</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">aes</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="s2">&quot;layer&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="s2">&quot;pos&quot;</span><span class="p">))</span>    
+    <span class="o">+</span> <span class="n">geom_tile</span><span class="p">(</span><span class="n">aes</span><span class="p">(</span><span class="n">fill</span><span class="o">=</span><span class="s2">&quot;IIA&quot;</span><span class="p">))</span>
+    <span class="o">+</span> <span class="n">scale_fill_cmap</span><span class="p">(</span><span class="s2">&quot;Purples&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="n">xlab</span><span class="p">(</span><span class="s2">&quot;layers&quot;</span><span class="p">)</span>
+    <span class="o">+</span> <span class="n">scale_y_reverse</span><span class="p">(</span>
+        <span class="n">limits</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">3.5</span><span class="p">),</span> 
+        <span class="n">breaks</span><span class="o">=</span><span class="n">breaks</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">custom_labels</span><span class="p">)</span> 
+    <span class="o">+</span> <span class="n">theme</span><span class="p">(</span><span class="n">figure_size</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span> <span class="o">+</span> <span class="n">ylab</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span> 
+    <span class="o">+</span> <span class="n">theme</span><span class="p">(</span><span class="n">axis_text_y</span>  <span class="o">=</span> <span class="n">element_text</span><span class="p">(</span><span class="n">angle</span> <span class="o">=</span> <span class="mi">90</span><span class="p">,</span> <span class="n">hjust</span> <span class="o">=</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="o">+</span> <span class="n">ggtitle</span><span class="p">(</span><span class="s2">&quot;Trained Intervention (DAS)&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">ggsave</span><span class="p">(</span>
+    <span class="n">plot</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;./tutorial_data/pyvene_gender_das.pdf&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">200</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">plot</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/Users/aryamanarora/opt/miniconda3/lib/python3.9/site-packages/plotnine/ggplot.py:718: PlotnineWarning: Saving 5 x 3 in image.
+/Users/aryamanarora/opt/miniconda3/lib/python3.9/site-packages/plotnine/ggplot.py:719: PlotnineWarning: Filename: ./tutorial_data/pyvene_gender_das.pdf
+</pre></div>
+</div>
+<img alt="../../_images/92ccd360492d0b55dce2cf6f63b9b627f2268b51f418c7e1593d44e74eeb3cd1.svg" src="../../_images/92ccd360492d0b55dce2cf6f63b9b627f2268b51f418c7e1593d44e74eeb3cd1.svg" /><div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="probing">
+<h2>Probing<a class="headerlink" href="#probing" title="Link to this heading">#</a></h2>
+<p>We’ll define a dummy intervention <code class="docutils literal notranslate"><span class="pre">CollectActivation</span></code> to collect activations and train a simple probe.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">probing_config</span><span class="p">(</span><span class="n">intervention_site</span><span class="p">,</span> <span class="n">layer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate intervention config.&quot;&quot;&quot;</span>
+
+    <span class="c1"># init</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">IntervenableConfig</span><span class="p">([{</span>
+        <span class="s2">&quot;layer&quot;</span><span class="p">:</span> <span class="n">layer</span><span class="p">,</span>
+        <span class="s2">&quot;component&quot;</span><span class="p">:</span> <span class="n">intervention_site</span><span class="p">,</span>
+        <span class="s2">&quot;intervention_type&quot;</span><span class="p">:</span> <span class="n">pv</span><span class="o">.</span><span class="n">CollectIntervention</span><span class="p">,</span>
+    <span class="p">}])</span>
+    <span class="k">return</span> <span class="n">config</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>This is the training loop.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># intervention settings</span>
+<span class="n">stats</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">num_layers</span> <span class="o">=</span> <span class="n">gpt</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">num_hidden_layers</span>
+
+<span class="c1"># 344 = &quot; he&quot;, 703 = &quot; she&quot;</span>
+<span class="n">label_mapping</span> <span class="o">=</span> <span class="p">{</span><span class="mi">344</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">703</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
+
+<span class="c1"># loop over layers and positions</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">position</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;layer: </span><span class="si">{</span><span class="n">layer</span><span class="si">}</span><span class="s2">, position: </span><span class="si">{</span><span class="n">position</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="c1"># set up intervenable model</span>
+            <span class="n">config</span> <span class="o">=</span> <span class="n">probing_config</span><span class="p">(</span><span class="s2">&quot;block_output&quot;</span><span class="p">,</span> <span class="n">layer</span><span class="p">)</span>
+            <span class="n">intervenable</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">IntervenableModel</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">gpt</span><span class="p">)</span>
+            <span class="n">intervenable</span><span class="o">.</span><span class="n">set_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">intervenable</span><span class="o">.</span><span class="n">disable_model_gradients</span><span class="p">()</span>
+
+            <span class="c1"># training loop</span>
+            <span class="n">activations</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+            <span class="n">iterator</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">trainset</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">example</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
+                <span class="c1"># forward pass</span>
+                <span class="n">base_outputs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">intervenable</span><span class="p">(</span>
+                    <span class="n">example</span><span class="o">.</span><span class="n">base</span><span class="p">,</span>
+                    <span class="n">unit_locations</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;base&quot;</span><span class="p">:</span> <span class="n">position</span><span class="p">},</span>
+                <span class="p">)</span>
+                <span class="n">base_activations</span> <span class="o">=</span> <span class="n">base_outputs</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+                <span class="n">src_outputs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">intervenable</span><span class="p">(</span>
+                    <span class="n">example</span><span class="o">.</span><span class="n">src</span><span class="p">,</span>
+                    <span class="n">unit_locations</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;base&quot;</span><span class="p">:</span> <span class="n">position</span><span class="p">},</span>
+                <span class="p">)</span>
+                <span class="n">src_activations</span> <span class="o">=</span> <span class="n">src_outputs</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                
+                <span class="c1"># collect activation</span>
+                <span class="n">activations</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">base_activations</span><span class="o">.</span><span class="n">detach</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">src_activations</span><span class="o">.</span><span class="n">detach</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()]</span>
+                <span class="p">)</span>
+                <span class="n">labels</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">example</span><span class="o">.</span><span class="n">base_label</span><span class="p">,</span> <span class="n">example</span><span class="o">.</span><span class="n">src_label</span><span class="p">])</span>
+            <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">label_mapping</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">]</span>
+            
+            <span class="c1"># train logistic regression</span>
+            <span class="n">lr</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                <span class="n">activations</span><span class="p">,</span> <span class="n">labels</span>
+            <span class="p">)</span>
+
+            <span class="c1"># eval</span>
+            <span class="n">activations</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+            <span class="n">iterator</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">evalset</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">example</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
+                <span class="c1"># forward pass</span>
+                <span class="n">base_outputs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">intervenable</span><span class="p">(</span>
+                    <span class="n">example</span><span class="o">.</span><span class="n">base</span><span class="p">,</span>
+                    <span class="n">unit_locations</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;base&quot;</span><span class="p">:</span> <span class="n">position</span><span class="p">},</span>
+                <span class="p">)</span>
+                <span class="n">base_activations</span> <span class="o">=</span> <span class="n">base_outputs</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+                <span class="n">src_outputs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">intervenable</span><span class="p">(</span>
+                    <span class="n">example</span><span class="o">.</span><span class="n">src</span><span class="p">,</span>
+                    <span class="n">unit_locations</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;base&quot;</span><span class="p">:</span> <span class="n">position</span><span class="p">},</span>
+                <span class="p">)</span>
+                <span class="n">src_activations</span> <span class="o">=</span> <span class="n">src_outputs</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                
+                <span class="c1"># collect activation</span>
+                <span class="n">activations</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">base_activations</span><span class="o">.</span><span class="n">detach</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">src_activations</span><span class="o">.</span><span class="n">detach</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()]</span>
+                <span class="p">)</span>
+                <span class="n">labels</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">example</span><span class="o">.</span><span class="n">base_label</span><span class="p">,</span> <span class="n">example</span><span class="o">.</span><span class="n">src_label</span><span class="p">])</span>
+            <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">label_mapping</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">]</span>
+
+            <span class="c1"># stats</span>
+            <span class="n">acc</span> <span class="o">=</span> <span class="n">lr</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">activations</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+            <span class="n">f1</span> <span class="o">=</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">lr</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">activations</span><span class="p">))</span>
+            <span class="n">stats</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;layer&quot;</span><span class="p">:</span> <span class="n">layer</span><span class="p">,</span> <span class="s2">&quot;position&quot;</span><span class="p">:</span> <span class="n">position</span><span class="p">,</span> <span class="s2">&quot;acc&quot;</span><span class="p">:</span> <span class="n">acc</span><span class="p">,</span> <span class="s2">&quot;f1&quot;</span><span class="p">:</span> <span class="n">f1</span><span class="p">})</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;acc: </span><span class="si">{</span><span class="n">acc</span><span class="si">:</span><span class="s2">.3%</span><span class="si">}</span><span class="s2">, f1: </span><span class="si">{</span><span class="n">f1</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
+<span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;./tutorial_data/pyvene_gender_probe.csv&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>layer: 0, position: 0
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:11&lt;00:00,  8.98it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.12it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 50.000%, f1: 0.000
+layer: 0, position: 1
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.12it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.12it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 100.000%, f1: 1.000
+layer: 0, position: 2
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.12it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.24it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 99.000%, f1: 0.990
+layer: 0, position: 3
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.23it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.34it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 88.000%, f1: 0.875
+layer: 1, position: 0
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:11&lt;00:00,  9.09it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  8.95it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 50.000%, f1: 0.000
+layer: 1, position: 1
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.13it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.28it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 100.000%, f1: 1.000
+layer: 1, position: 2
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.45it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.35it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 97.000%, f1: 0.971
+layer: 1, position: 3
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.50it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.53it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 96.000%, f1: 0.962
+layer: 2, position: 0
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.33it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.19it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 50.000%, f1: 0.000
+layer: 2, position: 1
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.59it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.85it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 100.000%, f1: 1.000
+layer: 2, position: 2
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.86it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.76it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 100.000%, f1: 1.000
+layer: 2, position: 3
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.92it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.84it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 100.000%, f1: 1.000
+layer: 3, position: 0
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.82it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.85it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 50.000%, f1: 0.000
+layer: 3, position: 1
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.84it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.80it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 100.000%, f1: 1.000
+layer: 3, position: 2
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.89it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.91it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 100.000%, f1: 1.000
+layer: 3, position: 3
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.92it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.72it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 100.000%, f1: 1.000
+layer: 4, position: 0
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.81it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.82it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 50.000%, f1: 0.000
+layer: 4, position: 1
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.32it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  8.99it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 100.000%, f1: 1.000
+layer: 4, position: 2
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.29it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.74it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 100.000%, f1: 1.000
+layer: 4, position: 3
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:11&lt;00:00,  8.88it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  8.88it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 100.000%, f1: 1.000
+layer: 5, position: 0
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.12it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.51it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 50.000%, f1: 0.000
+layer: 5, position: 1
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.46it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.20it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 100.000%, f1: 1.000
+layer: 5, position: 2
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.31it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  8.73it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 100.000%, f1: 1.000
+layer: 5, position: 3
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████| 100/100 [00:10&lt;00:00,  9.19it/s]
+100%|██████████| 50/50 [00:05&lt;00:00,  9.43it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>acc: 100.000%, f1: 1.000
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>And the probe accuracy plot is below. Note the extremely high accuracy at all positions at and after the name! Early layers at later positions are better but it saturates much before the IIA for DAS. This shows how unreliable probes are for tracing causal effect.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;./tutorial_data/pyvene_gender_probe.csv&quot;</span><span class="p">)</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">&quot;layer&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;layer&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">&quot;pos&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;position&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">&quot;ACC&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;acc&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+<span class="n">custom_labels</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;EOS&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;name&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;walked&quot;</span><span class="p">,</span> <span class="s2">&quot;because&quot;</span><span class="p">]</span>
+<span class="n">breaks</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+
+<span class="n">plot</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">ggplot</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">aes</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="s2">&quot;layer&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="s2">&quot;pos&quot;</span><span class="p">,</span> <span class="n">fill</span><span class="o">=</span><span class="s2">&quot;ACC&quot;</span><span class="p">))</span>    
+    <span class="o">+</span> <span class="n">geom_tile</span><span class="p">()</span>
+    <span class="o">+</span> <span class="n">scale_fill_cmap</span><span class="p">(</span><span class="s2">&quot;Reds&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="n">xlab</span><span class="p">(</span><span class="s2">&quot;layers&quot;</span><span class="p">)</span>
+    <span class="o">+</span> <span class="n">scale_y_reverse</span><span class="p">(</span>
+        <span class="n">limits</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">3.5</span><span class="p">),</span> 
+        <span class="n">breaks</span><span class="o">=</span><span class="n">breaks</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">custom_labels</span><span class="p">)</span> 
+    <span class="o">+</span> <span class="n">theme</span><span class="p">(</span><span class="n">figure_size</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span> <span class="o">+</span> <span class="n">ylab</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span> 
+    <span class="o">+</span> <span class="n">theme</span><span class="p">(</span><span class="n">axis_text_y</span>  <span class="o">=</span> <span class="n">element_text</span><span class="p">(</span><span class="n">angle</span> <span class="o">=</span> <span class="mi">90</span><span class="p">,</span> <span class="n">hjust</span> <span class="o">=</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="o">+</span> <span class="n">ggtitle</span><span class="p">(</span><span class="s2">&quot;Trained Linear Probe&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">ggsave</span><span class="p">(</span>
+    <span class="n">plot</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;./tutorial_data/pyvene_gender_probe.pdf&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">200</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">plot</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/Users/aryamanarora/opt/miniconda3/lib/python3.9/site-packages/plotnine/ggplot.py:718: PlotnineWarning: Saving 5 x 3 in image.
+/Users/aryamanarora/opt/miniconda3/lib/python3.9/site-packages/plotnine/ggplot.py:719: PlotnineWarning: Filename: ./tutorial_data/pyvene_gender_probe.pdf
+</pre></div>
+</div>
+<img alt="../../_images/11b69c1c4043f08e46917c93191ab92b6e7e8b1dbce16bb0fb5cb6d890fbc70d.svg" src="../../_images/11b69c1c4043f08e46917c93191ab92b6e7e8b1dbce16bb0fb5cb6d890fbc70d.svg" /><div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="Causal_Tracing.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Causal Tracing (ROME)</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="DAS_Main_Introduction.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Intro to Distributed Alignment Search (DAS)</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setup">Setup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load-model-and-data">Load model and data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#das">DAS</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#probing">Probing</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Stanford NLP
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2024, Stanford NLP.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
