@@ -10,26 +10,26 @@ import torch
 from ..constants import *
 
 qwen2_type_to_module_mapping = {
-    "block_input": ("h[%s]", CONST_INPUT_HOOK),
-    "block_output": ("h[%s]", CONST_OUTPUT_HOOK),
-    "mlp_activation": ("h[%s].mlp.act", CONST_OUTPUT_HOOK),
-    "mlp_output": ("h[%s].mlp", CONST_OUTPUT_HOOK),
-    "mlp_input": ("h[%s].mlp", CONST_INPUT_HOOK),
-    "attention_value_output": ("h[%s].attn.c_proj", CONST_INPUT_HOOK),
-    "head_attention_value_output": ("h[%s].attn.c_proj", CONST_INPUT_HOOK, (split_head_and_permute, "n_head")),
-    "attention_output": ("h[%s].attn", CONST_OUTPUT_HOOK),
-    "attention_input": ("h[%s].attn", CONST_INPUT_HOOK),
-    "query_output": ("h[%s].attn.q_proj", CONST_OUTPUT_HOOK),
-    "key_output": ("h[%s].attn.k_proj", CONST_OUTPUT_HOOK),
-    "value_output": ("h[%s].attn.v_proj", CONST_OUTPUT_HOOK),
-    "head_query_output": ("h[%s].attn.q_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_head")),
-    "head_key_output": ("h[%s].attn.k_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_kv_head")),
-    "head_value_output": ("h[%s].attn.v_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_kv_head")),
+    "block_input": ("layers[%s]", CONST_INPUT_HOOK),
+    "block_output": ("layers[%s]", CONST_OUTPUT_HOOK),
+    "mlp_activation": ("layers[%s].mlp.act_fn", CONST_OUTPUT_HOOK),
+    "mlp_output": ("layers[%s].mlp", CONST_OUTPUT_HOOK),
+    "mlp_input": ("layers[%s].mlp", CONST_INPUT_HOOK),
+    "attention_value_output": ("layers[%s].self_attn.o_proj", CONST_INPUT_HOOK),
+    "head_attention_value_output": ("layers[%s].self_attn.o_proj", CONST_INPUT_HOOK, (split_head_and_permute, "n_head")),
+    "attention_output": ("layers[%s].self_attn", CONST_OUTPUT_HOOK),
+    "attention_input": ("layers[%s].self_attn", CONST_INPUT_HOOK),
+    "query_output": ("layers[%s].self_attn.q_proj", CONST_OUTPUT_HOOK),
+    "key_output": ("layers[%s].self_attn.k_proj", CONST_OUTPUT_HOOK),
+    "value_output": ("layers[%s].self_attn.v_proj", CONST_OUTPUT_HOOK),
+    "head_query_output": ("layers[%s].self_attn.q_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_head")),
+    "head_key_output": ("layers[%s].self_attn.k_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_kv_head")),
+    "head_value_output": ("layers[%s].self_attn.v_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_kv_head")),
 }
 
 qwen2_type_to_dimension_mapping = {
     "n_head": ("num_attention_heads",),
-    "n_kv_head": ("num_key_value_heads",),
+    "n_kv_head": ("num_key_value_heads",), 
     "block_input": ("hidden_size",),
     "block_output": ("hidden_size",),
     "mlp_activation": ("intermediate_size",),
@@ -47,20 +47,20 @@ qwen2_type_to_dimension_mapping = {
     "head_value_output": ("head_dim",),
 }
 
-"""qwen model with LM head"""
+"""qwen2 model with LM head"""
 qwen2_lm_type_to_module_mapping = {}
 for k, v in qwen2_type_to_module_mapping.items():
-    qwen2_lm_type_to_module_mapping[k] = (f"transformer.{v[0]}", ) + v[1:]
+    qwen2_lm_type_to_module_mapping[k] = (f"model.{v[0]}", ) + v[1:]
 qwen2_lm_type_to_dimension_mapping = qwen2_type_to_dimension_mapping
 
-"""qwen model with classifier head"""
+"""qwen2 model with classifier head"""
 qwen2_classifier_type_to_module_mapping = {}
 for k, v in qwen2_type_to_module_mapping.items():
-    qwen2_classifier_type_to_module_mapping[k] = (f"transformer.{v[0]}", ) + v[1:]
+    qwen2_classifier_type_to_module_mapping[k] = (f"model.{v[0]}", ) + v[1:]
 qwen2_classifier_type_to_dimension_mapping = qwen2_type_to_dimension_mapping
 
 def create_qwen2(
-    name="Qwen/Qwen2.5-0.5B", cache_dir=None, dtype=torch.bfloat16
+    name="Qwen/Qwen2-7B-beta", cache_dir=None, dtype=torch.bfloat16
 ):
     """Creates a Causal LM model, config, and tokenizer from the given name and revision"""
     from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
