@@ -11,7 +11,7 @@ from .blip.modelings_intervenable_blip import *
 from .blip.modelings_intervenable_blip_itm import *
 from .backpack_gpt2.modelings_intervenable_backpack_gpt2 import *
 from .llava.modelings_intervenable_llava import *
-from .qwen.modelings_intervenable_qwen import *  # Add Qwen import
+from .qwen2.modelings_intervenable_qwen2 import * 
 
 
 #########################################################################
@@ -63,9 +63,9 @@ type_to_module_mapping = {
     GRULMHeadModel: gru_lm_type_to_module_mapping,
     GRUForClassification: gru_classifier_type_to_module_mapping,
     BackpackGPT2LMHeadModel: backpack_gpt2_lm_type_to_module_mapping,
-    hf_models.qwen2.modeling_qwen.QWenModel: qwen_type_to_module_mapping,
-    hf_models.qwen2.modeling_qwen.QWenForCausalLM: qwen_lm_type_to_module_mapping,
-    hf_models.qwen2.modeling_qwen.QWenForSequenceClassification: qwen_classifier_type_to_module_mapping,
+    hf_models.qwen2.modeling_qwen2.Qwen2Model: qwen2_type_to_module_mapping,
+    hf_models.qwen2.modeling_qwen2.Qwen2ForCausalLM: qwen2_lm_type_to_module_mapping,
+    hf_models.qwen2.modeling_qwen2.Qwen2ForSequenceClassification: qwen2_classifier_type_to_module_mapping,
 }
 
 
@@ -96,8 +96,8 @@ type_to_dimension_mapping = {
     GRULMHeadModel: gru_lm_type_to_dimension_mapping,
     GRUForClassification: gru_classifier_type_to_dimension_mapping,
     BackpackGPT2LMHeadModel: backpack_gpt2_lm_type_to_dimension_mapping,
-    hf_models.qwen2.modeling_qwen.QWenModel: qwen_type_to_dimension_mapping,
-    hf_models.qwen2.modeling_qwen.QWenForCausalLM: qwen_lm_type_to_dimension_mapping,
-    hf_models.qwen2.modeling_qwen.QWenForSequenceClassification: qwen_classifier_type_to_dimension_mapping,
+    hf_models.qwen2.modeling_qwen2.Qwen2Model: qwen2_type_to_dimension_mapping,
+    hf_models.qwen2.modeling_qwen2.Qwen2ForCausalLM: qwen2_lm_type_to_dimension_mapping,
+    hf_models.qwen2.modeling_qwen2.Qwen2ForSequenceClassification: qwen2_classifier_type_to_dimension_mapping,
 }
 #########################################################################

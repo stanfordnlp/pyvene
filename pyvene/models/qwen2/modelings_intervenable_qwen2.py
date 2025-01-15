@@ -9,7 +9,7 @@ defined in the huggingface library.
 import torch
 from ..constants import *
 
-qwen_type_to_module_mapping = {
+qwen2_type_to_module_mapping = {
     "block_input": ("h[%s]", CONST_INPUT_HOOK),
     "block_output": ("h[%s]", CONST_OUTPUT_HOOK),
     "mlp_activation": ("h[%s].mlp.act", CONST_OUTPUT_HOOK),
@@ -27,7 +27,7 @@ qwen_type_to_module_mapping = {
     "head_value_output": ("h[%s].attn.v_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_kv_head")),
 }
 
-qwen_type_to_dimension_mapping = {
+qwen2_type_to_dimension_mapping = {
     "n_head": ("num_attention_heads",),
     "n_kv_head": ("num_key_value_heads",),
     "block_input": ("hidden_size",),
@@ -48,18 +48,18 @@ qwen_type_to_dimension_mapping = {
 }
 
 """qwen model with LM head"""
-qwen_lm_type_to_module_mapping = {}
-for k, v in qwen_type_to_module_mapping.items():
-    qwen_lm_type_to_module_mapping[k] = (f"transformer.{v[0]}", ) + v[1:]
-qwen_lm_type_to_dimension_mapping = qwen_type_to_dimension_mapping
+qwen2_lm_type_to_module_mapping = {}
+for k, v in qwen2_type_to_module_mapping.items():
+    qwen2_lm_type_to_module_mapping[k] = (f"transformer.{v[0]}", ) + v[1:]
+qwen2_lm_type_to_dimension_mapping = qwen_type_to_dimension_mapping
 
 """qwen model with classifier head"""
-qwen_classifier_type_to_module_mapping = {}
-for k, v in qwen_type_to_module_mapping.items():
-    qwen_classifier_type_to_module_mapping[k] = (f"transformer.{v[0]}", ) + v[1:]
-qwen_classifier_type_to_dimension_mapping = qwen_type_to_dimension_mapping
+qwen2_classifier_type_to_module_mapping = {}
+for k, v in qwen2_type_to_module_mapping.items():
+    qwen2_classifier_type_to_module_mapping[k] = (f"transformer.{v[0]}", ) + v[1:]
+qwen2_classifier_type_to_dimension_mapping = qwen_type_to_dimension_mapping
 
-def create_qwen(
+def create_qwen2(
     name="Qwen/Qwen2.5-0.5B", cache_dir=None, dtype=torch.bfloat16
 ):
     """Creates a Causal LM model, config, and tokenizer from the given name and revision"""
