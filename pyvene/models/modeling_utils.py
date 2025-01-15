@@ -129,7 +129,7 @@ def get_dimension_by_component(model_type, model_config, component) -> int:
     assert False
 
 
-def get_module_hook(model, representation) -> nn.Module:
+def get_module_hook(model, representation, backend="native") -> nn.Module:
     """Render the intervening module with a hook."""
     if (
         get_internal_model_type(model) in type_to_module_mapping and
@@ -157,7 +157,12 @@ def get_module_hook(model, representation) -> nn.Module:
             hook_type = CONST_OUTPUT_HOOK
 
     module = getattr_for_torch_module(model, parameter_name)
-    module_hook = getattr(module, hook_type)
+    if backend == "native":
+        module_hook = getattr(module, hook_type)
+    elif backend == "ndif":
+        # we assume the input v.s. output is handled outside
+        module_hook = module
+        return (module_hook, hook_type)
 
     return module_hook
 
@@ -239,7 +244,7 @@ def output_to_subcomponent(output, component, model_type, model_config):
     return subcomponent
 
 
-def gather_neurons(tensor_input, unit, unit_locations_as_list):
+def gather_neurons(tensor_input, unit, unit_locations_as_list, device=None):
     """Gather intervening neurons.
 
     :param tensor_input: tensors of shape (batch_size, sequence_length, ...) if
@@ -258,8 +263,10 @@ def gather_neurons(tensor_input, unit, unit_locations_as_list):
 
     if "." in unit:
         unit_locations = (
-            torch.tensor(unit_locations_as_list[0], device=tensor_input.device),
-            torch.tensor(unit_locations_as_list[1], device=tensor_input.device),
+            torch.tensor(unit_locations_as_list[0], 
+                         device=tensor_input.device if device is None else device),
+            torch.tensor(unit_locations_as_list[1], 
+                         device=tensor_input.device if device is None else device),
         )
         # we assume unit_locations is a tuple
         head_unit_locations = unit_locations[0]
@@ -286,8 +293,9 @@ def gather_neurons(tensor_input, unit, unit_locations_as_list):
         return tensor_output  # b, num_unit (h), num_unit (pos), d
     else:
         unit_locations = torch.tensor(
-            unit_locations_as_list, device=tensor_input.device
+            unit_locations_as_list, device=tensor_input.device if device is None else device
         )
+
         tensor_output = torch.gather(
             tensor_input,
             1,
@@ -307,6 +315,7 @@ def scatter_neurons(
     model_type,
     model_config,
     use_fast,
+    device=None
 ):
     """Replace selected neurons in `tensor_input` by `replacing_tensor_input`.
 
@@ -333,12 +342,15 @@ def scatter_neurons(
     if "." in unit:
         # extra dimension for multi-level intervention
         unit_locations = (
-            torch.tensor(unit_locations_as_list[0], device=tensor_input.device),
-            torch.tensor(unit_locations_as_list[1], device=tensor_input.device),
+            torch.tensor(unit_locations_as_list[0], 
+                         device=tensor_input.device if device is None else device),
+            torch.tensor(unit_locations_as_list[1], 
+                         device=tensor_input.device if device is None else device),
         )
     else:
         unit_locations = torch.tensor(
-            unit_locations_as_list, device=tensor_input.device
+            unit_locations_as_list, 
+            device=tensor_input.device if device is None else device
         )
 
     # if tensor is splitted, we need to get the start and end indices
@@ -449,10 +461,14 @@ def do_intervention(
         source_representation_f = bhsd_to_bs_hd(source_representation)
     else:
         assert False  # what's going on?
-    
-    intervened_representation = intervention(
+
+    intervention_output = intervention(
         base_representation_f, source_representation_f, subspaces
     )
+    if isinstance(intervention_output, InterventionOutput):
+        intervened_representation = intervention_output.output
+    else:
+        intervened_representation = intervention_output
 
     post_d = intervened_representation.shape[-1]
 
@@ -469,7 +485,11 @@ def do_intervention(
     else:
         assert False  # what's going on?
 
-    return intervened_representation
+    if not isinstance(intervention_output, InterventionOutput):
+        return intervened_representation
+
+    intervention_output.output = intervened_representation
+    return intervention_output
 
 
 def simple_output_to_subcomponent(output, representation_type, model_config):

@@ -1,6 +1,8 @@
+"""Stanford NLP Python Library for Understanding and Improving PyTorch Models via Interventions"""
+
 # Generic APIs
 from .data_generators.causal_model import CausalModel
-from .models.intervenable_base import IntervenableModel
+from .models.intervenable_base import IntervenableModel, IntervenableNdifModel, build_intervenable_model
 from .models.configuration_intervenable_model import IntervenableConfig
 from .models.configuration_intervenable_model import RepresentationConfig
 
@@ -27,10 +29,14 @@ from .models.interventions import DistributedRepresentationIntervention
 from .models.interventions import SourcelessIntervention
 from .models.interventions import NoiseIntervention
 from .models.interventions import SigmoidMaskIntervention
+from .models.interventions import AutoencoderIntervention
+from .models.interventions import JumpReLUAutoencoderIntervention
+from .models.interventions import InterventionOutput
 
 
 # Utils
 from .models.basic_utils import *
+from .models.intervention_utils import _do_intervention_by_swap
 from .models.intervenable_modelcard import type_to_module_mapping, type_to_dimension_mapping
 from .models.gpt2.modelings_intervenable_gpt2 import create_gpt2
 from .models.gpt2.modelings_intervenable_gpt2 import create_gpt2_lm

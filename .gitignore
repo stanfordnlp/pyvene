@@ -95,6 +95,8 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/build/
+docs/source/api/pyvene*
 
 # PyBuilder
 target/

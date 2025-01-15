@@ -14,10 +14,10 @@ RepresentationConfig = namedtuple(
     "max_number_of_units "
     "low_rank_dimension intervention_type intervention "
     "subspace_partition group_key intervention_link_key moe_key "
-    "source_representation hidden_source_representation",
+    "source_representation hidden_source_representation latent_dim",
     defaults=(
         0, "block_output", "pos", 1, None, None,
-        None, None, None, None, None, None, None),
+        None, None, None, None, None, None, None, None),
 )
 
 

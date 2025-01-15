@@ -3,6 +3,7 @@ import numpy as np
 from collections import OrderedDict
 from typing import List, Optional, Tuple, Union, Dict, Any
 
+from .constants import *
 from .basic_utils import *
 from .modeling_utils import *
 from .intervention_utils import *
@@ -15,7 +16,8 @@ from .interventions import (
     TrainableIntervention,
     SkipIntervention,
     CollectIntervention,
-    BoundlessRotatedSpaceIntervention
+    BoundlessRotatedSpaceIntervention,
+    InterventionOutput
 )
 
 from torch import optim
@@ -24,19 +26,30 @@ from dataclasses import dataclass
 from transformers.utils import ModelOutput
 from tqdm import tqdm, trange
 
+try:
+    import nnsight
+except:
+    print("nnsight is not detected. Please install via 'pip install nnsight' for nnsight backend.")
+
+
 @dataclass
 class IntervenableModelOutput(ModelOutput):
+    """
+    Output of the IntervenableModel, including original outputs, intervened outputs, and collected activations.
+    """
     original_outputs: Optional[Any] = None
     intervened_outputs: Optional[Any] = None
     collected_activations: Optional[Any] = None
 
 
-class IntervenableModel(nn.Module):
+class BaseModel(nn.Module):
     """
-    Generic intervenable model. Alignments are specified in the config.
+    Base model class for sharing static vars and methods.
     """
 
-    def __init__(self, config, model, **kwargs):
+    def __init__(self, config, model, backend, **kwargs):
+        super().__init__()
+        
         super().__init__()
         if isinstance(config, dict) or isinstance(config, list):
             config = IntervenableConfig(
@@ -49,6 +62,7 @@ class IntervenableModel(nn.Module):
         self.is_model_stateless = is_stateless(model)
         self.config.model_type = str(type(model)) # backfill
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
+        self.as_adaptor = kwargs["as_adaptor"] if "as_adaptor" in kwargs else False
 
         self.model_has_grad = False
         if self.use_fast:
@@ -122,7 +136,7 @@ class IntervenableModel(nn.Module):
                 all_metadata["embed_dim"] = component_dim
                 all_metadata["use_fast"] = self.use_fast
                 intervention = intervention_function(
-                    **all_metadata 
+                    **all_metadata
                 )
                 
             if representation.intervention_link_key in self._intervention_pointers:
@@ -147,7 +161,7 @@ class IntervenableModel(nn.Module):
                 self.return_collect_activations = True
             
             module_hook = get_module_hook(
-                model, representation
+                model, representation, backend
             )
             self.representations[_key] = representation
             self.interventions[_key] = (intervention, module_hook)
@@ -217,6 +231,8 @@ class IntervenableModel(nn.Module):
         # cached swapped activations (hot)
         self.hot_activations = {}
 
+        self.full_intervention_outputs = []
+        
         # temp fields should not be accessed outside
         self._batched_setter_activation_select = {}
         """
@@ -229,7 +245,7 @@ class IntervenableModel(nn.Module):
         self.model_type = get_internal_model_type(model)
         self.disable_model_gradients()
         self.trainable_model_parameters = {}
-        
+
     def __str__(self):
         """
         Print out basic info about this intervenable instance
@@ -260,38 +276,7 @@ class IntervenableModel(nn.Module):
         else:
             self._key_collision_counter[key_proposal] += 1
         return f"{key_proposal}#{self._key_collision_counter[key_proposal]}"
-
-    def _reset_hook_count(self):
-        """
-        Reset the hook count before any generate call
-        """
-        self._key_getter_call_counter = dict.fromkeys(self._key_getter_call_counter, 0)
-        self._key_setter_call_counter = dict.fromkeys(self._key_setter_call_counter, 0)
-        for k, _ in self._intervention_state.items():
-            self._intervention_state[k].reset()
-
-    def _remove_forward_hooks(self):
-        """
-        Clean up all the remaining hooks before any call
-        """
-        remove_forward_hooks(self.model)
-
-    def _cleanup_states(self, skip_activation_gc=False):
-        """
-        Clean up all old in memo states of interventions
-        """
-        self._is_generation = False
-        self._remove_forward_hooks()
-        self._reset_hook_count()
-        if not skip_activation_gc:
-            self.activations.clear()
-            self.hot_activations.clear()
-            self._batched_setter_activation_select.clear()
-        else:
-            self.activations = {}
-            self.hot_activations = {}
-            self._batched_setter_activation_select = {}
-
+    
     def get_trainable_parameters(self):
         """
         Return trainable params as key value pairs
@@ -366,13 +351,14 @@ class IntervenableModel(nn.Module):
         # Freeze all intervention weights
         pass
 
-    def set_device(self, device):
+    def set_device(self, device, set_model=True):
         """
         Set device of interventions and the model
         """
         for k, v in self.interventions.items():
             v[0].to(device)
-        self.model.to(device)
+        if set_model:
+            self.model.to(device)
 
     def get_device(self):
         """
@@ -414,9 +400,752 @@ class IntervenableModel(nn.Module):
         for k, v in self.interventions.items():
             if isinstance(v[0], TrainableIntervention):
                 v[0].zero_grad()
+
+    def _input_validation(
+        self,
+        base,
+        sources,
+        unit_locations,
+        activations_sources,
+        subspaces,
+    ):
+        """Fail fast input validation"""
+        if self.mode == "parallel" and unit_locations is not None:
+            assert "sources->base" in unit_locations or "base" in unit_locations
+        elif activations_sources is None and unit_locations is not None and self.mode == "serial":
+            assert "sources->base" not in unit_locations
+        
+        # sources may contain None, but length should match
+        if sources is not None and not (len(sources) == 1 and sources[0] == None):
+            if len(sources) != len(self._intervention_group):
+                raise ValueError(
+                    f"Source length {len(sources)} is not "
+                    f"equal to intervention length {len(self._intervention_group)}."
+                )
+        elif activations_sources is not None:
+            if len(activations_sources) != len(self._intervention_group):
+                raise ValueError(
+                    f"Source activations length {len(activations_sources)} is not "
+                    f"equal to intervention length {len(self._intervention_group)}."
+                )
+
+        # if it is stateful models, the passed in activations need to have states
+        if not self.is_model_stateless and activations_sources is not None:
+            for _, v in activations_sources.items():
+                if (
+                    isinstance(v, list)
+                    and isinstance(v[0], tuple)
+                    and isinstance(v[0][1], list) != True
+                ):
+                    raise ValueError(
+                        f"Stateful models need nested activations. See our documentions."
+                    )
+
+    def _gather_intervention_output(
+        self, output, representations_key, unit_locations
+    ) -> torch.Tensor:
+        """
+        Gather intervening activations from the output based on indices
+        """
+
+        if (
+            representations_key in self._intervention_reverse_link
+            and self._intervention_reverse_link[representations_key]
+            in self.hot_activations
+        ):
+            # hot gather
+            # clone is needed here by acting as a different module
+            # to avoid gradient conflict.
+            #
+            # enable the following line when an error is hit
+            # torch.autograd.set_detect_anomaly(True)
+            selected_output = self.hot_activations[
+                self._intervention_reverse_link[representations_key]
+            ]
+        else:
+            # data structure casting
+            if isinstance(output, tuple):
+                original_output = output[0].clone()
+            elif isinstance(output, dict):
+                original_output = output[list(output.keys())[0]].clone()
+            else:
+                original_output = output.clone()
+            # for non-sequence models, there is no concept of
+            # unit location anyway.
+            if unit_locations is None:
+                return original_output
+            # gather subcomponent
+            original_output = output_to_subcomponent(
+                original_output,
+                self.representations[
+                    representations_key
+                ].component,
+                self.model_type,
+                self.model_config,
+            )
+
+            # gather based on intervention locations
+            selected_output = gather_neurons(
+                original_output,
+                self.representations[
+                    representations_key
+                ].unit,
+                unit_locations,
+                device=self.get_device()
+            )
+
+        return selected_output
+
+    def _scatter_intervention_output(
+        self,
+        output,
+        intervened_representation,
+        representations_key,
+        unit_locations,
+    ) -> torch.Tensor:
+        """
+        Scatter in the intervened activations in the output
+        """
+        # data structure casting
+        if isinstance(output, tuple):
+            original_output = output[0]
+        elif isinstance(output, dict):
+            original_output = output[list(output.keys())[0]]
+        else:
+            original_output = output
+        # for non-sequence-based models, we simply replace
+        # all the activations.
+        if unit_locations is None:
+            original_output[:] = intervened_representation[:]
+            return original_output
+        
+        component = self.representations[
+            representations_key
+        ].component
+        unit = self.representations[
+            representations_key
+        ].unit
+        
+        # scatter in-place
+        _ = scatter_neurons(
+            original_output,
+            intervened_representation,
+            component,
+            unit,
+            unit_locations,
+            self.model_type,
+            self.model_config,
+            self.use_fast,
+            device=self.get_device()
+        )
+        
+        return original_output
     
+    def _broadcast_unit_locations(
+        self,
+        batch_size,
+        unit_locations
+    ):
+        if unit_locations is None:
+            # this means, we don't filter based on location at all.
+            return {"sources->base": ([None]*len(self.interventions), [None]*len(self.interventions))}
+        
+        if self.mode == "parallel":
+            _unit_locations = {}
+            for k, v in unit_locations.items():
+                # special broadcast for base-only interventions
+                is_base_only = False
+                if k == "base":
+                    is_base_only = True
+                    k = "sources->base"
+                if isinstance(v, int):
+                    if is_base_only:
+                        _unit_locations[k] = (None, [[[v]]*batch_size]*len(self.interventions))
+                    else:
+                        _unit_locations[k] = (
+                            [[[v]]*batch_size]*len(self.interventions), 
+                            [[[v]]*batch_size]*len(self.interventions)
+                        )
+                    self.use_fast = True
+                elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
+                    _unit_locations[k] = (
+                        [[[v[0]]]*batch_size]*len(self.interventions), 
+                        [[[v[1]]]*batch_size]*len(self.interventions)
+                    )
+                    self.use_fast = True
+                elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
+                    _unit_locations[k] = (None, [[[v[1]]]*batch_size]*len(self.interventions))
+                    self.use_fast = True
+                elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
+                    _unit_locations[k] = ([[[v[0]]]*batch_size]*len(self.interventions), None)
+                    self.use_fast = True
+                elif isinstance(v, list) and get_list_depth(v) == 1:
+                    # [0,1,2,3] -> [[[0,1,2,3]]], ...
+                    if is_base_only:
+                        _unit_locations[k] = (None, [[v]*batch_size]*len(self.interventions))
+                    else:
+                        _unit_locations[k] = (
+                            [[v]*batch_size]*len(self.interventions), 
+                            [[v]*batch_size]*len(self.interventions)
+                        )
+                    self.use_fast = True
+                else:
+                    if is_base_only:
+                        _unit_locations[k] = (None, v)
+                    else:
+                        _unit_locations[k] = v
+        elif self.mode == "serial":
+            _unit_locations = {}
+            for k, v in unit_locations.items():
+                if isinstance(v, int):
+                    _unit_locations[k] = (
+                        [[[v]]*batch_size]*len(self.interventions), 
+                        [[[v]]*batch_size]*len(self.interventions)
+                    )
+                    self.use_fast = True
+                elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
+                    _unit_locations[k] = (
+                        [[[v[0]]]*batch_size]*len(self.interventions), 
+                        [[[v[1]]]*batch_size]*len(self.interventions)
+                    )
+                    self.use_fast = True
+                elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
+                    _unit_locations[k] = (None, [[[v[1]]]*batch_size]*len(self.interventions))
+                    self.use_fast = True
+                elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
+                    _unit_locations[k] = ([[[v[0]]]*batch_size]*len(self.interventions), None)
+                    self.use_fast = True
+                elif isinstance(v, list) and get_list_depth(v) == 1:
+                    # [0,1,2,3] -> [[[0,1,2,3]]], ...
+                    _unit_locations[k] = (
+                        [[v]*batch_size]*len(self.interventions), 
+                        [[v]*batch_size]*len(self.interventions)
+                    )
+                    self.use_fast = True
+                else:
+                    _unit_locations[k] = v
+        else:
+            raise ValueError(f"The mode {self.mode} is not supported.")
+        return _unit_locations
+    
+    def _broadcast_source_representations(
+        self,
+        source_representations
+    ):
+        """Broadcast simple inputs to a dict"""
+        _source_representations = {}
+        if isinstance(source_representations, dict) or source_representations is None:
+            # pass to broadcast for advance usage
+            _source_representations = source_representations
+        elif isinstance(source_representations, list):
+            for i, key in enumerate(self.sorted_keys):
+                _source_representations[key] = source_representations[i]
+        elif isinstance(source_representations, torch.Tensor):
+            for key in self.sorted_keys:
+                _source_representations[key] = source_representations
+        else:
+            raise ValueError(
+                "Accept input type for source_representations is [Dict, List, torch.Tensor]"
+            )
+        return _source_representations
+            
+    def _broadcast_sources(
+        self,
+        sources
+    ):
+        """Broadcast simple inputs to a dict"""
+        _sources = sources
+        if len(sources) == 1 and len(self._intervention_group) > 1:
+            for _ in range(len(self._intervention_group)-1):
+                _sources += [sources[0]]
+        else:
+            _sources = sources
+        return _sources
+    
+    def _broadcast_subspaces(
+        self,
+        batch_size,
+        subspaces
+    ):
+        """Broadcast simple subspaces input"""
+        _subspaces = subspaces
+        if isinstance(subspaces, int):
+            _subspaces = [[[subspaces]]*batch_size]*len(self.interventions)
+            
+        elif isinstance(subspaces, list) and isinstance(subspaces[0], int):
+            _subspaces = [[subspaces]*batch_size]*len(self.interventions)
+        else:
+            # TODO: subspaces is easier to add more broadcast majic.
+            pass
+        return _subspaces
+    
+    def forward(self, **kwargs):
+        raise NotImplementedError("Please Implement this method")
+
+    def generate(self, **kwargs):
+        raise NotImplementedError("Please Implement this method")
+        
+
+class IntervenableNdifModel(BaseModel):
+    """
+    Intervenable model via ndif backend.
+    """
+    BACKEND = "ndif"
+    
+    def __init__(self, config, model, **kwargs):
+        super().__init__(config, model, "ndif", **kwargs)
+        # this is not used for now.
+        self.remote = kwargs["remote"] if "remote" in kwargs else False
+        logging.warning(
+            f"We currently have very limited intervention support for ndif backend."
+        )
+
     def save(
         self, save_directory, save_to_hf_hub=False, hf_repo_name="my-awesome-model"
+    ):
+        pass
+
+    @staticmethod
+    def load(load_directory, model, local_directory=None, from_huggingface_hub=False):
+        """
+        Load interventions from disk or hub
+        """
+        pass
+
+    def _cleanup_states(self, skip_activation_gc=False):
+        """
+        Clean up all old in memo states of interventions
+        """
+        self._is_generation = False
+        if not skip_activation_gc:
+            self.activations.clear()
+            self.hot_activations.clear()
+            self._batched_setter_activation_select.clear()
+        else:
+            self.activations = {}
+            self.hot_activations = {}
+            self._batched_setter_activation_select = {}
+
+    def _tidy_stateful_activations(
+        self,
+    ):
+        _need_tidify = False
+
+    def _reconcile_stateful_cached_activations(
+        self,
+        key,
+        intervening_activations,
+        intervening_unit_locations,
+    ):
+        """Based on the key, we consolidate activations based on key's state"""
+        if key not in self.activations:
+            return None
+
+        cached_activations = self.activations[key]
+        if self.is_model_stateless:
+            # nothing to reconcile if stateless
+            return cached_activations
+
+        raise NotImplementedError("Activation reconcile is not implemented for ndif backend")
+    
+    def _intervention_getter(
+        self,
+        keys,
+        unit_locations,
+    ):
+        """
+        Create a list of getter handlers that will fetch activations
+        """
+        handlers = []
+        for key_i, key in enumerate(keys):
+            intervention, (module_hook, hook_type) = self.interventions[key]
+            if self._is_generation:
+                raise NotImplementedError("Generation is not implemented for ndif backend")
+
+            if hook_type == CONST_INPUT_HOOK:
+                output = module_hook.input
+            elif hook_type == CONST_OUTPUT_HOOK:
+                output = module_hook.output
+
+            # TODO: this could be faulty by assuming the types.
+            if isinstance(output.dtype, tuple) and isinstance(output.dtype[0], tuple):
+                output = output[0][0]
+            elif isinstance(output.dtype, tuple):
+                output = output[0]
+            
+            if isinstance(intervention, SkipIntervention):
+                raise NotImplementedError("Skip intervention is not implemented for ndif backend")
+            else:
+                selected_output = self._gather_intervention_output(
+                    output, key, unit_locations[key_i]
+                )
+
+                if self.is_model_stateless:
+                    # WARNING: might be worth to check the below assertion at runtime,
+                    # but commenting it out for now just to avoid confusion.
+                    # assert key not in self.activations
+                    self.activations[key] = selected_output.save()
+                else:
+                    raise NotImplementedError("Stateful models are not supported for ndif backend")
+
+                # set version for stateful models
+                self._intervention_state[key].inc_getter_version()
+
+    def _intervention_setter(
+        self,
+        keys,
+        unit_locations_base,
+        subspaces,
+    ) -> HandlerList:
+        """
+        Create a list of setter tracer that will set activations
+        """
+        self._tidy_stateful_activations()
+        
+        for key_i, key in enumerate(keys):
+            intervention, (module_hook, hook_type) = self.interventions[key]
+            if unit_locations_base[0] is not None:
+                self._batched_setter_activation_select[key] = [
+                    0 for _ in range(len(unit_locations_base[0]))
+                ]  # batch_size
+
+            if self._is_generation:
+                raise NotImplementedError("Generation is not implemented for ndif backend")
+
+            if hook_type == CONST_INPUT_HOOK:
+                output = module_hook.input
+            elif hook_type == CONST_OUTPUT_HOOK:
+                output = module_hook.output
+
+            # TODO: this could be faulty by assuming the types.
+            if isinstance(output.dtype, tuple) and isinstance(output.dtype[0], tuple):
+                output = output[0][0]
+            elif isinstance(output.dtype, tuple):
+                output = output[0]
+
+            selected_output = self._gather_intervention_output(
+                output, key, unit_locations_base[key_i]
+            )
+            if not self.is_model_stateless:
+                raise NotImplementedError("Stateful models are not supported for ndif backend")
+
+            # intervention in-place
+            if isinstance(
+                intervention,
+                CollectIntervention
+            ):
+                intervened_representation = do_intervention(
+                    selected_output,
+                    None,
+                    intervention,
+                    subspaces[key_i] if subspaces is not None else None,
+                )
+                # fail if this is not a fresh collect
+                assert key not in self.activations
+                self.activations[key] = intervened_representation.save()
+                # no-op to the output
+                
+            else:
+                if not isinstance(self.interventions[key][0], types.FunctionType):
+                    if intervention.is_source_constant:
+                        intervened_representation = do_intervention(
+                            selected_output,
+                            None,
+                            intervention,
+                            subspaces[key_i] if subspaces is not None else None,
+                        )
+                    else:
+                        intervened_representation = do_intervention(
+                            selected_output,
+                            self._reconcile_stateful_cached_activations(
+                                key,
+                                selected_output,
+                                unit_locations_base[key_i],
+                            ),
+                            intervention,
+                            subspaces[key_i] if subspaces is not None else None,
+                        )
+                else:
+                    # highly unlikely it's a primitive intervention type
+                    intervened_representation = do_intervention(
+                        selected_output,
+                        self._reconcile_stateful_cached_activations(
+                            key,
+                            selected_output,
+                            unit_locations_base[key_i],
+                        ),
+                        intervention,
+                        subspaces[key_i] if subspaces is not None else None,
+                    )
+                if intervened_representation is None:
+                    return
+
+                # setter can produce hot activations for shared subspace interventions if linked
+                if key in self._intervention_reverse_link:
+                    self.hot_activations[
+                        self._intervention_reverse_link[key]
+                    ] = intervened_representation.clone()
+                
+                if isinstance(output, tuple):
+                    _ = self._scatter_intervention_output(
+                        output[0], intervened_representation, key, unit_locations_base[key_i]
+                    )
+                else:
+                    _ = self._scatter_intervention_output(
+                        output, intervened_representation, key, unit_locations_base[key_i]
+                    )
+                        
+                self._intervention_state[key].inc_setter_version()
+    
+    def _sync_forward_with_parallel_intervention(
+        self,
+        base,
+        sources,
+        unit_locations,
+        activations_sources: Optional[Dict] = None,
+        subspaces: Optional[List] = None,
+        **kwargs,
+    ):
+        # torch.autograd.set_detect_anomaly(True)
+        all_set_handlers = HandlerList([])
+        unit_locations_sources = unit_locations["sources->base"][0]
+        unit_locations_base = unit_locations["sources->base"][1]
+
+        # for each source, we hook in getters to cache activations
+        # at each aligning representations
+        if activations_sources is None:
+            assert len(sources) == len(self._intervention_group)
+            for group_id, keys in self._intervention_group.items():
+                if sources[group_id] is None:
+                    continue  # smart jump for advance usage only
+
+                # meta tracer to get activations for all components
+                with self.model.trace(sources[group_id]) as tracer:
+                    for key in keys:
+                        self._intervention_getter(
+                            [key],
+                            [
+                                unit_locations_sources[
+                                    self.sorted_keys.index(key)
+                                ]
+                            ],
+                        )
+                # upon exist, all activations should be saved
+        else:
+            # simply patch in the ones passed in
+            self.activations = activations_sources
+            for _, passed_in_key in enumerate(self.activations):
+                assert passed_in_key in self.sorted_keys
+        
+        # in parallel mode with ndif backend, we don't need to wait 
+        # for the intervention hook, we synchronously do the interventions.
+        with self.model.trace(base, **kwargs) as tracer:
+            for group_id, keys in self._intervention_group.items():
+                for key in keys:
+                    # skip in case smart jump
+                    if key in self.activations or \
+                        isinstance(self.interventions[key][0], types.FunctionType) or \
+                        self.interventions[key][0].is_source_constant:
+                        self._intervention_setter(
+                            [key],
+                            [
+                                unit_locations_base[
+                                    self.sorted_keys.index(key)
+                                ]
+                            ],
+                            # assume same group targeting the same subspace
+                            [
+                                subspaces[
+                                    self.sorted_keys.index(key)
+                                ]
+                            ]
+                            if subspaces is not None
+                            else None,
+                        )
+            counterfactual_outputs = self.model.output.save()
+        
+        return counterfactual_outputs
+
+    def _sync_forward_with_serial_intervention(
+        self,
+        base,
+        sources,
+        unit_locations,
+        activations_sources: Optional[Dict] = None,
+        subspaces: Optional[List] = None,
+        **kwargs,
+    ):
+        raise NotImplementedError("Please Implement serial intervention support for ndif")
+    
+    def forward(
+        self,
+        base,
+        sources: Optional[List] = None,
+        unit_locations: Optional[Dict] = None,
+        source_representations: Optional[Dict] = None,
+        subspaces: Optional[List] = None,
+        labels: Optional[torch.LongTensor] = None,
+        output_original_output: Optional[bool] = False,
+        return_dict: Optional[bool] = None,
+        use_cache: Optional[bool] = None,
+    ):
+        activations_sources = source_representations
+        if sources is not None and not isinstance(sources, list):
+            sources = [sources]
+        
+        self._cleanup_states()
+
+        # if no source input or intervention, we return base
+        if sources is None and activations_sources is None \
+            and unit_locations is None and len(self.interventions) == 0:
+            # ndif backend call
+            with self.model.trace(base) as tracer:
+                base_outputs = self.model.output.save()
+            return base_outputs, None
+        # broadcast
+        unit_locations = self._broadcast_unit_locations(get_batch_size(base), unit_locations)
+        sources = [None]*len(self._intervention_group) if sources is None else sources
+        sources = self._broadcast_sources(sources)
+        activations_sources = self._broadcast_source_representations(activations_sources)
+        subspaces = self._broadcast_subspaces(get_batch_size(base), subspaces)
+        
+        self._input_validation(
+            base,
+            sources,
+            unit_locations,
+            activations_sources,
+            subspaces,
+        )
+        
+        base_outputs = None
+        if output_original_output:
+            # returning un-intervened output with gradients with ndif backend call
+            with self.model.trace(base) as tracer:
+                base_outputs = self.model.output.save()
+
+        # intervene the model based on ndif APIs
+        try:
+
+            # run intervened forward
+            model_kwargs = {}
+            if labels is not None: # for training
+                model_kwargs["labels"] = labels
+            if use_cache is not None and 'use_cache' in self.model.config.to_dict(): # for transformer models
+                model_kwargs["use_cache"] = use_cache
+
+            if self.mode == "parallel":
+                counterfactual_outputs = self._sync_forward_with_parallel_intervention(
+                    base,
+                    sources,
+                    unit_locations,
+                    activations_sources,
+                    subspaces,
+                    **model_kwargs,
+                )
+            elif self.mode == "serial":
+                counterfactual_outputs = self._sync_forward_with_serial_intervention(
+                    base,
+                    sources,
+                    unit_locations,
+                    activations_sources,
+                    subspaces,
+                    **model_kwargs,
+                )
+            
+            collected_activations = []
+            if self.return_collect_activations:
+                for key in self.sorted_keys:
+                    if isinstance(
+                        self.interventions[key][0],
+                        CollectIntervention
+                    ):
+                        collected_activations += self.activations[key].clone()
+
+        except Exception as e:
+            raise e
+        finally:
+            self._cleanup_states(
+                skip_activation_gc = \
+                    (sources is None and activations_sources is not None) or \
+                    self.return_collect_activations
+            )
+        
+        if self.return_collect_activations:
+            if return_dict:
+                return IntervenableModelOutput(
+                    original_outputs=base_outputs,
+                    intervened_outputs=counterfactual_outputs,
+                    collected_activations=collected_activations
+                )
+            
+            return (base_outputs, collected_activations), counterfactual_outputs
+        
+        if return_dict:
+            return IntervenableModelOutput(
+                original_outputs=base_outputs,
+                intervened_outputs=counterfactual_outputs,
+                collected_activations=None
+            )
+
+        return base_outputs, counterfactual_outputs
+
+    def generate(
+        self,
+        base,
+        sources: Optional[List] = None,
+        unit_locations: Optional[Dict] = None,
+        source_representations: Optional[Dict] = None,
+        intervene_on_prompt: bool = False,
+        subspaces: Optional[List] = None,
+        output_original_output: Optional[bool] = False,
+        **kwargs,
+    ):
+        raise NotImplementedError("Please Implement this method")
+
+
+class IntervenableModel(BaseModel):
+    """
+    Intervenable model via pyvene native backend (hook-based).
+    """
+    BACKEND = "native"
+    
+    def __init__(self, config, model, **kwargs):
+        super().__init__(config, model, "native", **kwargs)
+
+    def _reset_hook_count(self):
+        """
+        Reset the hook count before any generate call
+        """
+        self._key_getter_call_counter = dict.fromkeys(self._key_getter_call_counter, 0)
+        self._key_setter_call_counter = dict.fromkeys(self._key_setter_call_counter, 0)
+        for k, _ in self._intervention_state.items():
+            self._intervention_state[k].reset()
+
+    def _remove_forward_hooks(self):
+        """
+        Clean up all the remaining hooks before any call
+        """
+        remove_forward_hooks(self.model)
+
+    def _cleanup_states(self, skip_activation_gc=False):
+        """
+        Clean up all old in memo states of interventions
+        """
+        self._is_generation = False
+        self._remove_forward_hooks()
+        self._reset_hook_count()
+        if not skip_activation_gc:
+            self.activations.clear()
+            self.hot_activations.clear()
+            self._batched_setter_activation_select.clear()
+        else:
+            self.activations = {}
+            self.hot_activations = {}
+            self._batched_setter_activation_select = {}
+    
+    def save(
+        self, save_directory, save_to_hf_hub=False, hf_repo_name="my-awesome-model",
+        include_model=False
     ):
         """
         Save interventions to disk or hub
@@ -493,6 +1222,15 @@ class IntervenableModel(nn.Module):
             else:
                 saving_config.intervention_dimensions += [intervention.interchange_dim.tolist()]
             saving_config.intervention_constant_sources += [intervention.is_source_constant]
+
+        # save model's trainable parameters as well
+        if include_model:
+            model_state_dict = {}
+            model_binary_filename = "pytorch_model.bin"
+            for n, p in self.model.named_parameters():
+                if p.requires_grad:
+                    model_state_dict[n] = p
+            torch.save(model_state_dict, os.path.join(save_directory, model_binary_filename))
             
         # save metadata config
         saving_config.save_pretrained(save_directory)
@@ -513,7 +1251,10 @@ class IntervenableModel(nn.Module):
             )
 
     @staticmethod
-    def load(load_directory, model, local_directory=None, from_huggingface_hub=False):
+    def load(
+        load_directory, model, local_directory=None, from_huggingface_hub=False,
+        include_model=False
+    ):
         """
         Load interventions from disk or hub
         """
@@ -567,6 +1308,12 @@ class IntervenableModel(nn.Module):
                 saved_state_dict = torch.load(os.path.join(load_directory, binary_filename))
                 intervention.load_state_dict(saved_state_dict)
 
+        # load model's trainable parameters as well
+        if include_model:
+            model_binary_filename = "pytorch_model.bin"
+            saved_model_state_dict = torch.load(os.path.join(load_directory, model_binary_filename))
+            intervenable.model.load_state_dict(saved_model_state_dict, strict=False)
+
         return intervenable
 
     def save_intervention(self, save_directory, include_model=True):
@@ -612,101 +1359,6 @@ class IntervenableModel(nn.Module):
             model_binary_filename = "pytorch_model.bin"
             saved_model_state_dict = torch.load(os.path.join(load_directory, model_binary_filename))
             self.model.load_state_dict(saved_model_state_dict, strict=False)
-
-    def _gather_intervention_output(
-        self, output, representations_key, unit_locations
-    ) -> torch.Tensor:
-        """
-        Gather intervening activations from the output based on indices
-        """
-
-        if (
-            representations_key in self._intervention_reverse_link
-            and self._intervention_reverse_link[representations_key]
-            in self.hot_activations
-        ):
-            # hot gather
-            # clone is needed here by acting as a different module
-            # to avoid gradient conflict.
-            #
-            # enable the following line when an error is hit
-            # torch.autograd.set_detect_anomaly(True)
-            selected_output = self.hot_activations[
-                self._intervention_reverse_link[representations_key]
-            ]
-        else:
-            # data structure casting
-            if isinstance(output, tuple):
-                original_output = output[0].clone()
-            else:
-                original_output = output.clone()
-            # for non-sequence models, there is no concept of
-            # unit location anyway.
-            if unit_locations is None:
-                return original_output
-            # gather subcomponent
-            original_output = output_to_subcomponent(
-                original_output,
-                self.representations[
-                    representations_key
-                ].component,
-                self.model_type,
-                self.model_config,
-            )
-
-            # gather based on intervention locations
-            selected_output = gather_neurons(
-                original_output,
-                self.representations[
-                    representations_key
-                ].unit,
-                unit_locations,
-            )
-
-        return selected_output
-
-
-    def _scatter_intervention_output(
-        self,
-        output,
-        intervened_representation,
-        representations_key,
-        unit_locations,
-    ) -> torch.Tensor:
-        """
-        Scatter in the intervened activations in the output
-        """
-        # data structure casting
-        if isinstance(output, tuple):
-            original_output = output[0]
-        else:
-            original_output = output
-        # for non-sequence-based models, we simply replace
-        # all the activations.
-        if unit_locations is None:
-            original_output[:] = intervened_representation[:]
-            return original_output
-        
-        component = self.representations[
-            representations_key
-        ].component
-        unit = self.representations[
-            representations_key
-        ].unit
-        
-        # scatter in-place
-        _ = scatter_neurons(
-            original_output,
-            intervened_representation,
-            component,
-            unit,
-            unit_locations,
-            self.model_type,
-            self.model_config,
-            self.use_fast,
-        )
-        
-        return original_output
 
     def _intervention_getter(
         self,
@@ -870,7 +1522,8 @@ class IntervenableModel(nn.Module):
                 ]  # batch_size
 
             def hook_callback(model, args, kwargs, output=None):
-                if self._is_generation:
+                # if it is None, we use it as adaptor.
+                if unit_locations_base[key_i] is not None and self._is_generation:
                     is_prompt = self._key_setter_call_counter[key] == 0
                     if not self._intervene_on_prompt or is_prompt:
                         self._key_setter_call_counter[key] += 1
@@ -910,12 +1563,17 @@ class IntervenableModel(nn.Module):
                 else:
                     if not isinstance(self.interventions[key][0], types.FunctionType):
                         if intervention.is_source_constant:
-                            intervened_representation = do_intervention(
+                            raw_intervened_representation = do_intervention(
                                 selected_output,
                                 None,
                                 intervention,
                                 subspaces[key_i] if subspaces is not None else None,
                             )
+                            if isinstance(raw_intervened_representation, InterventionOutput):
+                                self.full_intervention_outputs.append(raw_intervened_representation)
+                                intervened_representation = raw_intervened_representation.output
+                            else:
+                                intervened_representation = raw_intervened_representation
                         else:
                             intervened_representation = do_intervention(
                                 selected_output,
@@ -962,46 +1620,6 @@ class IntervenableModel(nn.Module):
             handlers.append(module_hook(hook_callback, with_kwargs=True))
 
         return HandlerList(handlers)
-
-    def _input_validation(
-        self,
-        base,
-        sources,
-        unit_locations,
-        activations_sources,
-        subspaces,
-    ):
-        """Fail fast input validation"""
-        if self.mode == "parallel" and unit_locations is not None:
-            assert "sources->base" in unit_locations or "base" in unit_locations
-        elif activations_sources is None and unit_locations is not None and self.mode == "serial":
-            assert "sources->base" not in unit_locations
-        
-        # sources may contain None, but length should match
-        if sources is not None and not (len(sources) == 1 and sources[0] == None):
-            if len(sources) != len(self._intervention_group):
-                raise ValueError(
-                    f"Source length {len(sources)} is not "
-                    f"equal to intervention length {len(self._intervention_group)}."
-                )
-        elif activations_sources is not None:
-            if len(activations_sources) != len(self._intervention_group):
-                raise ValueError(
-                    f"Source activations length {len(activations_sources)} is not "
-                    f"equal to intervention length {len(self._intervention_group)}."
-                )
-
-        # if it is stateful models, the passed in activations need to have states
-        if not self.is_model_stateless and activations_sources is not None:
-            for _, v in activations_sources.items():
-                if (
-                    isinstance(v, list)
-                    and isinstance(v[0], tuple)
-                    and isinstance(v[0][1], list) != True
-                ):
-                    raise ValueError(
-                        f"Stateful models need nested activations. See our documentions."
-                    )
 
     def _output_validation(
         self,
@@ -1171,144 +1789,6 @@ class IntervenableModel(nn.Module):
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)
         return all_set_handlers
-    
-    def _broadcast_unit_locations(
-        self,
-        batch_size,
-        unit_locations
-    ):
-        if unit_locations is None:
-            # this means, we don't filter based on location at all.
-            return {"sources->base": ([None]*len(self.interventions), [None]*len(self.interventions))}
-        
-        if self.mode == "parallel":
-            _unit_locations = {}
-            for k, v in unit_locations.items():
-                # special broadcast for base-only interventions
-                is_base_only = False
-                if k == "base":
-                    is_base_only = True
-                    k = "sources->base"
-                if isinstance(v, int):
-                    if is_base_only:
-                        _unit_locations[k] = (None, [[[v]]*batch_size]*len(self.interventions))
-                    else:
-                        _unit_locations[k] = (
-                            [[[v]]*batch_size]*len(self.interventions), 
-                            [[[v]]*batch_size]*len(self.interventions)
-                        )
-                    self.use_fast = True
-                elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
-                    _unit_locations[k] = (
-                        [[[v[0]]]*batch_size]*len(self.interventions), 
-                        [[[v[1]]]*batch_size]*len(self.interventions)
-                    )
-                    self.use_fast = True
-                elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
-                    _unit_locations[k] = (None, [[[v[1]]]*batch_size]*len(self.interventions))
-                    self.use_fast = True
-                elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
-                    _unit_locations[k] = ([[[v[0]]]*batch_size]*len(self.interventions), None)
-                    self.use_fast = True
-                elif isinstance(v, list) and get_list_depth(v) == 1:
-                    # [0,1,2,3] -> [[[0,1,2,3]]], ...
-                    if is_base_only:
-                        _unit_locations[k] = (None, [[v]*batch_size]*len(self.interventions))
-                    else:
-                        _unit_locations[k] = (
-                            [[v]*batch_size]*len(self.interventions), 
-                            [[v]*batch_size]*len(self.interventions)
-                        )
-                    self.use_fast = True
-                else:
-                    if is_base_only:
-                        _unit_locations[k] = (None, v)
-                    else:
-                        _unit_locations[k] = v
-        elif self.mode == "serial":
-            _unit_locations = {}
-            for k, v in unit_locations.items():
-                if isinstance(v, int):
-                    _unit_locations[k] = (
-                        [[[v]]*batch_size]*len(self.interventions), 
-                        [[[v]]*batch_size]*len(self.interventions)
-                    )
-                    self.use_fast = True
-                elif len(v) == 2 and isinstance(v[0], int) and isinstance(v[1], int):
-                    _unit_locations[k] = (
-                        [[[v[0]]]*batch_size]*len(self.interventions), 
-                        [[[v[1]]]*batch_size]*len(self.interventions)
-                    )
-                    self.use_fast = True
-                elif len(v) == 2 and v[0] == None and isinstance(v[1], int):
-                    _unit_locations[k] = (None, [[[v[1]]]*batch_size]*len(self.interventions))
-                    self.use_fast = True
-                elif len(v) == 2 and isinstance(v[0], int) and v[1] == None:
-                    _unit_locations[k] = ([[[v[0]]]*batch_size]*len(self.interventions), None)
-                    self.use_fast = True
-                elif isinstance(v, list) and get_list_depth(v) == 1:
-                    # [0,1,2,3] -> [[[0,1,2,3]]], ...
-                    _unit_locations[k] = (
-                        [[v]*batch_size]*len(self.interventions), 
-                        [[v]*batch_size]*len(self.interventions)
-                    )
-                    self.use_fast = True
-                else:
-                    _unit_locations[k] = v
-        else:
-            raise ValueError(f"The mode {self.mode} is not supported.")
-        return _unit_locations
-    
-    def _broadcast_source_representations(
-        self,
-        source_representations
-    ):
-        """Broadcast simple inputs to a dict"""
-        _source_representations = {}
-        if isinstance(source_representations, dict) or source_representations is None:
-            # pass to broadcast for advance usage
-            _source_representations = source_representations
-        elif isinstance(source_representations, list):
-            for i, key in enumerate(self.sorted_keys):
-                _source_representations[key] = source_representations[i]
-        elif isinstance(source_representations, torch.Tensor):
-            for key in self.sorted_keys:
-                _source_representations[key] = source_representations
-        else:
-            raise ValueError(
-                "Accept input type for source_representations is [Dict, List, torch.Tensor]"
-            )
-        return _source_representations
-            
-    def _broadcast_sources(
-        self,
-        sources
-    ):
-        """Broadcast simple inputs to a dict"""
-        _sources = sources
-        if len(sources) == 1 and len(self._intervention_group) > 1:
-            for _ in range(len(self._intervention_group)-1):
-                _sources += [sources[0]]
-        else:
-            _sources = sources
-        return _sources
-    
-    def _broadcast_subspaces(
-        self,
-        batch_size,
-        subspaces
-    ):
-        """Broadcast simple subspaces input"""
-        _subspaces = subspaces
-        if isinstance(subspaces, int):
-            _subspaces = [[[subspaces]]*batch_size]*len(self.interventions)
-            
-        elif isinstance(subspaces, list) and isinstance(subspaces[0], int):
-            _subspaces = [[subspaces]*batch_size]*len(self.interventions)
-        else:
-            # TODO: subspaces is easier to add more broadcast majic.
-            pass
-        return _subspaces
 
     def forward(
         self,
@@ -1320,7 +1800,7 @@ class IntervenableModel(nn.Module):
         labels: Optional[torch.LongTensor] = None,
         output_original_output: Optional[bool] = False,
         return_dict: Optional[bool] = None,
-        use_cache: Optional[bool] = True,
+        use_cache: Optional[bool] = None,
     ):
         """
         Main forward function that serves a wrapper to
@@ -1391,7 +1871,9 @@ class IntervenableModel(nn.Module):
         activations_sources = source_representations
         if sources is not None and not isinstance(sources, list):
             sources = [sources]
-        
+
+        self.full_intervention_outputs.clear()
+
         self._cleanup_states()
 
         # if no source input or intervention, we return base
@@ -1443,7 +1925,7 @@ class IntervenableModel(nn.Module):
             model_kwargs = {}
             if labels is not None: # for training
                 model_kwargs["labels"] = labels
-            if 'use_cache' in self.model.config.to_dict(): # for transformer models
+            if use_cache is not None and 'use_cache' in self.model.config.to_dict(): # for transformer models
                 model_kwargs["use_cache"] = use_cache
 
             counterfactual_outputs = self.model(**base, **model_kwargs)
@@ -1720,8 +2202,8 @@ class IntervenableModel(nn.Module):
 
         return batched_location_dict
     
-    def train(self):
-        self.model.train()
+    def train(self, mode=True):
+        self.model.train(mode=mode)
     
     def eval(self):
         self.model.eval()
@@ -1853,3 +2335,14 @@ class IntervenableModel(nn.Module):
         result = weighted_average(all_metrics, all_num_examples)
 
         return result
+
+
+def build_intervenable_model(config, model, **kwargs):
+    """
+    Factory design pattern for different types of intervenable models.
+    """
+    if isinstance(model, nnsight.LanguageModel):
+        return IntervenableNdifModel(config, model, **kwargs)
+    else:
+        return IntervenableModel(config, model, **kwargs)
+
