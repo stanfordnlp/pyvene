@@ -51,13 +51,13 @@ qwen2_type_to_dimension_mapping = {
 qwen2_lm_type_to_module_mapping = {}
 for k, v in qwen2_type_to_module_mapping.items():
     qwen2_lm_type_to_module_mapping[k] = (f"transformer.{v[0]}", ) + v[1:]
-qwen2_lm_type_to_dimension_mapping = qwen_type_to_dimension_mapping
+qwen2_lm_type_to_dimension_mapping = qwen2_type_to_dimension_mapping
 
 """qwen model with classifier head"""
 qwen2_classifier_type_to_module_mapping = {}
 for k, v in qwen2_type_to_module_mapping.items():
     qwen2_classifier_type_to_module_mapping[k] = (f"transformer.{v[0]}", ) + v[1:]
-qwen2_classifier_type_to_dimension_mapping = qwen_type_to_dimension_mapping
+qwen2_classifier_type_to_dimension_mapping = qwen2_type_to_dimension_mapping
 
 def create_qwen2(
     name="Qwen/Qwen2.5-0.5B", cache_dir=None, dtype=torch.bfloat16
