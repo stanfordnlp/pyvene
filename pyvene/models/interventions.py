@@ -1,10 +1,24 @@
 import torch
 import numpy as np
 from abc import ABC, abstractmethod
+from typing import Dict, Optional, Sequence, Union, List, Any
 
-from .layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotateLayer
+from .layers import RotateLayer, LowRankRotateLayer, SubspaceLowRankRotateLayer, AutoencoderLayer
 from .basic_utils import sigmoid_boundary
 from .intervention_utils import _can_use_fast, _do_intervention_by_swap
+
+from dataclasses import dataclass
+from transformers.activations import ACT2FN
+from transformers.utils import ModelOutput
+
+
+@dataclass
+class InterventionOutput(ModelOutput):
+    """
+    Output of the IntervenableModel, including original outputs, intervened outputs, and collected activations.
+    """
+    output: Optional[Any] = None
+    latent: Optional[Any] = None
 
 
 class Intervention(torch.nn.Module):
@@ -54,7 +68,8 @@ class Intervention(torch.nn.Module):
         self.register_buffer('source_representation', source_representation)
                 
     def set_interchange_dim(self, interchange_dim):
-        if isinstance(interchange_dim, int):
+        if not isinstance(interchange_dim, torch.Tensor):
+            # Convert integer or list into torch.Tensor.
             self.interchange_dim = torch.tensor(interchange_dim)
         else:
             self.interchange_dim = interchange_dim
@@ -556,4 +571,72 @@ class NoiseIntervention(ConstantSourceIntervention, LocalistRepresentationInterv
 
     def __str__(self):
         return f"NoiseIntervention()"
-    
+ 
+
+class AutoencoderIntervention(TrainableIntervention):
+    """Intervene in the latent space of an autoencoder."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if "latent_dim" not in kwargs:
+          raise ValueError('Missing latent_dim in kwargs.')
+        if "embed_dim" in kwargs:
+          self.embed_dim = torch.tensor(kwargs["embed_dim"])
+        self.autoencoder = AutoencoderLayer(
+                self.embed_dim, kwargs["latent_dim"])
+
+    def forward(self, base, source, subspaces=None):
+        base_dtype = base.dtype
+        base = base.to(self.autoencoder.encoder[0].weight.dtype)
+        base_latent = self.autoencoder.encode(base)
+        source_latent = self.autoencoder.encode(source)
+        base_latent[..., self.interchange_dim] = source_latent[..., self.interchange_dim]
+        inv_output = self.autoencoder.decode(base_latent)
+        return inv_output.to(base_dtype)
+
+    def __str__(self):
+        return f"AutoencoderIntervention()"
+
+
+class JumpReLUAutoencoderIntervention(TrainableIntervention):
+    """Interchange intervention on JumpReLU SAE's latent subspaces"""
+    def __init__(self, **kwargs):
+        # Note that we initialise these to zeros because we're loading in pre-trained weights.
+        # If you want to train your own SAEs then we recommend using blah
+        super().__init__(**kwargs, keep_last_dim=True)
+        self.W_enc = torch.nn.Parameter(torch.zeros(self.embed_dim, kwargs["low_rank_dimension"]))
+        self.W_dec = torch.nn.Parameter(torch.zeros(kwargs["low_rank_dimension"], self.embed_dim))
+        self.threshold = torch.nn.Parameter(torch.zeros(kwargs["low_rank_dimension"]))
+        self.b_enc = torch.nn.Parameter(torch.zeros(kwargs["low_rank_dimension"]))
+        self.b_dec = torch.nn.Parameter(torch.zeros(self.embed_dim))
+
+    def encode(self, input_acts):
+        pre_acts = input_acts @ self.W_enc + self.b_enc
+        mask = (pre_acts > self.threshold)
+        acts = mask * torch.nn.functional.relu(pre_acts)
+        return acts
+
+    def decode(self, acts):
+        return acts @ self.W_dec + self.b_dec
+
+    def forward(self, base, source=None, subspaces=None):
+        # generate latents for base and source runs.
+        base_latent = self.encode(base)
+        source_latent = self.encode(source)
+        # intervention.
+        intervened_latent = _do_intervention_by_swap(
+            base_latent,
+            source_latent,
+            "interchange",
+            self.interchange_dim,
+            subspaces,
+            subspace_partition=self.subspace_partition,
+            use_fast=self.use_fast,
+        )
+        # decode intervened latent.
+        recon = self.decode(intervened_latent)
+        return recon
+
+    def __str__(self):
+        return f"JumpReLUAutoencoderIntervention()"
+

@@ -20,19 +20,21 @@ mistral_type_to_module_mapping = {
     "mlp_output": ("layers[%s].mlp", CONST_OUTPUT_HOOK),
     "mlp_input": ("layers[%s].mlp", CONST_INPUT_HOOK),
     "attention_value_output": ("layers[%s].self_attn.o_proj", CONST_INPUT_HOOK),
-    "head_attention_value_output": ("layers[%s].self_attn.o_proj", CONST_INPUT_HOOK),
+    "head_attention_value_output": ("layers[%s].self_attn.o_proj", CONST_INPUT_HOOK, (split_head_and_permute, "n_head")),
     "attention_output": ("layers[%s].self_attn", CONST_OUTPUT_HOOK),
     "attention_input": ("layers[%s].self_attn", CONST_INPUT_HOOK),
     "query_output": ("layers[%s].self_attn.q_proj", CONST_OUTPUT_HOOK),
     "key_output": ("layers[%s].self_attn.k_proj", CONST_OUTPUT_HOOK),
     "value_output": ("layers[%s].self_attn.v_proj", CONST_OUTPUT_HOOK),
-    "head_query_output": ("layers[%s].self_attn.q_proj", CONST_OUTPUT_HOOK),
-    "head_key_output": ("layers[%s].self_attn.k_proj", CONST_OUTPUT_HOOK),
-    "head_value_output": ("layers[%s].self_attn.v_proj", CONST_OUTPUT_HOOK),
+    "head_query_output": ("layers[%s].self_attn.q_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_head")),
+    "head_key_output": ("layers[%s].self_attn.k_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_kv_head")),
+    "head_value_output": ("layers[%s].self_attn.v_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_kv_head")),
 }
 
 
 mistral_type_to_dimension_mapping = {
+    "n_head": ("num_attention_heads",),
+    "n_kv_head": ("num_key_value_heads",),
     "block_input": ("hidden_size",),
     "block_output": ("hidden_size",),
     "mlp_activation": ("intermediate_size",),
@@ -54,7 +56,7 @@ mistral_type_to_dimension_mapping = {
 """mistral model with LM head"""
 mistral_lm_type_to_module_mapping = {}
 for k, v in mistral_type_to_module_mapping.items():
-    mistral_lm_type_to_module_mapping[k] = (f"model.{v[0]}", v[1])
+    mistral_lm_type_to_module_mapping[k] = (f"model.{v[0]}", ) + v[1:]
 
 
 mistral_lm_type_to_dimension_mapping = mistral_type_to_dimension_mapping
