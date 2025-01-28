@@ -77,6 +77,8 @@ def create_gpt2(name="gpt2", cache_dir=None):
     from transformers import GPT2Model, GPT2Tokenizer, GPT2Config
 
     config = GPT2Config.from_pretrained(name)
+    if hasattr(config, '_attn_implementation'):
+        config._attn_implementation = "eager"
     tokenizer = GPT2Tokenizer.from_pretrained(name)
     gpt = GPT2Model.from_pretrained(name, config=config, cache_dir=cache_dir)
     print("loaded model")
@@ -90,8 +92,12 @@ def create_gpt2_lm(name="gpt2", config=None, cache_dir=None):
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
     if config is None:
         config = GPT2Config.from_pretrained(name)
+        if hasattr(config, '_attn_implementation'):
+            config._attn_implementation = "eager"
         gpt = GPT2LMHeadModel.from_pretrained(name, config=config, cache_dir=cache_dir)
     else:
+        if hasattr(config, '_attn_implementation'):
+            config._attn_implementation = "eager"
         gpt = GPT2LMHeadModel(config=config)
     print("loaded model")
     return config, tokenizer, gpt
@@ -103,8 +109,12 @@ def create_gpt2_classifier(name="gpt2", config=None, cache_dir=None):
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
     if config is None:
         config = GPT2Config.from_pretrained(name)
+        if hasattr(config, '_attn_implementation'):
+            config._attn_implementation = "eager"
         gpt = GPT2LMForSequenceClassification.from_pretrained(name, config=config, cache_dir=cache_dir)
     else:
+        if hasattr(config, '_attn_implementation'):
+            config._attn_implementation = "eager"
         gpt = GPT2LMForSequenceClassification(config=config)
     print("loaded model")
     return config, tokenizer, gpt
