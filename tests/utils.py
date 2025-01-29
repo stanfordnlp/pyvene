@@ -7,6 +7,7 @@ import os, shutil, torch, random, uuid
 import pandas as pd
 import numpy as np
 from transformers import GPT2Config, LlamaConfig
+from transformers.models.gpt2.modeling_gpt2 import eager_attention_forward
 import math
 from torch import nn
 
@@ -133,9 +134,13 @@ def GPT2_SELF_ATTENTION_RUN(
     )
     CACHE_ACTIVATIONS[f"{i}.head_value_output"] = head_value
 
-    head_attention_value_output, attn_weights = self_attn._attn(
-        head_query, head_key, head_value
+    head_attention_value_output, attn_weights = eager_attention_forward(
+        module=self_attn,
+        query=head_query,
+        key=head_key,
+        value=head_value,
     )
+
 
     head_attention_value_output = DO_INTERVENTION(
         f"{i}.head_attention_value_output",
