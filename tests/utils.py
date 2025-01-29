@@ -134,11 +134,12 @@ def GPT2_SELF_ATTENTION_RUN(
     )
     CACHE_ACTIVATIONS[f"{i}.head_value_output"] = head_value
 
-    head_attention_value_output, attn_weights = eager_attention_forward(
+    head_attention_value_output = eager_attention_forward(
         module=self_attn,
         query=head_query,
         key=head_key,
         value=head_value,
+        attention_mask=None,
     )
 
 
