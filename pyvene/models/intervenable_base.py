@@ -1292,7 +1292,16 @@ class IntervenableModel(BaseModel):
             binary_filename = f"intkey_{k}.bin"
             intervention.is_source_constant = \
                 saving_config.intervention_constant_sources[i]
-            intervention.set_interchange_dim(saving_config.intervention_dimensions[i])
+            dim = saving_config.intervention_dimensions[i]
+            if dim is None:
+                # Infer interchange dimension from component name to be compatible with old versions
+                component_name = saving_config.representations[i].component
+                if component_name.startswith("head_"):
+                    dim = model.config.hidden_size // model.config.num_attention_heads
+                else:
+                    dim = model.config.hidden_size
+
+            intervention.set_interchange_dim(dim)
             if saving_config.intervention_constant_sources[i] and \
                 not isinstance(intervention, ZeroIntervention) and \
                 not isinstance(intervention, SourcelessIntervention):

@@ -79,6 +79,22 @@ ONE_MLP_WITH_W1_ACT_RUN = lambda w1_act, mlp: w1_act @ mlp.score.weight.T
 forward calls to fetch activations or run with cached activations
 """
 
+def split_heads(tensor, num_heads, attn_head_size):
+    """
+    Splits hidden_size dim into attn_head_size and num_heads
+    """
+    new_shape = tensor.size()[:-1] + (num_heads, attn_head_size)
+    tensor = tensor.view(new_shape)
+    return tensor.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
+
+def merge_heads(tensor, num_heads, attn_head_size):
+    """
+    Merges attn_head_size dim and num_attn_heads dim into hidden_size
+    """
+    tensor = tensor.permute(0, 2, 1, 3).contiguous()
+    new_shape = tensor.size()[:-2] + (num_heads * attn_head_size,)
+    return tensor.view(new_shape)
+
 
 def DO_INTERVENTION(name, orig_hidden_states, INTERVENTION_ACTIVATIONS):
     if name in INTERVENTION_ACTIVATIONS:
@@ -100,9 +116,9 @@ def GPT2_SELF_ATTENTION_RUN(
     value = DO_INTERVENTION(f"{i}.value_output", value, INTERVENTION_ACTIVATIONS)
     CACHE_ACTIVATIONS[f"{i}.value_output"] = value
 
-    head_query = self_attn._split_heads(query, self_attn.num_heads, self_attn.head_dim)
-    head_key = self_attn._split_heads(key, self_attn.num_heads, self_attn.head_dim)
-    head_value = self_attn._split_heads(value, self_attn.num_heads, self_attn.head_dim)
+    head_query = split_heads(query, self_attn.num_heads, self_attn.head_dim)
+    head_key = split_heads(key, self_attn.num_heads, self_attn.head_dim)
+    head_value = split_heads(value, self_attn.num_heads, self_attn.head_dim)
 
     head_query = DO_INTERVENTION(
         f"{i}.head_query_output", head_query, INTERVENTION_ACTIVATIONS
@@ -128,7 +144,7 @@ def GPT2_SELF_ATTENTION_RUN(
     )
     CACHE_ACTIVATIONS[f"{i}.head_attention_value_output"] = head_attention_value_output
 
-    attn_value_output = self_attn._merge_heads(
+    attn_value_output = merge_heads(
         head_attention_value_output, self_attn.num_heads, self_attn.head_dim
     )
     attn_value_output = DO_INTERVENTION(
