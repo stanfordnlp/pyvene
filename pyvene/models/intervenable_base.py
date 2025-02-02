@@ -91,6 +91,7 @@ class BaseModel(nn.Module):
         ###
         self.representations = {}
         self.interventions = {}
+        self.intervention_hooks = {}
         self._key_collision_counter = {}
         self.return_collect_activations = False
         # Flags and counters below are for interventions in the model.generate
@@ -164,7 +165,8 @@ class BaseModel(nn.Module):
                 model, representation, backend
             )
             self.representations[_key] = representation
-            self.interventions[_key] = (intervention, module_hook)
+            self.interventions[_key] = intervention
+            self.intervention_hooks[_key] = module_hook
             self._key_getter_call_counter[
                 _key
             ] = 0  # we memo how many the hook is called,
@@ -283,8 +285,8 @@ class BaseModel(nn.Module):
         """
         ret_params = []
         for k, v in self.interventions.items():
-            if isinstance(v[0], TrainableIntervention):
-                ret_params += [p for p in v[0].parameters()]
+            if isinstance(v, TrainableIntervention):
+                ret_params += [p for p in v.parameters()]
         for p in self.model.parameters():
             if p.requires_grad:
                 ret_params += [p]
@@ -296,8 +298,8 @@ class BaseModel(nn.Module):
         """
         ret_params = []
         for k, v in self.interventions.items():
-            if isinstance(v[0], TrainableIntervention):
-                ret_params += [(k + '.' + n, p) for n, p in v[0].named_parameters()]
+            if isinstance(v, TrainableIntervention):
+                ret_params += [(k + '.' + n, p) for n, p in v.named_parameters()]
         for n, p in self.model.named_parameters():
             if p.requires_grad:
                 ret_params += [('model.' + n, p)]
@@ -320,9 +322,9 @@ class BaseModel(nn.Module):
         Set temperature if needed
         """
         for k, v in self.interventions.items():
-            if isinstance(v[0], BoundlessRotatedSpaceIntervention) or \
-                isinstance(v[0], SigmoidMaskIntervention):
-                v[0].set_temperature(temp)
+            if isinstance(v, BoundlessRotatedSpaceIntervention) or \
+                isinstance(v, SigmoidMaskIntervention):
+                v.set_temperature(temp)
 
     def enable_model_gradients(self):
         """
@@ -356,7 +358,7 @@ class BaseModel(nn.Module):
         Set device of interventions and the model
         """
         for k, v in self.interventions.items():
-            v[0].to(device)
+            v.to(device)
         if set_model:
             self.model.to(device)
 
@@ -373,13 +375,13 @@ class BaseModel(nn.Module):
         _linked_key_set = set([])
         total_parameters = 0
         for k, v in self.interventions.items():
-            if isinstance(v[0], TrainableIntervention):
+            if isinstance(v, TrainableIntervention):
                 if k in self._intervention_reverse_link:
                     if not self._intervention_reverse_link[k] in _linked_key_set:
                         _linked_key_set.add(self._intervention_reverse_link[k])
-                        total_parameters += count_parameters(v[0])
+                        total_parameters += count_parameters(v)
                 else:
-                    total_parameters += count_parameters(v[0])
+                    total_parameters += count_parameters(v)
         if include_model:
             total_parameters += sum(
                 p.numel() for p in self.model.parameters() if p.requires_grad)
@@ -390,16 +392,16 @@ class BaseModel(nn.Module):
         Set device of interventions and the model
         """
         for k, v in self.interventions.items():
-            if isinstance(v[0], TrainableIntervention):
-                v[0].zero_grad()
+            if isinstance(v, TrainableIntervention):
+                v.zero_grad()
 
     def zero_grad(self):
         """
         The above, but for HuggingFace.
         """
         for k, v in self.interventions.items():
-            if isinstance(v[0], TrainableIntervention):
-                v[0].zero_grad()
+            if isinstance(v, TrainableIntervention):
+                v.zero_grad()
 
     def _input_validation(
         self,
@@ -758,7 +760,8 @@ class IntervenableNdifModel(BaseModel):
         """
         handlers = []
         for key_i, key in enumerate(keys):
-            intervention, (module_hook, hook_type) = self.interventions[key]
+            intervention = self.interventions[key]
+            (module_hook, hook_type) = self.intervention_hooks[key]
             if self._is_generation:
                 raise NotImplementedError("Generation is not implemented for ndif backend")
 
@@ -803,7 +806,8 @@ class IntervenableNdifModel(BaseModel):
         self._tidy_stateful_activations()
         
         for key_i, key in enumerate(keys):
-            intervention, (module_hook, hook_type) = self.interventions[key]
+            intervention = self.interventions[key]
+            (module_hook, hook_type) = self.intervention_hooks[key]
             if unit_locations_base[0] is not None:
                 self._batched_setter_activation_select[key] = [
                     0 for _ in range(len(unit_locations_base[0]))
@@ -846,7 +850,7 @@ class IntervenableNdifModel(BaseModel):
                 # no-op to the output
                 
             else:
-                if not isinstance(self.interventions[key][0], types.FunctionType):
+                if not isinstance(self.interventions[key], types.FunctionType):
                     if intervention.is_source_constant:
                         intervened_representation = do_intervention(
                             selected_output,
@@ -944,8 +948,8 @@ class IntervenableNdifModel(BaseModel):
                 for key in keys:
                     # skip in case smart jump
                     if key in self.activations or \
-                        isinstance(self.interventions[key][0], types.FunctionType) or \
-                        self.interventions[key][0].is_source_constant:
+                        isinstance(self.interventions[key], types.FunctionType) or \
+                        self.interventions[key].is_source_constant:
                         self._intervention_setter(
                             [key],
                             [
@@ -1056,7 +1060,7 @@ class IntervenableNdifModel(BaseModel):
             if self.return_collect_activations:
                 for key in self.sorted_keys:
                     if isinstance(
-                        self.interventions[key][0],
+                        self.interventions[key],
                         CollectIntervention
                     ):
                         collected_activations += self.activations[key].clone()
@@ -1191,7 +1195,7 @@ class IntervenableModel(BaseModel):
             serialized_representations
         
         for k, v in self.interventions.items():
-            intervention = v[0]
+            intervention = v
             saving_config.intervention_types += [str(type(intervention))]
             binary_filename = f"intkey_{k}.bin"
             # save intervention binary file
@@ -1334,7 +1338,7 @@ class IntervenableModel(BaseModel):
         
         # save binary files
         for k, v in self.interventions.items():
-            intervention = v[0]
+            intervention = v
             binary_filename = f"intkey_{k}.bin"
             # save intervention binary file
             if isinstance(intervention, TrainableIntervention):
@@ -1357,7 +1361,7 @@ class IntervenableModel(BaseModel):
         """
         # load binary files
         for i, (k, v) in enumerate(self.interventions.items()):
-            intervention = v[0]
+            intervention = v
             binary_filename = f"intkey_{k}.bin"
             if isinstance(intervention, TrainableIntervention):
                 saved_state_dict = torch.load(os.path.join(load_directory, binary_filename))
@@ -1379,7 +1383,8 @@ class IntervenableModel(BaseModel):
         """
         handlers = []
         for key_i, key in enumerate(keys):
-            intervention, module_hook = self.interventions[key]
+            intervention = self.interventions[key]
+            module_hook = self.intervention_hooks[key]
 
             def hook_callback(model, args, kwargs, output=None):
                 if self._is_generation:
@@ -1524,7 +1529,8 @@ class IntervenableModel(BaseModel):
         
         handlers = []
         for key_i, key in enumerate(keys):
-            intervention, module_hook = self.interventions[key]
+            intervention = self.interventions[key]
+            module_hook = self.intervention_hooks[key]
             if unit_locations_base[0] is not None:
                 self._batched_setter_activation_select[key] = [
                     0 for _ in range(len(unit_locations_base[0]))
@@ -1570,7 +1576,7 @@ class IntervenableModel(BaseModel):
                     # no-op to the output
                     
                 else:
-                    if not isinstance(self.interventions[key][0], types.FunctionType):
+                    if not isinstance(self.interventions[key], types.FunctionType):
                         if intervention.is_source_constant:
                             raw_intervened_representation = do_intervention(
                                 selected_output,
@@ -1710,8 +1716,8 @@ class IntervenableModel(BaseModel):
             for key in keys:
                 # skip in case smart jump
                 if key in self.activations or \
-                    isinstance(self.interventions[key][0], types.FunctionType) or \
-                    self.interventions[key][0].is_source_constant:
+                    isinstance(self.interventions[key], types.FunctionType) or \
+                    self.interventions[key].is_source_constant:
                     set_handlers = self._intervention_setter(
                         [key],
                         [
@@ -1780,8 +1786,8 @@ class IntervenableModel(BaseModel):
             for key in keys:
                 # skip in case smart jump
                 if key in self.activations or \
-                    isinstance(self.interventions[key][0], types.FunctionType) or \
-                    self.interventions[key][0].is_source_constant:
+                    isinstance(self.interventions[key], types.FunctionType) or \
+                    self.interventions[key].is_source_constant:
                     # set with intervened activation to source_i+1
                     set_handlers = self._intervention_setter(
                         [key],
@@ -1947,7 +1953,7 @@ class IntervenableModel(BaseModel):
             if self.return_collect_activations:
                 for key in self.sorted_keys:
                     if isinstance(
-                        self.interventions[key][0],
+                        self.interventions[key],
                         CollectIntervention
                     ):
                         collected_activations += self.activations[key]
@@ -2081,7 +2087,7 @@ class IntervenableModel(BaseModel):
             if self.return_collect_activations:
                 for key in self.sorted_keys:
                     if isinstance(
-                        self.interventions[key][0],
+                        self.interventions[key],
                         CollectIntervention
                     ):
                         collected_activations += self.activations[key]
