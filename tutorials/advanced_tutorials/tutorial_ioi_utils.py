@@ -519,7 +519,7 @@ def single_d_low_rank_das_position_config(
 def calculate_boundless_das_loss(logits, labels, intervenable):
     loss = calculate_loss(logits, labels)
     for k, v in intervenable.interventions.items():
-        boundary_loss = 2.0 * v[0].intervention_boundaries.sum()
+        boundary_loss = 2.0 * v.intervention_boundaries.sum()
     loss += boundary_loss
     return loss
 
@@ -658,9 +658,9 @@ def find_variable_at(
                 if do_boundless_das:
                     optimizer_params = []
                     for k, v in intervenable.interventions.items():
-                        optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
+                        optimizer_params += [{"params": v.rotate_layer.parameters()}]
                         optimizer_params += [
-                            {"params": v[0].intervention_boundaries, "lr": 0.5}
+                            {"params": v.intervention_boundaries, "lr": 0.5}
                         ]
                     optimizer = torch.optim.Adam(optimizer_params, lr=initial_lr)
                     target_total_step = int(len(D_train) / batch_size) * n_epochs
@@ -759,9 +759,7 @@ def find_variable_at(
                                 temperature_schedule[total_step]
                             )
                             for k, v in intervenable.interventions.items():
-                                intervention_boundaries = v[
-                                    0
-                                ].intervention_boundaries.sum()
+                                intervention_boundaries = v.intervention_boundaries.sum()
                         total_step += 1
 
             # eval
@@ -828,7 +826,7 @@ def find_variable_at(
 
             if do_boundless_das:
                 for k, v in intervenable.interventions.items():
-                    intervention_boundaries = v[0].intervention_boundaries.sum()
+                    intervention_boundaries = v.intervention_boundaries.sum()
                 data.append(
                     {
                         "pos": aligning_pos,
