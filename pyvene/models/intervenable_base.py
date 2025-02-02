@@ -1292,7 +1292,7 @@ class IntervenableModel(BaseModel):
 
         # load binary files
         for i, (k, v) in enumerate(intervenable.interventions.items()):
-            intervention = v[0]
+            intervention = v
             binary_filename = f"intkey_{k}.bin"
             intervention.is_source_constant = \
                 saving_config.intervention_constant_sources[i]
