@@ -89,7 +89,7 @@ class InterventionWithGPT2TestCase(unittest.TestCase):
             intervention_types=intervention_type,
         )
         intervenable = IntervenableModel(config, self.gpt2)
-        intervention = list(intervenable.interventions.values())[0][0]
+        intervention = list(intervenable.interventions.values())[0]
 
         base_activations = {}
         source_activations = {}

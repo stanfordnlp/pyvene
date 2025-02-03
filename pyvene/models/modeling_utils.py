@@ -6,6 +6,21 @@ from .interventions import *
 from .constants import *
 
 
+class LambdaIntervention(torch.nn.Module):
+    """
+    A generic wrapper to turn any Python callable (e.g. a lambda) 
+    into an nn.Module. This does *not* automatically turn external 
+    Tensors into parameters or buffers—it's just a functional wrapper.
+    """
+    def __init__(self, func):
+        super().__init__()
+        self.func = func  # store the lambda or any callable
+
+    def forward(self, *args, **kwargs):
+        # Simply call the stored function
+        return self.func(*args, **kwargs)
+
+
 def get_internal_model_type(model):
     """Return the model type."""
     return type(model)
@@ -435,7 +450,7 @@ def do_intervention(
 ):
     """Do the actual intervention."""
 
-    if isinstance(intervention, types.FunctionType):
+    if isinstance(intervention, LambdaIntervention):
         if subspaces is None:
             return intervention(base_representation, source_representation)
         else:
