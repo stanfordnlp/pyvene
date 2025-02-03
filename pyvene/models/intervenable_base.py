@@ -117,6 +117,7 @@ class BaseModel(nn.Module):
             config.representations
         ):
             _key = self._get_representation_key(representation)
+            print(f"Intervention key: {_key}")
 
             if representation.intervention is not None:
                 intervention = representation.intervention
@@ -165,7 +166,10 @@ class BaseModel(nn.Module):
                 model, representation, backend
             )
             self.representations[_key] = representation
-            self.interventions[_key] = intervention
+            if isinstance(intervention, types.FunctionType):
+                self.interventions[_key] = LambdaIntervention(intervention)
+            else:
+                self.interventions[_key] = intervention
             self.intervention_hooks[_key] = module_hook
             self._key_getter_call_counter[
                 _key
@@ -268,13 +272,13 @@ class BaseModel(nn.Module):
         c = representation.component
         u = representation.unit
         n = representation.max_number_of_units
-        _n = n.replace(".", "_") # this will need internal functions to be changed as well.
+        _u = u.replace(".", "_") # this will need internal functions to be changed as well.
         if "." in c:
             _c = c.replace(".", "_")
             # string access for sure
-            key_proposal = f"comp_{_c}_unit_{u}_nunit_{_n}"
+            key_proposal = f"comp_{_c}_unit_{_u}_nunit_{n}"
         else:
-            key_proposal = f"layer_{l}_comp_{c}_unit_{u}_nunit_{_n}"
+            key_proposal = f"layer_{l}_comp_{c}_unit_{_u}_nunit_{n}"
         if key_proposal not in self._key_collision_counter:
             self._key_collision_counter[key_proposal] = 0
         else:
@@ -852,7 +856,7 @@ class IntervenableNdifModel(BaseModel):
                 # no-op to the output
                 
             else:
-                if not isinstance(self.interventions[key], types.FunctionType):
+                if not isinstance(self.interventions[key], LambdaIntervention):
                     if intervention.is_source_constant:
                         intervened_representation = do_intervention(
                             selected_output,
@@ -950,7 +954,7 @@ class IntervenableNdifModel(BaseModel):
                 for key in keys:
                     # skip in case smart jump
                     if key in self.activations or \
-                        isinstance(self.interventions[key], types.FunctionType) or \
+                        isinstance(self.interventions[key], LambdaIntervention) or \
                         self.interventions[key].is_source_constant:
                         self._intervention_setter(
                             [key],
@@ -1578,7 +1582,7 @@ class IntervenableModel(BaseModel):
                     # no-op to the output
                     
                 else:
-                    if not isinstance(self.interventions[key], types.FunctionType):
+                    if not isinstance(self.interventions[key], LambdaIntervention):
                         if intervention.is_source_constant:
                             raw_intervened_representation = do_intervention(
                                 selected_output,
@@ -1718,7 +1722,7 @@ class IntervenableModel(BaseModel):
             for key in keys:
                 # skip in case smart jump
                 if key in self.activations or \
-                    isinstance(self.interventions[key], types.FunctionType) or \
+                    isinstance(self.interventions[key], LambdaIntervention) or \
                     self.interventions[key].is_source_constant:
                     set_handlers = self._intervention_setter(
                         [key],
@@ -1788,7 +1792,7 @@ class IntervenableModel(BaseModel):
             for key in keys:
                 # skip in case smart jump
                 if key in self.activations or \
-                    isinstance(self.interventions[key], types.FunctionType) or \
+                    isinstance(self.interventions[key], LambdaIntervention) or \
                     self.interventions[key].is_source_constant:
                     # set with intervened activation to source_i+1
                     set_handlers = self._intervention_setter(
