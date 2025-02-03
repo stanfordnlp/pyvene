@@ -90,7 +90,7 @@ class BaseModel(nn.Module):
         # mapping between supported abstract type and module name.
         ###
         self.representations = {}
-        self.interventions = {}
+        self.interventions = torch.nn.ModuleDict({})
         self.intervention_hooks = {}
         self._key_collision_counter = {}
         self.return_collect_activations = False
