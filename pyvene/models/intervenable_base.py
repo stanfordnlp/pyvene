@@ -269,10 +269,11 @@ class BaseModel(nn.Module):
         u = representation.unit
         n = representation.max_number_of_units
         if "." in c:
+            _c = c.replace(".", "_")
             # string access for sure
-            key_proposal = f"comp.{c}.unit.{u}.nunit.{n}"
+            key_proposal = f"comp_{_c}_unit_{u}_nunit_{n}"
         else:
-            key_proposal = f"layer.{l}.comp.{c}.unit.{u}.nunit.{n}"
+            key_proposal = f"layer_{l}_comp_{c}_unit_{u}_nunit_{n}"
         if key_proposal not in self._key_collision_counter:
             self._key_collision_counter[key_proposal] = 0
         else:
