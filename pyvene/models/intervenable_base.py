@@ -117,7 +117,6 @@ class BaseModel(nn.Module):
             config.representations
         ):
             _key = self._get_representation_key(representation)
-            print(f"Intervention key: {_key}")
 
             if representation.intervention is not None:
                 intervention = representation.intervention
