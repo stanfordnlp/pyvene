@@ -1,5 +1,6 @@
 import json, logging, torch, types
 import numpy as np
+import copy
 from collections import OrderedDict
 from typing import List, Optional, Tuple, Union, Dict, Any
 
@@ -679,11 +680,21 @@ class BaseModel(nn.Module):
         _subspaces = subspaces
         if isinstance(subspaces, int):
             _subspaces = [[[subspaces]]*batch_size]*len(self.interventions)
-            
         elif isinstance(subspaces, list) and isinstance(subspaces[0], int):
             _subspaces = [[subspaces]*batch_size]*len(self.interventions)
+        elif isinstance(subspaces, list) and len(subspaces) == 1 \
+                and isinstance(subspaces[0], list) and len(subspaces[0]) == 1 \
+                and isinstance(subspaces[0][0], list):
+            _subspaces = [[subspaces[0][0]] * batch_size] * len(self.interventions)
+        elif isinstance(subspaces, list) and len(subspaces) == 1 \
+                and isinstance(subspaces[0], list) and isinstance(subspaces[0][0], list):
+            _subspaces = [subspaces[0]] * len(self.interventions)
+        elif isinstance(subspaces, list) and isinstance(subspaces[0], list) \
+                and isinstance(subspaces[0][0], list):
+            _subspaces = copy.deepcopy(subspaces)
         else:
             # TODO: subspaces is easier to add more broadcast majic.
+            print("Warning: not broadcasting subspaces. The shape of the subspace may be incorrect.")
             pass
         return _subspaces
     
@@ -1551,6 +1562,7 @@ class IntervenableModel(BaseModel):
                     if self._intervene_on_prompt ^ is_prompt:
                         return  # no-op
                 if output is None:
+                    print("output is None")
                     if len(args) == 0:  # kwargs based calls
                         # PR: https://github.com/frankaging/align-transformers/issues/11
                         # We cannot assume the dict only contain one element
@@ -1564,6 +1576,17 @@ class IntervenableModel(BaseModel):
                 # TODO: need to figure out why clone is needed
                 if not self.is_model_stateless:
                     selected_output = selected_output.clone()
+
+                try:
+                    passin_kwargs = copy.deepcopy(kwargs)
+                    passin_kwargs["_pyvene_model_input_args"] = args
+                except Exception as e:
+                    # Capture and print the error message
+                    # print(f"An error occurred: {e}")
+                    passin_kwargs = {}
+                    passin_kwargs["_pyvene_model_input_args"] = args
+                passin_kwargs["_pyvene_model_output"] = output
+
                 
                 if isinstance(
                     intervention,
@@ -1574,6 +1597,7 @@ class IntervenableModel(BaseModel):
                         None,
                         intervention,
                         subspaces[key_i] if subspaces is not None else None,
+                        **passin_kwargs,
                     )
                     # fail if this is not a fresh collect
                     assert key not in self.activations
@@ -1589,6 +1613,7 @@ class IntervenableModel(BaseModel):
                                 None,
                                 intervention,
                                 subspaces[key_i] if subspaces is not None else None,
+                                **passin_kwargs,
                             )
                             if isinstance(raw_intervened_representation, InterventionOutput):
                                 self.full_intervention_outputs.append(raw_intervened_representation)
@@ -1605,6 +1630,7 @@ class IntervenableModel(BaseModel):
                                 ),
                                 intervention,
                                 subspaces[key_i] if subspaces is not None else None,
+                                **passin_kwargs,
                             )
                     else:
                         # highly unlikely it's a primitive intervention type
@@ -1617,6 +1643,7 @@ class IntervenableModel(BaseModel):
                             ),
                             intervention,
                             subspaces[key_i] if subspaces is not None else None,
+                            **passin_kwargs,
                         )
                     if intervened_representation is None:
                         return
@@ -2047,7 +2074,8 @@ class IntervenableModel(BaseModel):
         sources = [None]*len(self._intervention_group) if sources is None else sources
         sources = self._broadcast_sources(sources)
         activations_sources = self._broadcast_source_representations(activations_sources)
-        subspaces = self._broadcast_subspaces(get_batch_size(base), subspaces)
+        local_batch_size = get_batch_size(base)
+        subspaces = self._broadcast_subspaces(local_batch_size, subspaces)
         
         self._input_validation(
             base,
