@@ -256,9 +256,9 @@ class BaseModel(nn.Module):
         Print out basic info about this intervenable instance
         """
         attr_dict = {
-            "model_type": self.model_type,
-            "intervention_types": self.intervention_types,
-            "alignabls": self.sorted_keys,
+            "model_type": self.model_type.__name__,
+            "intervention_types": [type(v[0]).__name__ for (k, v) in self.interventions.items()],
+            "alignables": self.sorted_keys,
             "mode": self.mode,
         }
         return json.dumps(attr_dict, indent=4)
