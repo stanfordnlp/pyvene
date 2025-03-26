@@ -46,7 +46,31 @@ class IntervenableBasicTestCase(unittest.TestCase):
         )
         print(config)
         pv_gpt2 = pv.IntervenableModel(config, model=gpt2)
-        print(pv_gpt2)
+
+        intervened_outputs = pv_gpt2(
+            base = tokenizer(
+                "The capital of Spain is", 
+                return_tensors="pt"
+            ), 
+            unit_locations={"base": 3}
+        )
+
+    def test_less_lazy_demo(self):
+
+        _, tokenizer, gpt2 = pv.create_gpt2(cache_dir=self._test_dir)
+
+        config = pv.IntervenableConfig([
+            {
+                "layer": _,
+                "component": "mlp_output",
+                "source_representation": torch.zeros(
+                    gpt2.config.n_embd)
+            } for _ in range(4)],
+            mode="parallel"
+        )
+        print(config)
+        pv_gpt2 = pv.IntervenableModel(config, model=gpt2)
+
         intervened_outputs = pv_gpt2(
             base = tokenizer(
                 "The capital of Spain is", 
