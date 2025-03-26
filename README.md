@@ -40,15 +40,18 @@ To install the latest stable version of pyvene:
 pip install pyvene
 ```
 
-Alternatively, to install a bleeding-edge version, you can clone the repo and install:
+Alternatively, to install the development version, you can clone the repo and install:
 
 ```
 git clone git@github.com:stanfordnlp/pyvene.git
 cd pyvene
-pip install -e .
+pip install -e ".[dev]"
 ```
 
 When you want to update, you can just run `git pull` in the cloned directory.
+
+> [!IMPORTANT]
+> pyvene is also compatible with `uv`! You should be able to develop locally using a `uv` venv.
 
 We suggest importing the library as:
 
