@@ -1,6 +1,6 @@
 [project]
 name = "pyvene"
-version = "0.1.6"
+version = "0.1.7"
 description = "Use Activation Intervention to Interpret Causal Mechanism of Model"
 readme = "README.md"
 authors = [
@@ -9,12 +9,14 @@ authors = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache License 2.0",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
 ]
 license = { text = "Apache License 2.0" }
-requires-python = ">=3.9"
+requires-python = ">=3.8"
 dependencies = [
     "torch>=2.0.0",
     "transformers>=4.45.1",
@@ -28,6 +30,10 @@ dependencies = [
     "numpy>1.24.4",
     "fsspec>=2023.6.0",
     "accelerate>=0.34.2",
+]
+
+[project.optional-dependencies]
+dev = [
     "flake8>=7.1.1",
     "pytest>=8.3.4",
     "ipykernel>=6.29.5",
@@ -35,10 +41,26 @@ dependencies = [
 
 [project.urls]
 Documentation = "https://stanfordnlp.github.io/pyvene"
+Homepage = "https://github.com/stanfordnlp/pyvene"
+Repository = "https://github.com/stanfordnlp/pyvene.git"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pyvene"]
+
+[tool.hatch.build]
+include = [
+    "pyvene/**/*.py",
+    "pyvene/**/*.json",
+    "pyvene/**/*.yaml",
+    "pyvene/**/*.yml",
+    "pyvene/**/*.txt",
+    "pyvene/**/*.md",
+    "pyvene/**/*.ipynb",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -46,3 +68,11 @@ python_files = ["test_*.py"]
 python_classes = ["*Test", "Test*"]
 python_functions = ["test_*"]
 addopts = "-v"
+
+[tool.flake8]
+max-line-length = 127
+extend-ignore = ["E203"]
+exclude = [".git", "__pycache__", "build", "dist", "*.egg-info"]
+per-file-ignores = [
+    "__init__.py: F401"
+]
