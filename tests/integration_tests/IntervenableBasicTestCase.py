@@ -232,7 +232,7 @@ class IntervenableBasicTestCase(unittest.TestCase):
             def __init__(self, embed_dim, **kwargs):
                 super().__init__()
             def forward(
-            self, base, source=None, subspaces=None, **kwargs):
+            self, base, source=None, subspaces=None):
                 return base * 99.0
         # run with new intervention type
         pv_gpt2 = pv.IntervenableModel({

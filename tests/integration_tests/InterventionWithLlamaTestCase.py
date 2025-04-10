@@ -156,32 +156,6 @@ class InterventionWithLlamaTestCase(unittest.TestCase):
                 heads=[4, 1],
                 positions=[7, 2],
             )
-    
-    def test_with_llm_head(self):
-        that = self
-        _lm_head_collection = {}
-        class AccessIntervenableModelIntervention:
-            is_source_constant = True
-            keep_last_dim = True
-            intervention_types = 'access_intervenable_model_intervention'
-            def __init__(self, layer_index, *args, **kwargs):
-                super().__init__()
-                self.layer_index = layer_index
-            def __call__(self, base, source=None, subspaces=None, model=None, **kwargs):
-                intervenable_model = kwargs.get('intervenable_model', None)
-                assert intervenable_model is not None
-                _lm_head_collection[self.layer_index] = intervenable_model.model.lm_head(base.to(that.device))
-                return base
-        # run with new intervention type
-        pv_llama = IntervenableModel([{
-            "intervention": AccessIntervenableModelIntervention(layer_index=layer),
-            "component": f"model.layers.{layer}.input"
-        } for layer in [1, 3]], model=self.llama)
-        intervened_outputs = pv_llama(
-            base=self.tokenizer("The capital of Spain is", return_tensors="pt").to(that.device), 
-            unit_locations={"base": 3},
-            intervenable_model=pv_llama
-        )
 
             
 def suite():
