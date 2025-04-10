@@ -804,7 +804,6 @@ class IntervenableNdifModel(BaseModel):
         keys,
         unit_locations_base,
         subspaces,
-        **intervention_forward_kwargs
     ) -> HandlerList:
         """
         Create a list of setter tracer that will set activations
@@ -849,7 +848,6 @@ class IntervenableNdifModel(BaseModel):
                     None,
                     intervention,
                     subspaces[key_i] if subspaces is not None else None,
-                    **intervention_forward_kwargs
                 )
                 # fail if this is not a fresh collect
                 assert key not in self.activations
@@ -864,7 +862,6 @@ class IntervenableNdifModel(BaseModel):
                             None,
                             intervention,
                             subspaces[key_i] if subspaces is not None else None,
-                            **intervention_forward_kwargs
                         )
                     else:
                         intervened_representation = do_intervention(
@@ -876,7 +873,6 @@ class IntervenableNdifModel(BaseModel):
                             ),
                             intervention,
                             subspaces[key_i] if subspaces is not None else None,
-                            **intervention_forward_kwargs
                         )
                 else:
                     # highly unlikely it's a primitive intervention type
@@ -889,7 +885,6 @@ class IntervenableNdifModel(BaseModel):
                         ),
                         intervention,
                         subspaces[key_i] if subspaces is not None else None,
-                        **intervention_forward_kwargs
                     )
                 if intervened_representation is None:
                     return
@@ -975,7 +970,6 @@ class IntervenableNdifModel(BaseModel):
                             ]
                             if subspaces is not None
                             else None,
-                            **kwargs
                         )
             counterfactual_outputs = self.model.output.save()
         
@@ -1003,7 +997,6 @@ class IntervenableNdifModel(BaseModel):
         output_original_output: Optional[bool] = False,
         return_dict: Optional[bool] = None,
         use_cache: Optional[bool] = None,
-        **kwargs
     ):
         activations_sources = source_representations
         if sources is not None and not isinstance(sources, list):
@@ -1043,7 +1036,7 @@ class IntervenableNdifModel(BaseModel):
         try:
 
             # run intervened forward
-            model_kwargs = { **kwargs }
+            model_kwargs = {}
             if labels is not None: # for training
                 model_kwargs["labels"] = labels
             if use_cache is not None and 'use_cache' in self.model.config.to_dict(): # for transformer models
@@ -1533,7 +1526,6 @@ class IntervenableModel(BaseModel):
         keys,
         unit_locations_base,
         subspaces,
-        **intervention_forward_kwargs
     ) -> HandlerList:
         """
         Create a list of setter handlers that will set activations
@@ -1581,7 +1573,6 @@ class IntervenableModel(BaseModel):
                         None,
                         intervention,
                         subspaces[key_i] if subspaces is not None else None,
-                        **intervention_forward_kwargs
                     )
                     # fail if this is not a fresh collect
                     assert key not in self.activations
@@ -1597,7 +1588,6 @@ class IntervenableModel(BaseModel):
                                 None,
                                 intervention,
                                 subspaces[key_i] if subspaces is not None else None,
-                                **intervention_forward_kwargs
                             )
                             if isinstance(raw_intervened_representation, InterventionOutput):
                                 self.full_intervention_outputs.append(raw_intervened_representation)
@@ -1614,7 +1604,6 @@ class IntervenableModel(BaseModel):
                                 ),
                                 intervention,
                                 subspaces[key_i] if subspaces is not None else None,
-                                **intervention_forward_kwargs
                             )
                     else:
                         # highly unlikely it's a primitive intervention type
@@ -1627,7 +1616,6 @@ class IntervenableModel(BaseModel):
                             ),
                             intervention,
                             subspaces[key_i] if subspaces is not None else None,
-                            **intervention_forward_kwargs
                         )
                     if intervened_representation is None:
                         return
@@ -1695,7 +1683,6 @@ class IntervenableModel(BaseModel):
         unit_locations,
         activations_sources: Optional[Dict] = None,
         subspaces: Optional[List] = None,
-        **intervention_forward_kwargs
     ):
         # torch.autograd.set_detect_anomaly(True)
         all_set_handlers = HandlerList([])
@@ -1751,7 +1738,6 @@ class IntervenableModel(BaseModel):
                         ]
                         if subspaces is not None
                         else None,
-                         **intervention_forward_kwargs
                     )
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)
@@ -1763,7 +1749,6 @@ class IntervenableModel(BaseModel):
         unit_locations,
         activations_sources: Optional[Dict] = None,
         subspaces: Optional[List] = None,
-         **intervention_forward_kwargs
     ):
         all_set_handlers = HandlerList([])
         for group_id, keys in self._intervention_group.items():
@@ -1820,7 +1805,6 @@ class IntervenableModel(BaseModel):
                         ]
                         if subspaces is not None
                         else None,
-                         **intervention_forward_kwargs
                     )
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)
@@ -1837,7 +1821,6 @@ class IntervenableModel(BaseModel):
         output_original_output: Optional[bool] = False,
         return_dict: Optional[bool] = None,
         use_cache: Optional[bool] = None,
-        **intervention_forward_kwargs
     ):
         """
         Main forward function that serves a wrapper to
@@ -1946,7 +1929,6 @@ class IntervenableModel(BaseModel):
                         unit_locations,
                         activations_sources,
                         subspaces,
-                        **intervention_forward_kwargs
                     )
                 )
             elif self.mode == "serial":
@@ -1956,7 +1938,6 @@ class IntervenableModel(BaseModel):
                         unit_locations,
                         activations_sources,
                         subspaces,
-                        **intervention_forward_kwargs
                     )
                 )
 
@@ -2090,7 +2071,6 @@ class IntervenableModel(BaseModel):
                         unit_locations,
                         activations_sources,
                         subspaces,
-                        **kwargs
                     )
                 )
             elif self.mode == "serial":
@@ -2100,7 +2080,6 @@ class IntervenableModel(BaseModel):
                         unit_locations,
                         activations_sources,
                         subspaces,
-                        **kwargs
                     )
                 )
             
