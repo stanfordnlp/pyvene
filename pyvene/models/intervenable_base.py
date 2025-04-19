@@ -49,8 +49,6 @@ class BaseModel(nn.Module):
 
     def __init__(self, config, model, backend, **kwargs):
         super().__init__()
-        
-        super().__init__()
         if isinstance(config, dict) or isinstance(config, list):
             config = IntervenableConfig(
                 representations = config
@@ -64,7 +62,11 @@ class BaseModel(nn.Module):
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
         # if as_adaptor is turn on, we pass in the input args to the intervention
         self.as_adaptor = kwargs["as_adaptor"] if "as_adaptor" in kwargs else False
-
+        if self.as_adaptor:
+            logging.warn(
+                "as_adaptor is turned on. This means the intervention will take "
+                "the input arguments of the intervening module as well."
+            )
         self.model_has_grad = False
         if self.use_fast:
             logging.warn(
@@ -1572,13 +1574,15 @@ class IntervenableModel(BaseModel):
                     selected_output = selected_output.clone()
                 
                 if self.as_adaptor:
-                    intervention_additional_kwargs["component_input_args"] = args
-
+                    intervention_additional_kwargs["args"] = args
+                    intervention_additional_kwargs["kwargs"] = kwargs
+                    
                 if isinstance(
                     intervention,
                     CollectIntervention
                 ):
                     # TODO: this is a little hacky, we should probably refactor this
+                    #       it is just to prevent tests to fail.
                     if len(intervention_additional_kwargs) > 0:
                         intervened_representation = do_intervention(
                             selected_output,
@@ -1608,12 +1612,21 @@ class IntervenableModel(BaseModel):
                 else:
                     if not isinstance(self.interventions[key], LambdaIntervention):
                         if intervention.is_source_constant:
-                            raw_intervened_representation = do_intervention(
-                                selected_output,
-                                None,
-                                intervention,
-                                subspaces[key_i] if subspaces is not None else None,
-                            )
+                            if len(intervention_additional_kwargs) > 0:
+                                raw_intervened_representation = do_intervention(
+                                    selected_output,
+                                    None,
+                                    intervention,
+                                    subspaces[key_i] if subspaces is not None else None,
+                                    **intervention_additional_kwargs,
+                                )
+                            else:
+                                raw_intervened_representation = do_intervention(
+                                    selected_output,
+                                    None,
+                                    intervention,
+                                    subspaces[key_i] if subspaces is not None else None,
+                                )
                             if isinstance(raw_intervened_representation, InterventionOutput):
                                 self.full_intervention_outputs.append(raw_intervened_representation)
                                 intervened_representation = raw_intervened_representation.output
