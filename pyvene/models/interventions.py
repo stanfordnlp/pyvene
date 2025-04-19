@@ -153,7 +153,7 @@ class ZeroIntervention(ConstantSourceIntervention, LocalistRepresentationInterve
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         
-    def forward(self, base, source=None, subspaces=None):
+    def forward(self, base, source=None, subspaces=None, **kwargs):
         return _do_intervention_by_swap(
             base,
             torch.zeros_like(base),
@@ -175,7 +175,7 @@ class CollectIntervention(ConstantSourceIntervention):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         
-    def forward(self, base, source=None, subspaces=None):
+    def forward(self, base, source=None, subspaces=None, **kwargs):
         return _do_intervention_by_swap(
             base,
             source,
@@ -197,7 +197,7 @@ class SkipIntervention(BasisAgnosticIntervention, LocalistRepresentationInterven
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         
-    def forward(self, base, source, subspaces=None):
+    def forward(self, base, source, subspaces=None, **kwargs):
         # source here is the base example input to the hook
         return _do_intervention_by_swap(
             base,
@@ -220,7 +220,7 @@ class VanillaIntervention(Intervention, LocalistRepresentationIntervention):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def forward(self, base, source, subspaces=None): 
+    def forward(self, base, source, subspaces=None, **kwargs): 
         return _do_intervention_by_swap(
             base,
             source if self.source_representation is None else self.source_representation,
@@ -242,7 +242,7 @@ class AdditionIntervention(BasisAgnosticIntervention, LocalistRepresentationInte
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def forward(self, base, source, subspaces=None):
+    def forward(self, base, source, subspaces=None, **kwargs):
         return _do_intervention_by_swap(
             base,
             source if self.source_representation is None else self.source_representation,
@@ -264,7 +264,7 @@ class SubtractionIntervention(BasisAgnosticIntervention, LocalistRepresentationI
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def forward(self, base, source, subspaces=None):
+    def forward(self, base, source, subspaces=None, **kwargs):
         
         return _do_intervention_by_swap(
             base,
@@ -289,7 +289,7 @@ class RotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationI
         rotate_layer = RotateLayer(self.embed_dim)
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
 
-    def forward(self, base, source, subspaces=None):
+    def forward(self, base, source, subspaces=None, **kwargs):
         rotated_base = self.rotate_layer(base)
         rotated_source = self.rotate_layer(source)
         # interchange
@@ -340,7 +340,7 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention, DistributedRepres
             torch.tensor([intervention_boundaries]), requires_grad=True
         )
         
-    def forward(self, base, source, subspaces=None):
+    def forward(self, base, source, subspaces=None, **kwargs):
         batch_size = base.shape[0]
         rotated_base = self.rotate_layer(base)
         rotated_source = self.rotate_layer(source)
@@ -391,7 +391,7 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention, DistributedRepr
     def set_temperature(self, temp: torch.Tensor):
         self.temperature.data = temp
 
-    def forward(self, base, source, subspaces=None):
+    def forward(self, base, source, subspaces=None, **kwargs):
         batch_size = base.shape[0]
         rotated_base = self.rotate_layer(base)
         rotated_source = self.rotate_layer(source)
@@ -431,7 +431,7 @@ class SigmoidMaskIntervention(TrainableIntervention, LocalistRepresentationInter
     def set_temperature(self, temp: torch.Tensor):
         self.temperature.data = temp
 
-    def forward(self, base, source, subspaces=None):
+    def forward(self, base, source, subspaces=None, **kwargs):
         batch_size = base.shape[0]
         # get boundary mask between 0 and 1 from sigmoid
         mask_sigmoid = torch.sigmoid(self.mask / torch.tensor(self.temperature)) 
@@ -456,7 +456,7 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresen
         rotate_layer = LowRankRotateLayer(self.embed_dim, kwargs["low_rank_dimension"])
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
 
-    def forward(self, base, source, subspaces=None):
+    def forward(self, base, source, subspaces=None, **kwargs):
         rotated_base = self.rotate_layer(base)
         rotated_source = self.rotate_layer(source)
         if subspaces is not None:
@@ -529,7 +529,7 @@ class PCARotatedSpaceIntervention(BasisAgnosticIntervention, DistributedRepresen
         )
         self.trainable = False
 
-    def forward(self, base, source, subspaces=None):
+    def forward(self, base, source, subspaces=None, **kwargs):
         base_norm = (base - self.pca_mean) / self.pca_std
         source_norm = (source - self.pca_mean) / self.pca_std
 
@@ -565,7 +565,7 @@ class NoiseIntervention(ConstantSourceIntervention, LocalistRepresentationInterv
             prng(1, 4, self.embed_dim)))
         self.register_buffer('noise_level', torch.tensor(noise_level))
         
-    def forward(self, base, source=None, subspaces=None):
+    def forward(self, base, source=None, subspaces=None, **kwargs):
         base[..., : self.interchange_dim] += self.noise * self.noise_level
         return base
 
@@ -585,7 +585,7 @@ class AutoencoderIntervention(TrainableIntervention):
         self.autoencoder = AutoencoderLayer(
                 self.embed_dim, kwargs["latent_dim"])
 
-    def forward(self, base, source, subspaces=None):
+    def forward(self, base, source, subspaces=None, **kwargs):
         base_dtype = base.dtype
         base = base.to(self.autoencoder.encoder[0].weight.dtype)
         base_latent = self.autoencoder.encode(base)
@@ -619,7 +619,7 @@ class JumpReLUAutoencoderIntervention(TrainableIntervention):
     def decode(self, acts):
         return acts @ self.W_dec + self.b_dec
 
-    def forward(self, base, source=None, subspaces=None):
+    def forward(self, base, source=None, subspaces=None, **kwargs):
         # generate latents for base and source runs.
         base_latent = self.encode(base)
         source_latent = self.encode(source)
