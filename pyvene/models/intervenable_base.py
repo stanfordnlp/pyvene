@@ -805,6 +805,7 @@ class IntervenableNdifModel(BaseModel):
         keys,
         unit_locations_base,
         subspaces,
+        intervention_additional_kwargs: Optional[Dict] = None,
     ) -> HandlerList:
         """
         Create a list of setter tracer that will set activations
@@ -1830,6 +1831,7 @@ class IntervenableModel(BaseModel):
                         ]
                         if subspaces is not None
                         else None,
+                        intervention_additional_kwargs,
                     )
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)
