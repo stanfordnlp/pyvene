@@ -1544,6 +1544,10 @@ class IntervenableModel(BaseModel):
                     0 for _ in range(len(unit_locations_base[0]))
                 ]  # batch_size
 
+            # pass in the args to the intervention
+            if intervention_additional_kwargs is None:
+                intervention_additional_kwargs = {}
+
             def hook_callback(model, args, kwargs, output=None):
                 # if it is None, we use it as adaptor.
                 if unit_locations_base[key_i] is not None and self._is_generation:
@@ -1567,9 +1571,6 @@ class IntervenableModel(BaseModel):
                 if not self.is_model_stateless:
                     selected_output = selected_output.clone()
                 
-                # pass in the args to the intervention
-                if intervention_additional_kwargs is None:
-                    intervention_additional_kwargs = {}
                 if self.as_adaptor:
                     intervention_additional_kwargs["component_input_args"] = args
 
