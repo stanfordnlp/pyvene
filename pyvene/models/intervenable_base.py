@@ -805,7 +805,7 @@ class IntervenableNdifModel(BaseModel):
         keys,
         unit_locations_base,
         subspaces,
-        intervention_additional_kwargs: Optional[Dict] = None,
+        intervention_additional_kwargs,
     ) -> HandlerList:
         """
         Create a list of setter tracer that will set activations
@@ -1528,7 +1528,7 @@ class IntervenableModel(BaseModel):
         keys,
         unit_locations_base,
         subspaces,
-        intervention_additional_kwargs: Optional[Dict] = None,
+        intervention_additional_kwargs,
     ) -> HandlerList:
         """
         Create a list of setter handlers that will set activations
@@ -1763,7 +1763,7 @@ class IntervenableModel(BaseModel):
                         ]
                         if subspaces is not None
                         else None,
-                        intervention_additional_kwargs,
+                        intervention_additional_kwargs=intervention_additional_kwargs,
                     )
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)
@@ -1775,6 +1775,7 @@ class IntervenableModel(BaseModel):
         unit_locations,
         activations_sources: Optional[Dict] = None,
         subspaces: Optional[List] = None,
+        intervention_additional_kwargs: Optional[Dict] = None,
     ):
         all_set_handlers = HandlerList([])
         for group_id, keys in self._intervention_group.items():
@@ -1831,7 +1832,7 @@ class IntervenableModel(BaseModel):
                         ]
                         if subspaces is not None
                         else None,
-                        intervention_additional_kwargs,
+                        intervention_additional_kwargs=intervention_additional_kwargs,
                     )
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)
