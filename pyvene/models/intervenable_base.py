@@ -49,8 +49,6 @@ class BaseModel(nn.Module):
 
     def __init__(self, config, model, backend, **kwargs):
         super().__init__()
-        
-        super().__init__()
         if isinstance(config, dict) or isinstance(config, list):
             config = IntervenableConfig(
                 representations = config
@@ -62,8 +60,13 @@ class BaseModel(nn.Module):
         self.is_model_stateless = is_stateless(model)
         self.config.model_type = str(type(model)) # backfill
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
+        # if as_adaptor is turn on, we pass in the input args to the intervention
         self.as_adaptor = kwargs["as_adaptor"] if "as_adaptor" in kwargs else False
-
+        if self.as_adaptor:
+            logging.warn(
+                "as_adaptor is turned on. This means the intervention will take "
+                "the input arguments of the intervening module as well."
+            )
         self.model_has_grad = False
         if self.use_fast:
             logging.warn(
@@ -804,6 +807,7 @@ class IntervenableNdifModel(BaseModel):
         keys,
         unit_locations_base,
         subspaces,
+        intervention_additional_kwargs,
     ) -> HandlerList:
         """
         Create a list of setter tracer that will set activations
@@ -1526,6 +1530,7 @@ class IntervenableModel(BaseModel):
         keys,
         unit_locations_base,
         subspaces,
+        intervention_additional_kwargs,
     ) -> HandlerList:
         """
         Create a list of setter handlers that will set activations
@@ -1540,6 +1545,10 @@ class IntervenableModel(BaseModel):
                 self._batched_setter_activation_select[key] = [
                     0 for _ in range(len(unit_locations_base[0]))
                 ]  # batch_size
+
+            # pass in the args to the intervention
+            if intervention_additional_kwargs is None:
+                intervention_additional_kwargs = {}
 
             def hook_callback(model, args, kwargs, output=None):
                 # if it is None, we use it as adaptor.
@@ -1564,31 +1573,60 @@ class IntervenableModel(BaseModel):
                 if not self.is_model_stateless:
                     selected_output = selected_output.clone()
                 
+                if self.as_adaptor:
+                    intervention_additional_kwargs["args"] = args
+                    intervention_additional_kwargs["kwargs"] = kwargs
+                    
                 if isinstance(
                     intervention,
                     CollectIntervention
                 ):
-                    intervened_representation = do_intervention(
-                        selected_output,
-                        None,
-                        intervention,
-                        subspaces[key_i] if subspaces is not None else None,
-                    )
-                    # fail if this is not a fresh collect
-                    assert key not in self.activations
-                    
-                    self.activations[key] = intervened_representation
+                    # TODO: this is a little hacky, we should probably refactor this
+                    #       it is just to prevent tests to fail.
+                    if len(intervention_additional_kwargs) > 0:
+                        intervened_representation = do_intervention(
+                            selected_output,
+                            None,
+                            intervention,
+                            subspaces[key_i] if subspaces is not None else None,
+                            **intervention_additional_kwargs,
+                        )
+                    else:
+                        intervened_representation = do_intervention(
+                            selected_output,
+                            None,
+                            intervention,
+                            subspaces[key_i] if subspaces is not None else None,
+                        )
+                    # TODO: avoid failing if this is not a fresh collect
+                    # this is to support collection during generation
+                    # assert key not in self.activations
+
+                    if key not in self.activations:
+                        self.activations[key] = [intervened_representation]
+                    else:
+                        # turn it into a list and then append
+                        self.activations[key].append(intervened_representation)
                     # no-op to the output
                     
                 else:
                     if not isinstance(self.interventions[key], LambdaIntervention):
                         if intervention.is_source_constant:
-                            raw_intervened_representation = do_intervention(
-                                selected_output,
-                                None,
-                                intervention,
-                                subspaces[key_i] if subspaces is not None else None,
-                            )
+                            if len(intervention_additional_kwargs) > 0:
+                                raw_intervened_representation = do_intervention(
+                                    selected_output,
+                                    None,
+                                    intervention,
+                                    subspaces[key_i] if subspaces is not None else None,
+                                    **intervention_additional_kwargs,
+                                )
+                            else:
+                                raw_intervened_representation = do_intervention(
+                                    selected_output,
+                                    None,
+                                    intervention,
+                                    subspaces[key_i] if subspaces is not None else None,
+                                )
                             if isinstance(raw_intervened_representation, InterventionOutput):
                                 self.full_intervention_outputs.append(raw_intervened_representation)
                                 intervened_representation = raw_intervened_representation.output
@@ -1683,6 +1721,7 @@ class IntervenableModel(BaseModel):
         unit_locations,
         activations_sources: Optional[Dict] = None,
         subspaces: Optional[List] = None,
+        intervention_additional_kwargs: Optional[Dict] = None,
     ):
         # torch.autograd.set_detect_anomaly(True)
         all_set_handlers = HandlerList([])
@@ -1738,6 +1777,7 @@ class IntervenableModel(BaseModel):
                         ]
                         if subspaces is not None
                         else None,
+                        intervention_additional_kwargs=intervention_additional_kwargs,
                     )
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)
@@ -1749,6 +1789,7 @@ class IntervenableModel(BaseModel):
         unit_locations,
         activations_sources: Optional[Dict] = None,
         subspaces: Optional[List] = None,
+        intervention_additional_kwargs: Optional[Dict] = None,
     ):
         all_set_handlers = HandlerList([])
         for group_id, keys in self._intervention_group.items():
@@ -1805,6 +1846,7 @@ class IntervenableModel(BaseModel):
                         ]
                         if subspaces is not None
                         else None,
+                        intervention_additional_kwargs=intervention_additional_kwargs,
                     )
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)
@@ -1821,6 +1863,7 @@ class IntervenableModel(BaseModel):
         output_original_output: Optional[bool] = False,
         return_dict: Optional[bool] = None,
         use_cache: Optional[bool] = None,
+        intervention_additional_kwargs: Optional[Dict] = None,
     ):
         """
         Main forward function that serves a wrapper to
@@ -1929,6 +1972,7 @@ class IntervenableModel(BaseModel):
                         unit_locations,
                         activations_sources,
                         subspaces,
+                        intervention_additional_kwargs,
                     )
                 )
             elif self.mode == "serial":
@@ -1938,6 +1982,7 @@ class IntervenableModel(BaseModel):
                         unit_locations,
                         activations_sources,
                         subspaces,
+                        intervention_additional_kwargs,
                     )
                 )
 
@@ -2000,6 +2045,7 @@ class IntervenableModel(BaseModel):
         intervene_on_prompt: bool = False,
         subspaces: Optional[List] = None,
         output_original_output: Optional[bool] = False,
+        intervention_additional_kwargs: Optional[Dict] = None,
         **kwargs,
     ):
         """
@@ -2071,6 +2117,7 @@ class IntervenableModel(BaseModel):
                         unit_locations,
                         activations_sources,
                         subspaces,
+                        intervention_additional_kwargs,
                     )
                 )
             elif self.mode == "serial":
@@ -2080,6 +2127,7 @@ class IntervenableModel(BaseModel):
                         unit_locations,
                         activations_sources,
                         subspaces,
+                        intervention_additional_kwargs,
                     )
                 )
             
