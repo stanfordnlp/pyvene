@@ -1574,8 +1574,17 @@ class IntervenableModel(BaseModel):
                     selected_output = selected_output.clone()
                 
                 if self.as_adaptor:
-                    intervention_additional_kwargs["args"] = args
-                    intervention_additional_kwargs["kwargs"] = kwargs
+                    adaptor_input = None
+                    if len(args) == 0:  # kwargs based calls
+                        # PR: https://github.com/frankaging/align-transformers/issues/11
+                        # We cannot assume the dict only contain one element
+                        adaptor_input = kwargs[list(kwargs.keys())[0]]
+                    else:
+                        adaptor_input = args
+                    selected_input = self._gather_intervention_output(
+                        adaptor_input, key, unit_locations_base[key_i]
+                    )
+                    intervention_additional_kwargs["args"] = selected_input
                     
                 if isinstance(
                     intervention,
