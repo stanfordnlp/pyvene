@@ -63,13 +63,13 @@ class BaseModel(nn.Module):
         # if as_adaptor is turn on, we pass in the input args to the intervention
         self.as_adaptor = kwargs["as_adaptor"] if "as_adaptor" in kwargs else False
         if self.as_adaptor:
-            logging.warn(
+            logging.warning(
                 "as_adaptor is turned on. This means the intervention will take "
                 "the input arguments of the intervening module as well."
             )
         self.model_has_grad = False
         if self.use_fast:
-            logging.warn(
+            logging.warning(
                 "Detected use_fast=True means the intervention location "
                 "will be static within a batch.\n\nIn case multiple "
                 "location tags are passed only the first one will "
@@ -184,7 +184,7 @@ class BaseModel(nn.Module):
             if representation.group_key is not None:
                 _any_group_key = True
         if self.config.sorted_keys is not None:
-            logging.warn(
+            logging.warning(
                 "The key is provided in the config. "
                 "Assuming this is loaded from a pretrained module."
             )
@@ -1879,7 +1879,7 @@ class IntervenableModel(BaseModel):
         actual model forward calls. It will use forward
         hooks to do interventions.
 
-        In essense, sources will lead to getter hooks to
+        In essence, sources will lead to getter hooks to
         get activations. We will use these activations to
         intervene on our base example.
 
@@ -1919,7 +1919,7 @@ class IntervenableModel(BaseModel):
         subspaces is a list of indices indicating which subspace will
         this intervention target given an example in the batch.
 
-        An intervention could be initialized with subspace parition as,
+        An intervention could be initialized with subspace partition as,
         [[... subspace_1 ...], [... subspace_2 ...], [rest]]
 
         An intervention may be targeting a specific partition.
@@ -1933,7 +1933,7 @@ class IntervenableModel(BaseModel):
 
         Only setter (where do_intervention is called) needs this field.
 
-        *We assume base and source targetting the same subspace for now.
+        *We assume base and source targeting the same subspace for now.
         *We assume only a single space is targeted for now (although 2d list is provided).
 
         Since we now support group-based intervention, the number of sources
@@ -2182,7 +2182,7 @@ class IntervenableModel(BaseModel):
         Each location list in the raw input as,
 
         [[i, j, ...], [m, n, ...], ...] batched
-        where i, j are the unit index, the outter
+        where i, j are the unit index, the outer
         list is for the batch
 
 
