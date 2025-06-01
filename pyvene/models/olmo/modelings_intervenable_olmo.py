@@ -84,6 +84,7 @@ def create_olmo(
             config=config,
             cache_dir=cache_dir,
             torch_dtype=dtype,
+            revision=revision,
         )
         tokenizer = AutoTokenizer.from_pretrained(name, cache_dir=cache_dir)
     else:
