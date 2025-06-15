@@ -36,15 +36,15 @@ qwen2_type_to_dimension_mapping = {
     "mlp_output": ("hidden_size",),
     "mlp_input": ("hidden_size",),
     "attention_value_output": ("hidden_size",),
-    "head_attention_value_output": ("head_dim",),
+    "head_attention_value_output": ("hidden_size/num_attention_heads",),
     "attention_output": ("hidden_size",),
     "attention_input": ("hidden_size",),
     "query_output": ("hidden_size",),
     "key_output": ("hidden_size",),
     "value_output": ("hidden_size",),
-    "head_query_output": ("head_dim",),
-    "head_key_output": ("head_dim",),
-    "head_value_output": ("head_dim",),
+    "head_query_output": ("hidden_size/num_attention_heads",),
+    "head_key_output": ("hidden_size/num_attention_heads",),
+    "head_value_output": ("hidden_size/num_attention_heads",),
 }
 
 """qwen2 model with LM head"""
