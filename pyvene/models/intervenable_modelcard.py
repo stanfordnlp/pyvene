@@ -15,6 +15,7 @@ from .llava.modelings_intervenable_llava import *
 from .qwen2.modelings_intervenable_qwen2 import * 
 from .olmo.modelings_intervenable_olmo import *
 from .esm.modelings_intervenable_esm import *
+from .mllama.modelings_intervenable_mllama import *
 
 #########################################################################
 """
@@ -78,6 +79,7 @@ type_to_module_mapping = {
     hf_models.qwen2.modeling_qwen2.Qwen2Model: qwen2_type_to_module_mapping,
     hf_models.qwen2.modeling_qwen2.Qwen2ForCausalLM: qwen2_lm_type_to_module_mapping,
     hf_models.qwen2.modeling_qwen2.Qwen2ForSequenceClassification: qwen2_classifier_type_to_module_mapping,
+    hf_models.mllama.modeling_mllama.MllamaForConditionalGeneration: mllama_type_to_module_mapping,
 }
 if enable_blip:
     type_to_module_mapping[BlipWrapper] = blip_wrapper_type_to_module_mapping
@@ -117,6 +119,7 @@ type_to_dimension_mapping = {
     hf_models.qwen2.modeling_qwen2.Qwen2Model: qwen2_type_to_dimension_mapping,
     hf_models.qwen2.modeling_qwen2.Qwen2ForCausalLM: qwen2_lm_type_to_dimension_mapping,
     hf_models.qwen2.modeling_qwen2.Qwen2ForSequenceClassification: qwen2_classifier_type_to_dimension_mapping,
+    hf_models.mllama.modeling_mllama.MllamaForConditionalGeneration: mllama_type_to_dimension_mapping,
 }
 
 if enable_blip:
