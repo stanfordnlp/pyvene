@@ -13,6 +13,7 @@ from .blip.modelings_intervenable_blip_itm import *
 from .backpack_gpt2.modelings_intervenable_backpack_gpt2 import *
 from .llava.modelings_intervenable_llava import *
 from .olmo.modelings_intervenable_olmo import *
+from .olmo2.modelings_intervenable_olmo2 import *
 
 #########################################################################
 """
@@ -62,7 +63,9 @@ type_to_module_mapping = {
     hf_models.gemma2.modeling_gemma2.Gemma2Model: gemma2_type_to_module_mapping,
     hf_models.gemma2.modeling_gemma2.Gemma2ForCausalLM: gemma2_lm_type_to_module_mapping,
     hf_models.olmo.modeling_olmo.OlmoModel: olmo_type_to_module_mapping,
-    hf_models.olmo.modeling_olmo.OlmoForCausalLM: olmo_lm_type_to_module_mapping,  
+    hf_models.olmo.modeling_olmo.OlmoForCausalLM: olmo_lm_type_to_module_mapping,
+    hf_models.olmo2.modeling_olmo2.Olmo2Model: olmo2_type_to_module_mapping,
+    hf_models.olmo2.modeling_olmo2.Olmo2ForCausalLM: olmo2_lm_type_to_module_mapping,
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_module_mapping,
     hf_models.blip.modeling_blip.BlipForImageTextRetrieval: blip_itm_type_to_module_mapping,
     MLPModel: mlp_type_to_module_mapping,
@@ -97,7 +100,9 @@ type_to_dimension_mapping = {
     hf_models.gemma2.modeling_gemma2.Gemma2Model: gemma2_type_to_dimension_mapping,
     hf_models.gemma2.modeling_gemma2.Gemma2ForCausalLM: gemma2_lm_type_to_dimension_mapping,
     hf_models.olmo.modeling_olmo.OlmoModel: olmo_type_to_dimension_mapping,
-    hf_models.olmo.modeling_olmo.OlmoForCausalLM: olmo_lm_type_to_dimension_mapping, 
+    hf_models.olmo.modeling_olmo.OlmoForCausalLM: olmo_lm_type_to_dimension_mapping,
+    hf_models.olmo2.modeling_olmo2.Olmo2Model: olmo2_type_to_dimension_mapping,
+    hf_models.olmo2.modeling_olmo2.Olmo2ForCausalLM: olmo2_lm_type_to_dimension_mapping,
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_dimension_mapping,
     hf_models.blip.modeling_blip.BlipForImageTextRetrieval: blip_itm_type_to_dimension_mapping,
     MLPModel: mlp_type_to_dimension_mapping,
