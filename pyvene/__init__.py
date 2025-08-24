@@ -2,7 +2,11 @@
 
 # Generic APIs
 from .data_generators.causal_model import CausalModel
-from .models.intervenable_base import IntervenableModel, IntervenableNdifModel, build_intervenable_model
+from .models.intervenable_base import (
+    IntervenableModel,
+    IntervenableNdifModel,
+    build_intervenable_model,
+)
 from .models.configuration_intervenable_model import IntervenableConfig
 from .models.configuration_intervenable_model import RepresentationConfig
 
@@ -37,7 +41,10 @@ from .models.interventions import InterventionOutput
 # Utils
 from .models.basic_utils import *
 from .models.intervention_utils import _do_intervention_by_swap
-from .models.intervenable_modelcard import type_to_module_mapping, type_to_dimension_mapping
+from .models.intervenable_modelcard import (
+    type_to_module_mapping,
+    type_to_dimension_mapping,
+)
 from .models.gpt2.modelings_intervenable_gpt2 import create_gpt2
 from .models.gpt2.modelings_intervenable_gpt2 import create_gpt2_lm
 from .models.blip.modelings_intervenable_blip import create_blip
@@ -51,5 +58,8 @@ from .models.llava.modelings_intervenable_llava import create_llava
 from .models.gru.modelings_gru import GRUConfig
 from .models.llama.modelings_intervenable_llama import create_llama
 from .models.mlp.modelings_intervenable_mlp import create_mlp_classifier
-from .models.backpack_gpt2.modelings_intervenable_backpack_gpt2 import create_backpack_gpt2
-
+from .models.backpack_gpt2.modelings_intervenable_backpack_gpt2 import (
+    create_backpack_gpt2,
+)
+from .models.olmo.modelings_intervenable_olmo import create_olmo
+from .models.gpt_oss.modelings_intervenable_gpt_oss import create_gpt_oss

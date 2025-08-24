@@ -1,6 +1,6 @@
 <br />
 <div align="center">
-  <h1 align="center"><img src="https://i.ibb.co/BNkhQH3/pyvene-logo.png"></h1>
+  <h1 align="center"><img src="https://i.ibb.co/BNkhQH3/pyvene-logo.png" height="100"></h1>
   <a href="https://arxiv.org/abs/2403.07809"><strong>Read our paper »</strong></a> | <a href="https://stanfordnlp.github.io/pyvene/"><strong>Read the docs »</strong></a>
 </div>     
 

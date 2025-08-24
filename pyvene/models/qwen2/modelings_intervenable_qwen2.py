@@ -2,19 +2,14 @@
 Each modeling file in this library is a mapping between
 abstract naming of intervention anchor points and actual
 model module defined in the huggingface library.
-
 We also want to let the intervention library know how to
 config the dimensions of intervention based on model config
 defined in the huggingface library.
 """
-
-
 import torch
-from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 from ..constants import *
 
-
-olmo_type_to_module_mapping = {
+qwen2_type_to_module_mapping = {
     "block_input": ("layers[%s]", CONST_INPUT_HOOK),
     "block_output": ("layers[%s]", CONST_OUTPUT_HOOK),
     "mlp_activation": ("layers[%s].mlp.act_fn", CONST_OUTPUT_HOOK),
@@ -32,10 +27,9 @@ olmo_type_to_module_mapping = {
     "head_value_output": ("layers[%s].self_attn.v_proj", CONST_OUTPUT_HOOK, (split_head_and_permute, "n_kv_head")),
 }
 
-
-olmo_type_to_dimension_mapping = {
+qwen2_type_to_dimension_mapping = {
     "n_head": ("num_attention_heads",),
-    "n_kv_head": ("num_key_value_heads",),
+    "n_kv_head": ("num_key_value_heads",), 
     "block_input": ("hidden_size",),
     "block_output": ("hidden_size",),
     "mlp_activation": ("intermediate_size",),
@@ -53,42 +47,31 @@ olmo_type_to_dimension_mapping = {
     "head_value_output": ("hidden_size/num_attention_heads",),
 }
 
+"""qwen2 model with LM head"""
+qwen2_lm_type_to_module_mapping = {}
+for k, v in qwen2_type_to_module_mapping.items():
+    qwen2_lm_type_to_module_mapping[k] = (f"model.{v[0]}", ) + v[1:]
+qwen2_lm_type_to_dimension_mapping = qwen2_type_to_dimension_mapping
 
-"""olmo model with LM head"""
-olmo_lm_type_to_module_mapping = {}
-for k, v in olmo_type_to_module_mapping.items():
-    olmo_lm_type_to_module_mapping[k] = (f"model.{v[0]}", ) + v[1:]
+"""qwen2 model with classifier head"""
+qwen2_classifier_type_to_module_mapping = {}
+for k, v in qwen2_type_to_module_mapping.items():
+    qwen2_classifier_type_to_module_mapping[k] = (f"model.{v[0]}", ) + v[1:]
+qwen2_classifier_type_to_dimension_mapping = qwen2_type_to_dimension_mapping
 
-
-olmo_lm_type_to_dimension_mapping = olmo_type_to_dimension_mapping
-
-
-"""olmo model with classifier head"""
-olmo_classifier_type_to_module_mapping = {}
-for k, v in olmo_type_to_module_mapping.items():
-    olmo_classifier_type_to_module_mapping[k] = (f"model.{v[0]}", ) + v[1:]
-
-
-olmo_classifier_type_to_dimension_mapping = olmo_type_to_dimension_mapping
-
-
-def create_olmo(
-    name="allenai/OLMo-7B-0424-hf", cache_dir=None, dtype=torch.bfloat16, config=None,
-    revision='main'
+def create_qwen2(
+    name="Qwen/Qwen2-7B-beta", cache_dir=None, dtype=torch.bfloat16
 ):
-    """Creates a OLMo Causal LM model, config, and tokenizer from the given name and revision"""
-    if config is None:
-        config = AutoConfig.from_pretrained(name, cache_dir=cache_dir)
-        olmo = AutoModelForCausalLM.from_pretrained(
-            name,
-            config=config,
-            cache_dir=cache_dir,
-            torch_dtype=dtype,
-            revision=revision,
-        )
-        tokenizer = AutoTokenizer.from_pretrained(name, cache_dir=cache_dir)
-    else:
-        olmo = AutoModelForCausalLM(config, cache_dir=cache_dir, revision=revision)
-        tokenizer = AutoTokenizer.from_pretrained(name, cache_dir=cache_dir)
+    """Creates a Causal LM model, config, and tokenizer from the given name and revision"""
+    from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+    
+    config = AutoConfig.from_pretrained(name, cache_dir=cache_dir)
+    tokenizer = AutoTokenizer.from_pretrained(name, cache_dir=cache_dir)
+    model = AutoModelForCausalLM.from_pretrained(
+        name,
+        config=config,
+        cache_dir=cache_dir,
+        torch_dtype=dtype,
+    )
     print("loaded model")
-    return config, tokenizer, olmo
+    return config, tokenizer, model

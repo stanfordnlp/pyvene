@@ -6,6 +6,21 @@ from .interventions import *
 from .constants import *
 
 
+class LambdaIntervention(torch.nn.Module):
+    """
+    A generic wrapper to turn any Python callable (e.g. a lambda) 
+    into an nn.Module. This does *not* automatically turn external 
+    Tensors into parameters or buffers—it's just a functional wrapper.
+    """
+    def __init__(self, func):
+        super().__init__()
+        self.func = func  # store the lambda or any callable
+
+    def forward(self, *args, **kwargs):
+        # Simply call the stored function
+        return self.func(*args, **kwargs)
+
+
 def get_internal_model_type(model):
     """Return the model type."""
     return type(model)
@@ -431,15 +446,19 @@ def scatter_neurons(
 
 
 def do_intervention(
-    base_representation, source_representation, intervention, subspaces
+    base_representation, 
+    source_representation, 
+    intervention, 
+    subspaces,
+    **kwargs
 ):
     """Do the actual intervention."""
 
-    if isinstance(intervention, types.FunctionType):
+    if isinstance(intervention, LambdaIntervention):
         if subspaces is None:
-            return intervention(base_representation, source_representation)
+            return intervention(base_representation, source_representation, **kwargs)
         else:
-            return intervention(base_representation, source_representation, subspaces)
+            return intervention(base_representation, source_representation, subspaces, **kwargs)
 
     num_unit = base_representation.shape[1]
 
@@ -463,7 +482,7 @@ def do_intervention(
         assert False  # what's going on?
 
     intervention_output = intervention(
-        base_representation_f, source_representation_f, subspaces
+        base_representation_f, source_representation_f, subspaces, **kwargs
     )
     if isinstance(intervention_output, InterventionOutput):
         intervened_representation = intervention_output.output

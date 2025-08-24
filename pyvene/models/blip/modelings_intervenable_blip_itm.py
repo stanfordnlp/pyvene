@@ -22,7 +22,7 @@ blip_itm_type_to_module_mapping = {
     # 'vis.attention_output': ("vision_model.encoder.layers[%s].self_attn", CONST_OUTPUT_HOOK),
     # 'vis.attention_input': ("vision_model.encoder.layers[%s].self_attn", CONST_INPUT_HOOK),
     "block_input": ("text_encoder.encoder.layer[%s]", CONST_INPUT_HOOK),
-    "block_output": ("text_encoder.encoder.layer[%s]", CONST_INPUT_HOOK),
+    "block_output": ("text_encoder.encoder.layer[%s]", CONST_OUTPUT_HOOK),
     "mlp_activation": (
         "text_encoder.encoder.layer[%s].intermediate.dense",
         CONST_OUTPUT_HOOK,

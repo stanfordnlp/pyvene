@@ -119,11 +119,8 @@ class ComplexInterventionWithGPT2TestCase(unittest.TestCase):
             RotatedSpaceIntervention,
             LowRankRotatedSpaceIntervention,
         }:
-            list(fast.interventions.values())[0][
-                0
-            ].rotate_layer.weight = list(intervenable.interventions.values())[0][
-                0
-            ].rotate_layer.weight
+            list(fast.interventions.values())[0].rotate_layer.weight = \
+                list(intervenable.interventions.values())[0].rotate_layer.weight
 
         _, without_partition_our_output = fast(
             base,
