@@ -427,7 +427,40 @@ class IntervenableBasicTestCase(unittest.TestCase):
             subspaces=[[[1]], [[0]]],
         )
         self.assertTrue(torch.equal(pv_out3.last_hidden_state, pv_out4.last_hidden_state))
-    
+
+    def test_empty_subspaces_matches_default_behavior(self):
+
+        _, tokenizer, gpt2 = pv.create_gpt2(cache_dir=self._test_dir)
+
+        config = pv.IntervenableConfig([
+            {"layer": 0, "component": "block_output"},
+        ], intervention_types=pv.VanillaIntervention)
+
+        pv_gpt2 = pv.IntervenableModel(config, model=gpt2)
+
+        base = tokenizer("The capital of Spain is", return_tensors="pt")
+        source = tokenizer("The capital of Italy is", return_tensors="pt")
+
+        _, default_subspaces_output = pv_gpt2(
+            base,
+            [source],
+            {"sources->base": 4},
+        )
+
+        _, empty_subspaces_output = pv_gpt2(
+            base,
+            [source],
+            {"sources->base": 4},
+            subspaces=[],
+        )
+
+        self.assertTrue(
+            torch.equal(
+                default_subspaces_output.last_hidden_state,
+                empty_subspaces_output.last_hidden_state,
+            )
+        )
+
     def test_new_model_type(self):
         try:
             import sentencepiece
