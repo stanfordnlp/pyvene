@@ -2,6 +2,7 @@ import json, logging, torch, types
 import numpy as np
 from collections import OrderedDict
 from typing import List, Optional, Tuple, Union, Dict, Any
+import warnings
 
 from .constants import *
 from .basic_utils import *
@@ -17,7 +18,8 @@ from .interventions import (
     SkipIntervention,
     CollectIntervention,
     BoundlessRotatedSpaceIntervention,
-    InterventionOutput
+    InterventionOutput,
+    LocalistRepresentationIntervention
 )
 
 from torch import optim
@@ -452,8 +454,8 @@ class BaseModel(nn.Module):
                     )
 
     def _gather_intervention_output(
-        self, output, representations_key, unit_locations
-    ) -> torch.Tensor:
+        self, output, representations_key, unit_locations, unsafe
+    ) -> torch.Tensor | Tuple[torch.Tensor, torch.Tensor]:
         """
         Gather intervening activations from the output based on indices
         """
@@ -472,18 +474,24 @@ class BaseModel(nn.Module):
             selected_output = self.hot_activations[
                 self._intervention_reverse_link[representations_key]
             ]
+            # Return tuple format for consistency
+            if unsafe:
+                return selected_output, selected_output  # parent is same as selected for hot activations
+            return selected_output, None
         else:
             # data structure casting
             if isinstance(output, tuple):
-                original_output = output[0].clone()
+                original_output = output[0].clone() if not unsafe else output[0]
             elif isinstance(output, dict):
-                original_output = output[list(output.keys())[0]].clone()
+                original_output = output[list(output.keys())[0]].clone() if not unsafe else output[list(output.keys())[0]]
             else:
-                original_output = output.clone()
+                original_output = output.clone() if not unsafe else output
             # for non-sequence models, there is no concept of
             # unit location anyway.
             if unit_locations is None:
-                return original_output
+                if unsafe:
+                    return original_output, original_output
+                return original_output, None
             # gather subcomponent
             original_output = output_to_subcomponent(
                 original_output,
@@ -504,7 +512,10 @@ class BaseModel(nn.Module):
                 device=self.get_device()
             )
 
-        return selected_output
+        if unsafe:
+            # Hook for parent module is the original output
+            return selected_output, original_output
+        return selected_output, None
 
     def _scatter_intervention_output(
         self,
@@ -787,8 +798,8 @@ class IntervenableNdifModel(BaseModel):
             if isinstance(intervention, SkipIntervention):
                 raise NotImplementedError("Skip intervention is not implemented for ndif backend")
             else:
-                selected_output = self._gather_intervention_output(
-                    output, key, unit_locations[key_i]
+                selected_output, _ = self._gather_intervention_output(
+                    output, key, unit_locations[key_i], unsafe=False
                 )
 
                 if self.is_model_stateless:
@@ -836,8 +847,8 @@ class IntervenableNdifModel(BaseModel):
             elif isinstance(output.dtype, tuple):
                 output = output[0]
 
-            selected_output = self._gather_intervention_output(
-                output, key, unit_locations_base[key_i]
+            selected_output, _ = self._gather_intervention_output(
+                output, key, unit_locations_base[key_i], unsafe=False
             )
             if not self.is_model_stateless:
                 raise NotImplementedError("Stateful models are not supported for ndif backend")
@@ -1387,6 +1398,7 @@ class IntervenableModel(BaseModel):
         self,
         keys,
         unit_locations,
+        unsafe,
     ) -> HandlerList:
         """
         Create a list of getter handlers that will fetch activations
@@ -1414,14 +1426,15 @@ class IntervenableModel(BaseModel):
                         output = args
 
                 if isinstance(intervention, SkipIntervention):
-                    selected_output = self._gather_intervention_output(
+                    selected_output, parent_hook = self._gather_intervention_output(
                         args[0],  # this is actually the input to the module
                         key,
                         unit_locations[key_i],
+                        unsafe,
                     )
                 else:
-                    selected_output = self._gather_intervention_output(
-                        output, key, unit_locations[key_i]
+                    selected_output, parent_hook = self._gather_intervention_output(
+                        output, key, unit_locations[key_i], unsafe
                     )
 
                 if self.is_model_stateless:
@@ -1526,18 +1539,99 @@ class IntervenableModel(BaseModel):
 
         return reconciled_activations
 
+    def _register_unsafe_gradient_hook(
+        self,
+        parent_tensor,
+        collected_tensor,
+        representations_key,
+        unit_locations,
+        interchange_dim=None,
+        subspaces=None,
+    ):
+        """
+        Register a hook on parent_tensor that will populate
+        collected_tensor.grad during backward pass.
+        """
+
+        assert isinstance(
+            self.interventions[representations_key], CollectIntervention
+        ), "CollectIntervention is required for unsafe gradient hook"
+
+        def gradient_extraction_hook(grad):
+            # grad is ∂L/∂parent_tensor
+            # Step 1: Apply same gathering as forward
+            gathered_grad = gather_neurons(
+                grad,
+                self.representations[representations_key].unit,
+                unit_locations,
+                device=self.get_device(),
+            )
+            # Step 2: Handle reshaping (from do_intervention)
+            # This mimics the flattening/unflattening in do_intervention
+            intervention = self.interventions[representations_key]
+            original_shape = gathered_grad.shape
+
+            # Apply same reshape logic as do_intervention (lines 466-505)
+            if len(original_shape) == 2 or (
+                isinstance(intervention, LocalistRepresentationIntervention)
+            ) or (hasattr(intervention, 'keep_last_dim') and intervention.keep_last_dim):
+                # No reshaping needed
+                gathered_grad_f = gathered_grad
+            elif len(original_shape) == 3:
+                # b, num_unit (pos), d -> b, num_unit*d
+                gathered_grad_f = bsd_to_b_sd(gathered_grad)
+            elif len(original_shape) == 4:
+                # b, num_unit (h), s, d -> b, s, num_unit*d
+                gathered_grad_f = bhsd_to_bs_hd(gathered_grad)
+            else:
+                gathered_grad_f = gathered_grad
+
+            # Step 3: Apply interchange_dim slicing (from CollectIntervention)
+            if interchange_dim is not None:
+                gathered_grad_f = gathered_grad_f[..., :interchange_dim]
+
+            # Step 4: Reshape back
+            if len(original_shape) == 2 or (
+                isinstance(intervention, LocalistRepresentationIntervention)
+            ) or (hasattr(intervention, 'keep_last_dim') and intervention.keep_last_dim):
+                gathered_grad = gathered_grad_f
+            elif len(original_shape) == 3:
+                num_unit = original_shape[1]
+                gathered_grad = b_sd_to_bsd(gathered_grad_f, num_unit)
+            elif len(original_shape) == 4:
+                num_unit = original_shape[1]  # number of heads
+                gathered_grad = bs_hd_to_bhsd(gathered_grad_f, num_unit)
+            else:
+                gathered_grad = gathered_grad_f
+
+            # Step 5: Assign to collected tensor
+            collected_tensor.grad = gathered_grad
+            return grad  # passthru
+
+        parent_tensor.register_hook(gradient_extraction_hook)
+
     def _intervention_setter(
         self,
         keys,
         unit_locations_base,
         subspaces,
         intervention_additional_kwargs,
+        unsafe: bool = False,
     ) -> HandlerList:
         """
         Create a list of setter handlers that will set activations
         """
+        if unsafe:
+            warnings.warn(
+                "unsafe=True is enabled for setter operations. "
+                "This skips cloning base activations, which may cause gradient conflicts "
+                "or unintended side effects when modifying the computation graph in-place.",
+                UserWarning,
+                stacklevel=3
+            )
+
         self._tidy_stateful_activations()
-        
+
         handlers = []
         for key_i, key in enumerate(keys):
             intervention = self.interventions[key]
@@ -1566,14 +1660,14 @@ class IntervenableModel(BaseModel):
                         output = kwargs[list(kwargs.keys())[0]]
                     else:
                         output = args
-                        
-                selected_output = self._gather_intervention_output(
-                    output, key, unit_locations_base[key_i]
+
+                selected_output, parent_hook = self._gather_intervention_output(
+                    output, key, unit_locations_base[key_i], unsafe=unsafe
                 )
                 # TODO: need to figure out why clone is needed
-                if not self.is_model_stateless:
+                if not self.is_model_stateless and not unsafe:
                     selected_output = selected_output.clone()
-                
+
                 if self.as_adaptor:
                     adaptor_input = None
                     if len(args) == 0:  # kwargs based calls
@@ -1582,11 +1676,11 @@ class IntervenableModel(BaseModel):
                         adaptor_input = kwargs[list(kwargs.keys())[0]]
                     else:
                         adaptor_input = args
-                    selected_input = self._gather_intervention_output(
-                        adaptor_input, key, unit_locations_base[key_i]
+                    selected_input, parent_hook = self._gather_intervention_output(
+                        adaptor_input, key, unit_locations_base[key_i], unsafe=unsafe
                     )
                     intervention_additional_kwargs["args"] = selected_input
-                    
+ 
                 if isinstance(
                     intervention,
                     CollectIntervention
@@ -1608,6 +1702,18 @@ class IntervenableModel(BaseModel):
                             intervention,
                             subspaces[key_i] if subspaces is not None else None,
                         )
+
+                    if unsafe:
+                        assert parent_hook is not None, "Parent hook is required for unsafe gradient hook"
+                        self._register_unsafe_gradient_hook(
+                            parent_hook,
+                            intervened_representation,
+                            key,
+                            unit_locations_base[key_i],
+                            interchange_dim=intervention.interchange_dim,
+                            subspaces=subspaces[key_i] if subspaces is not None else None,
+                        )
+
                     # TODO: avoid failing if this is not a fresh collect
                     # this is to support collection during generation
                     # assert key not in self.activations
@@ -1615,8 +1721,12 @@ class IntervenableModel(BaseModel):
                     if key not in self.activations:
                         self.activations[key] = [intervened_representation]
                     else:
-                        # turn it into a list and then append
-                        self.activations[key].append(intervened_representation)
+                        # Handle case where getter already stored a tensor or list
+                        if isinstance(self.activations[key], list):
+                            self.activations[key].append(intervened_representation)
+                        else:
+                            # Convert tensor from getter to list and append
+                            self.activations[key] = [self.activations[key], intervened_representation]
                     # no-op to the output
                     
                 else:
@@ -1732,6 +1842,7 @@ class IntervenableModel(BaseModel):
         activations_sources: Optional[Dict] = None,
         subspaces: Optional[List] = None,
         intervention_additional_kwargs: Optional[Dict] = None,
+        unsafe: bool = False,
     ):
         # torch.autograd.set_detect_anomaly(True)
         all_set_handlers = HandlerList([])
@@ -1754,6 +1865,7 @@ class IntervenableModel(BaseModel):
                                 self.sorted_keys.index(key)
                             ]
                         ],
+                        unsafe,
                     )
                     group_get_handlers.extend(get_handlers)
                 _ = self.model(**sources[group_id])
@@ -1788,6 +1900,7 @@ class IntervenableModel(BaseModel):
                         if subspaces is not None
                         else None,
                         intervention_additional_kwargs=intervention_additional_kwargs,
+                        unsafe=unsafe,
                     )
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)
@@ -1800,6 +1913,7 @@ class IntervenableModel(BaseModel):
         activations_sources: Optional[Dict] = None,
         subspaces: Optional[List] = None,
         intervention_additional_kwargs: Optional[Dict] = None,
+        unsafe: bool = False,
     ):
         all_set_handlers = HandlerList([])
         for group_id, keys in self._intervention_group.items():
@@ -1824,6 +1938,7 @@ class IntervenableModel(BaseModel):
                     get_handlers = self._intervention_getter(
                         [key],
                         [unit_locations_source],
+                        unsafe,
                     )
                 else:
                     self.activations[key] = activations_sources[
@@ -1857,6 +1972,7 @@ class IntervenableModel(BaseModel):
                         if subspaces is not None
                         else None,
                         intervention_additional_kwargs=intervention_additional_kwargs,
+                        unsafe=unsafe,
                     )
                     # for setters, we don't remove them.
                     all_set_handlers.extend(set_handlers)
@@ -1874,6 +1990,7 @@ class IntervenableModel(BaseModel):
         return_dict: Optional[bool] = None,
         use_cache: Optional[bool] = None,
         intervention_additional_kwargs: Optional[Dict] = None,
+        unsafe: bool = False,
     ):
         """
         Main forward function that serves a wrapper to
@@ -1983,6 +2100,7 @@ class IntervenableModel(BaseModel):
                         activations_sources,
                         subspaces,
                         intervention_additional_kwargs,
+                        unsafe,
                     )
                 )
             elif self.mode == "serial":
@@ -1993,6 +2111,7 @@ class IntervenableModel(BaseModel):
                         activations_sources,
                         subspaces,
                         intervention_additional_kwargs,
+                        unsafe,
                     )
                 )
 
@@ -2008,7 +2127,7 @@ class IntervenableModel(BaseModel):
             set_handlers_to_remove.remove()
 
             self._output_validation()
-            
+
             collected_activations = []
             if self.return_collect_activations:
                 for key in self.sorted_keys:
@@ -2056,6 +2175,7 @@ class IntervenableModel(BaseModel):
         subspaces: Optional[List] = None,
         output_original_output: Optional[bool] = False,
         intervention_additional_kwargs: Optional[Dict] = None,
+        unsafe: bool = False,
         **kwargs,
     ):
         """
@@ -2128,6 +2248,7 @@ class IntervenableModel(BaseModel):
                         activations_sources,
                         subspaces,
                         intervention_additional_kwargs,
+                        unsafe,
                     )
                 )
             elif self.mode == "serial":
@@ -2138,6 +2259,7 @@ class IntervenableModel(BaseModel):
                         activations_sources,
                         subspaces,
                         intervention_additional_kwargs,
+                        unsafe,
                     )
                 )
             

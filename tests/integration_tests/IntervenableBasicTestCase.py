@@ -665,6 +665,111 @@ class IntervenableBasicTestCase(unittest.TestCase):
             intervened_outputs_fn[1].last_hidden_state
         )
     
+    def test_unsafe_getter_gradient_flow(self):
+        """Test that unsafe=True preserves gradients through collected activations"""
+        _, tokenizer, gpt2 = pv.create_gpt2(cache_dir=self._test_dir)
+
+        # Test with CollectIntervention (base-only collection)
+        config = pv.IntervenableConfig([{
+            "layer": 0,
+            "component": "block_output",
+            "intervention": pv.CollectIntervention()
+        }])
+
+        pv_gpt2 = pv.IntervenableModel(config, model=gpt2)
+        pv_gpt2.enable_model_gradients()  # Enable gradients for backward pass
+        pv_gpt2.model.eval()  # Disable dropout for deterministic test
+
+        # Check if any parameters in pv_gpt2 have gradients enabled
+        grads_enabled = any(p.requires_grad for p in pv_gpt2.model.parameters())
+        self.assertTrue(grads_enabled, "No model parameters have requires_grad=True in pv_gpt2")
+
+        # Test unsafe=True: gradients should flow
+        base_input = tokenizer("The capital of Spain is", return_tensors="pt")
+        with torch.set_grad_enabled(True):
+            result = pv_gpt2(
+                base=base_input,
+                unit_locations={"base": 3},
+                unsafe=True,
+                return_dict=True,
+                output_original_output=True
+            )
+
+            collected_acts_unsafe = result.collected_activations[0]
+            collected_acts_unsafe.retain_grad()
+
+            # Compute loss from model outputs (last_hidden_state)
+            last_hidden = result.intervened_outputs.last_hidden_state
+            last_hidden.retain_grad()
+
+            loss_unsafe = last_hidden.sum()
+            loss_unsafe.backward()
+
+        # Check that collected activations have gradients
+        self.assertIsNotNone(collected_acts_unsafe.grad)
+        self.assertFalse(torch.all(collected_acts_unsafe.grad == 0))
+
+        # Test unsafe=False (default): gradients should NOT flow
+        pv_gpt2.zero_grad()
+        result_safe = pv_gpt2(
+            base=base_input,
+            unit_locations={"base": 3},
+            unsafe=False,
+            return_dict=True,
+            output_original_output=True
+        )
+
+        collected_acts_safe = result_safe.collected_activations[0]
+
+        # Compute loss from model outputs (last_hidden_state)
+        last_hidden_safe = result_safe.intervened_outputs.last_hidden_state
+        loss_safe = last_hidden_safe.sum()
+        loss_safe.backward()
+
+        # Check that collected activations have NO gradients (cloned)
+        self.assertIsNone(collected_acts_safe.grad)
+
+    def test_unsafe_inplace_error_smoke_test(self):
+        """Smoke test: unsafe=True with swap interventions causes inplace modification errors"""
+        _, tokenizer, gpt2 = pv.create_gpt2(cache_dir=self._test_dir)
+
+        # Use VanillaIntervention which modifies base activations in-place
+        config = pv.IntervenableConfig([{
+            "layer": 0,
+            "component": "block_output",
+            "intervention": pv.VanillaIntervention()
+        }])
+
+        pv_gpt2 = pv.IntervenableModel(config, model=gpt2)
+        pv_gpt2.enable_model_gradients()
+        pv_gpt2.model.eval()
+
+        base_input = tokenizer("The capital of Spain is", return_tensors="pt")
+        source_input = tokenizer("The capital of France is", return_tensors="pt")
+
+        # unsafe=True with swap interventions should cause inplace modification error
+        # because we skip cloning base activations, then modify them during intervention
+        try:
+            with torch.set_grad_enabled(True):
+                _, counterfactual_output = pv_gpt2(
+                    base=base_input,
+                    sources=[source_input],
+                    unit_locations={"sources->base": ([[[3]]], [[[3]]])},
+                    unsafe=True,
+                )
+                last_hidden = counterfactual_output.last_hidden_state
+                loss = last_hidden.sum()
+                loss.backward()
+        except RuntimeError as e:
+            # Expected: specific inplace modification error during backward
+            # Should contain "modified by an inplace operation" and version mismatch
+            error_msg = str(e)
+            self.assertIn("modified by an inplace operation", error_msg)
+            self.assertIn("is at version", error_msg)
+            self.assertIn("expected version", error_msg)
+        else:
+            raise AssertionError("Expected RuntimeError for inplace modification was not raised")
+
     @classmethod
     def tearDownClass(self):
         print(f"Removing testing dir {self._test_dir}")
