@@ -465,7 +465,10 @@ def do_intervention(
     # flatten
     original_base_shape = base_representation.shape
     if len(original_base_shape) == 2 or (
-        isinstance(intervention, LocalistRepresentationIntervention)
+        isinstance(intervention, LocalistRepresentationIntervention) or
+        isinstance(intervention, BoundlessRotatedSpaceIntervention) or
+        isinstance(intervention, VanillaIntervention) or
+        isinstance(intervention, CollectIntervention)
     ) or intervention.keep_last_dim:
         # no pos dimension, e.g., gru, or opt-out concate last two dims
         base_representation_f = base_representation
@@ -492,8 +495,11 @@ def do_intervention(
     post_d = intervened_representation.shape[-1]
 
     # unflatten
-    if len(original_base_shape) == 2 or isinstance(
-        intervention, LocalistRepresentationIntervention
+    if len(original_base_shape) == 2 or (
+        isinstance(intervention, LocalistRepresentationIntervention) or
+        isinstance(intervention, BoundlessRotatedSpaceIntervention) or
+        isinstance(intervention, VanillaIntervention) or
+        isinstance(intervention, CollectIntervention)
     ) or intervention.keep_last_dim:
         # no pos dimension, e.g., gru or opt-out concate last two dims
         pass
