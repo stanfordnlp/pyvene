@@ -9,7 +9,7 @@ defined in the huggingface library.
 import torch
 from ..constants import *
 
-w2v2bert_type_to_module_mapping = {
+wav2vec2bert_type_to_module_mapping = {
     "block_input": ("encoder.layers[%s]", CONST_INPUT_HOOK),
     "block_output": ("encoder.layers[%s]", CONST_OUTPUT_HOOK),
     "ffn1_activation": ("encoder.layers[%s].ffn1.intermediate_act_fn", CONST_OUTPUT_HOOK),
@@ -34,7 +34,7 @@ w2v2bert_type_to_module_mapping = {
     "conv_depth_output": ("encoder.layers[%s].conv_module.depthwise_conv", CONST_OUTPUT_HOOK),
 }
 
-w2v2bert_type_to_dimension_mapping = {
+wav2vec2bert_type_to_dimension_mapping = {
     "n_head": ("num_attention_heads",),
     "block_input": ("hidden_size",),
     "block_output": ("hidden_size",),
