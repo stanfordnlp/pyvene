@@ -19,6 +19,8 @@ from .qwen3.modelings_intervenable_qwen3 import *
 from .esm.modelings_intervenable_esm import *
 from .mllama.modelings_intervenable_mllama import *
 from .gpt_oss.modelings_intervenable_gpt_oss import *
+from .whisper.modelings_intervenable_whisper import *
+from .wav2vec2bert.modelings_intervenable_wav2vec2bert import *
 
 #########################################################################
 """
@@ -89,6 +91,9 @@ type_to_module_mapping = {
     hf_models.mllama.modeling_mllama.MllamaForConditionalGeneration: mllama_type_to_module_mapping,
     hf_models.gpt_oss.modeling_gpt_oss.GptOssModel: gpt_oss_type_to_module_mapping,
     hf_models.gpt_oss.modeling_gpt_oss.GptOssForCausalLM: gpt_oss_lm_type_to_module_mapping,
+    hf_models.whisper.modeling_whisper.WhisperModel: whisper_type_to_module_mapping,
+    hf_models.whisper.modeling_whisper.WhisperForConditionalGeneration: whisper_lm_type_to_module_mapping,
+    hf_models.wav2vec2_bert.modeling_wav2vec2_bert.Wav2Vec2BertModel: wav2vec2bert_type_to_module_mapping,
 }
 if enable_blip:
     type_to_module_mapping[BlipWrapper] = blip_wrapper_type_to_module_mapping
@@ -135,6 +140,9 @@ type_to_dimension_mapping = {
     hf_models.mllama.modeling_mllama.MllamaForConditionalGeneration: mllama_type_to_dimension_mapping,
     hf_models.gpt_oss.modeling_gpt_oss.GptOssModel: gpt_oss_type_to_dimension_mapping,
     hf_models.gpt_oss.modeling_gpt_oss.GptOssForCausalLM: gpt_oss_lm_type_to_dimension_mapping,
+    hf_models.whisper.modeling_whisper.WhisperModel: whisper_type_to_dimension_mapping,
+    hf_models.whisper.modeling_whisper.WhisperForConditionalGeneration: whisper_lm_type_to_dimension_mapping,
+    hf_models.wav2vec2_bert.modeling_wav2vec2_bert.Wav2Vec2BertModel: wav2vec2bert_type_to_dimension_mapping,
 }
 
 if enable_blip:
