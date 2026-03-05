@@ -21,7 +21,7 @@ release = '0.1.2'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
-    'sphinxcontrib.collections',
+    'sphinx_collections',
     'myst_nb',
     'sphinx.ext.viewcode',
 ]

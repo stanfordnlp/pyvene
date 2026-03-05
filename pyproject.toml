@@ -30,6 +30,7 @@ dependencies = [
     "fsspec>=2023.6.0",
     "accelerate>=0.34.2",
     "sentencepiece>=0.2.0",
+    "sphinx-collections>=0.0.1",
 ]
 
 [dependency-groups]
