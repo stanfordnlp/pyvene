@@ -14,10 +14,10 @@ jobs:
       - name: Install dependencies
         run: |
           pip install uv
-          uv pip install --system --group docs -e "."
+          uv sync --group docs
       - name: Sphinx build
         run: |
-          sphinx-build docs/source docs/build
+          uv run sphinx-build docs/source docs/build
       - name: Assemble site
         run: |
           mkdir -p _site/docs
