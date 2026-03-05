@@ -109,6 +109,30 @@ def getattr_for_torch_module(model, parameter_name):
     return current_module
 
 
+def _resolve_dimension_proposal(model_config, proposal):
+    """Evaluate a dimension proposal expression like 'hidden_size',
+    'intermediate_size*2', 'hidden_size/num_attention_heads', or
+    'num_key_value_heads*hidden_size/num_attention_heads'."""
+    import re
+    tokens = re.split(r'([*/])', proposal)
+    result = None
+    op = None
+    for token in tokens:
+        if token in ('*', '/'):
+            op = token
+            continue
+        val = int(token) if token.isnumeric() else getattr_for_torch_module(model_config, token)
+        if val is None:
+            return None
+        if result is None:
+            result = val
+        elif op == '*':
+            result = result * val
+        elif op == '/':
+            result = int(result / val)
+    return result
+
+
 def get_dimension_by_component(model_type, model_config, component) -> int:
     """Based on the representation, get the aligning dimension size."""
 
@@ -117,27 +141,7 @@ def get_dimension_by_component(model_type, model_config, component) -> int:
 
     dimension_proposals = type_to_dimension_mapping[model_type][component]
     for proposal in dimension_proposals:
-        if proposal.isnumeric():
-            dimension = int(proposal)
-        elif "*" in proposal:
-            # often constant multiplier with MLP
-            dimension = getattr_for_torch_module(
-                model_config, proposal.split("*")[0]
-            ) * int(proposal.split("*")[1])
-        elif "/" in proposal:
-            # often split by head number
-            if proposal.split("/")[0].isnumeric():
-                numr = int(proposal.split("/")[0])
-            else:
-                numr = getattr_for_torch_module(model_config, proposal.split("/")[0])
-
-            if proposal.split("/")[1].isnumeric():
-                denr = int(proposal.split("/")[1])
-            else:
-                denr = getattr_for_torch_module(model_config, proposal.split("/")[1])
-            dimension = int(numr / denr)
-        else:
-            dimension = getattr_for_torch_module(model_config, proposal)
+        dimension = _resolve_dimension_proposal(model_config, proposal)
         if dimension is not None:
             return dimension
 
