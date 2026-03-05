@@ -18,11 +18,17 @@ jobs:
       - name: Sphinx build
         run: |
           sphinx-build docs/source docs/build
+      - name: Assemble site
+        run: |
+          mkdir -p _site/docs
+          cp -r homepage/* _site/
+          cp -r docs/build/* _site/docs/
+          touch _site/.nojekyll
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         with:
           publish_branch: gh-pages
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs/build
+          publish_dir: _site
           force_orphan: true
