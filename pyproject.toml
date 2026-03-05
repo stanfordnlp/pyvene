@@ -30,7 +30,6 @@ dependencies = [
     "fsspec>=2023.6.0",
     "accelerate>=0.34.2",
     "sentencepiece>=0.2.0",
-    "sphinx-collections>=0.0.1",
 ]
 
 [dependency-groups]
@@ -38,6 +37,13 @@ dev = [
     "flake8>=7.1.1",
     "pytest>=8.3.4",
     "ipykernel>=6.29.5",
+]
+docs = [
+    "sphinx>=6.0.0,<7.3.0",
+    "sphinx-book-theme>=1.0.1",
+    "sphinx-collections>=0.0.1",
+    "myst-nb>=1.0.0",
+    "myst-parser>=3.0.1",
 ]
 
 [project.urls]
