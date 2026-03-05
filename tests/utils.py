@@ -84,7 +84,8 @@ def DO_INTERVENTION(name, orig_hidden_states, INTERVENTION_ACTIVATIONS):
 
 
 def GPT2_SELF_ATTENTION_RUN(
-    self_attn, hidden_states, i, CACHE_ACTIVATIONS, INTERVENTION_ACTIVATIONS
+    self_attn, hidden_states, i, CACHE_ACTIVATIONS, INTERVENTION_ACTIVATIONS,
+    attention_mask=None,
 ):
     query, key, value = self_attn.c_attn(hidden_states).split(
         self_attn.split_size, dim=2
@@ -119,7 +120,7 @@ def GPT2_SELF_ATTENTION_RUN(
         query=head_query,
         key=head_key,
         value=head_value,
-        attention_mask=None,
+        attention_mask=attention_mask,
     )
 
     head_attention_value_output = head_attention_value_output.permute(0, 2, 1, 3)
@@ -159,7 +160,8 @@ def GPT2_MLP_RUN(mlp, hidden_states, i, CACHE_ACTIVATIONS, INTERVENTION_ACTIVATI
 
 
 def GPT2_BLOCK_RUN(
-    block, hidden_states, i, CACHE_ACTIVATIONS, INTERVENTION_ACTIVATIONS
+    block, hidden_states, i, CACHE_ACTIVATIONS, INTERVENTION_ACTIVATIONS,
+    attention_mask=None,
 ):
     # self attention + residual
     residual = hidden_states
@@ -171,7 +173,8 @@ def GPT2_BLOCK_RUN(
     CACHE_ACTIVATIONS[f"{i}.attention_input"] = hidden_states
 
     attn_outputs = GPT2_SELF_ATTENTION_RUN(
-        block.attn, hidden_states, i, CACHE_ACTIVATIONS, INTERVENTION_ACTIVATIONS
+        block.attn, hidden_states, i, CACHE_ACTIVATIONS, INTERVENTION_ACTIVATIONS,
+        attention_mask=attention_mask,
     )
 
     attn_outputs = DO_INTERVENTION(
@@ -221,6 +224,13 @@ def GPT2_RUN(gpt2, input_ids, CACHE_ACTIVATIONS, INTERVENTION_ACTIVATIONS):
     position_embeds = gpt2.transformer.wpe(position_ids)
     hidden_states = inputs_embeds + position_embeds
 
+    # Build causal attention mask
+    seq_len = input_shape[-1]
+    causal_mask = torch.triu(
+        torch.full((seq_len, seq_len), float("-inf"), device=device), diagonal=1
+    )
+    causal_mask = causal_mask.unsqueeze(0).unsqueeze(0)  # (1, 1, seq, seq)
+
     for i, block in enumerate(gpt2.transformer.h):
         hidden_states = DO_INTERVENTION(
             f"{i}.block_input", hidden_states, INTERVENTION_ACTIVATIONS
@@ -228,7 +238,8 @@ def GPT2_RUN(gpt2, input_ids, CACHE_ACTIVATIONS, INTERVENTION_ACTIVATIONS):
         CACHE_ACTIVATIONS[f"{i}.block_input"] = hidden_states
 
         hidden_states = GPT2_BLOCK_RUN(
-            block, hidden_states, i, CACHE_ACTIVATIONS, INTERVENTION_ACTIVATIONS
+            block, hidden_states, i, CACHE_ACTIVATIONS, INTERVENTION_ACTIVATIONS,
+            attention_mask=causal_mask,
         )
 
         hidden_states = DO_INTERVENTION(
