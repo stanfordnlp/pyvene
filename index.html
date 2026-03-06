@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pyvene</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #fff;
+      color: #1a1a1a;
+      line-height: 1.6;
+    }
+
+    a { color: #555; text-decoration: none; }
+    a:hover { opacity: 0.8; }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      padding: 3.5rem 1rem 2rem;
+      border-bottom: 1px solid #e8e8e8;
+    }
+
+    header img.logo {
+      max-width: 280px;
+      margin-bottom: 0.75rem;
+    }
+
+    .authors {
+      margin: 0.55rem auto 0;
+      max-width: 640px;
+      font-size: 0.9rem;
+      color: #555;
+    }
+
+    .authors .equal {
+      font-size: 0.75rem;
+      vertical-align: super;
+      color: #888;
+    }
+
+    .authors .note {
+      display: block;
+      font-size: 0.78rem;
+      color: #999;
+      margin-top: 0.15rem;
+    }
+
+    header p.tagline {
+      margin: 0.7rem auto 0;
+      max-width: 560px;
+      color: #444;
+      font-size: 1.05rem;
+    }
+
+    .install-hero {
+      margin-top: 1.4rem;
+      background: #1a1a1a;
+      display: inline-block;
+      padding: 0.7rem 1.5rem;
+      border-radius: 8px;
+    }
+
+    .install-hero code {
+      font-family: "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+      font-size: 1.3rem;
+      color: #e8e8e8;
+    }
+
+    .install-hero .prompt { color: #666; }
+
+    .badges {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      padding: 1rem 1rem 0;
+    }
+
+    /* ── Link buttons ── */
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.6rem;
+      margin-top: 1.4rem;
+    }
+
+    .links a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.45rem 1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+
+    .links a:hover { opacity: 0.75; }
+
+    .btn-docs   { background: #1a1a1a; color: #fff; }
+    .btn-paper  { background: #fff; color: #555; border: 1px solid #d0d0d0; }
+    .btn-gh     { background: #fff; color: #555; border: 1px solid #d0d0d0; }
+    .btn-pypi   { background: #fff; color: #555; border: 1px solid #d0d0d0; }
+
+    .links a svg { flex-shrink: 0; }
+
+    /* ── Main content ── */
+    main {
+      max-width: 940px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    /* ── Section card ── */
+    section {
+      background: #f8f8f8;
+      border: 1px solid #e4e4e4;
+      border-radius: 12px;
+      padding: 1.5rem 1.75rem 1.25rem;
+    }
+
+    section + section {
+      margin-top: 1.75rem;
+    }
+
+    .section-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 0.6rem;
+    }
+
+    /* ── Features list ── */
+    .features {
+      list-style: none;
+      padding: 0;
+    }
+
+    .features li {
+      padding: 0.5rem 0;
+      padding-left: 1.5rem;
+      position: relative;
+      color: #555;
+    }
+
+    .features li::before {
+      content: "\2192";
+      position: absolute;
+      left: 0;
+      color: #1a1a1a;
+    }
+
+    .features li strong {
+      color: #1a1a1a;
+    }
+
+    /* ── Install snippet ── */
+    .install {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      font-family: "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+      font-size: 0.95rem;
+      color: #1a1a1a;
+    }
+
+    .install .prompt { color: #aaa; }
+
+    /* ── Citation ── */
+    .citation {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 1.25rem;
+      font-family: "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+      font-size: 0.8rem;
+      overflow-x: auto;
+      white-space: pre;
+      line-height: 1.5;
+      color: #555;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.8rem;
+      color: #aaa;
+      border-top: 1px solid #e8e8e8;
+    }
+
+    footer a { color: #555; }
+  </style>
+</head>
+<body>
+
+<header>
+  <img class="logo"
+       src="https://i.ibb.co/BNkhQH3/pyvene-logo.png"
+       alt="pyvene logo" />
+
+  <p class="authors">
+    Zhengxuan Wu,
+    Atticus Geiger,
+    Aryaman Arora,
+    Jing Huang,
+    Zheng Wang,
+    Noah Goodman,
+    Christopher Manning,
+    Christopher Potts
+  </p>
+
+  <p class="tagline">
+    An open-source Python library for intervening on the internal states of PyTorch models.
+  </p>
+
+  <div class="install-hero">
+    <code><span class="prompt">$</span> uv add pyvene</code>
+  </div>
+
+  <div class="links">
+    <a class="btn-docs" href="/pyvene/docs/">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+           viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      Documentation
+    </a>
+    <a class="btn-paper" href="https://arxiv.org/abs/2403.07809" target="_blank" rel="noopener">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+           viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Paper
+    </a>
+    <a class="btn-gh" href="https://github.com/stanfordnlp/pyvene" target="_blank" rel="noopener">
+      <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.184 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.154-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.031 1.531 1.031.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.026 2.747-1.026.546 1.378.202 2.397.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.2 22 16.447 22 12.021 22 6.484 17.523 2 12 2z"/></svg>
+      GitHub
+    </a>
+    <a class="btn-pypi" href="https://pypi.org/project/pyvene/" target="_blank" rel="noopener">
+      PyPI
+    </a>
+  </div>
+</header>
+
+<div class="badges">
+  <a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pepy/dt/pyvene?color=green" alt="Downloads"></a>
+  <a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/v/pyvene?color=red" alt="Version"></a>
+  <a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/l/pyvene?color=blue" alt="License"></a>
+</div>
+
+<main>
+
+  <!-- ── Features ── -->
+  <section>
+    <div class="section-title">Features</div>
+    <ul class="features">
+      <li><strong>Serialisable interventions</strong> &mdash; specified as dicts, saveable locally, and shareable via HuggingFace.</li>
+      <li><strong>Composable &amp; customisable</strong> &mdash; run on multiple locations, arbitrary neuron sets, in parallel or sequence, on generative decoding steps.</li>
+      <li><strong>Works on any PyTorch model</strong> &mdash; no new model classes needed. Supports RNNs, ResNets, CNNs, Mamba, Transformers, and more.</li>
+    </ul>
+  </section>
+
+  <!-- ── Citation ── -->
+  <section>
+    <div class="section-title">Citation</div>
+    <div class="citation">@inproceedings{wu-etal-2024-pyvene,
+   title = "pyvene: A Library for Understanding and Improving {P}y{T}orch Models via Interventions",
+   author = "Wu, Zhengxuan and Geiger, Atticus and Arora, Aryaman and Huang, Jing and Wang, Zheng and Goodman, Noah and Manning, Christopher and Potts, Christopher",
+   booktitle = "Proceedings of NAACL-HLT 2024 (System Demonstrations)",
+   month = jun,
+   year = "2024",
+   publisher = "Association for Computational Linguistics",
+   url = "https://aclanthology.org/2024.naacl-demo.16",
+   pages = "158--165",
+}</div>
+  </section>
+
+</main>
+
+<footer>
+  pyvene &middot; <a href="https://github.com/stanfordnlp/pyvene">Stanford NLP</a>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,63 @@
+pyvene.models.configuration\_intervenable\_model.IntervenableConfig
+===================================================================
+
+.. currentmodule:: pyvene.models.configuration_intervenable_model
+
+.. autoclass:: IntervenableConfig
+   :members:                                      
+   :show-inheritance:                          
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~IntervenableConfig.__init__
+      ~IntervenableConfig.add_intervention
+      ~IntervenableConfig.convert_rope_params_to_dict
+      ~IntervenableConfig.dict_dtype_to_str
+      ~IntervenableConfig.from_dict
+      ~IntervenableConfig.from_json_file
+      ~IntervenableConfig.from_pretrained
+      ~IntervenableConfig.get_config_dict
+      ~IntervenableConfig.get_text_config
+      ~IntervenableConfig.push_to_hub
+      ~IntervenableConfig.register_for_auto_class
+      ~IntervenableConfig.save_pretrained
+      ~IntervenableConfig.standardize_rope_params
+      ~IntervenableConfig.to_dict
+      ~IntervenableConfig.to_diff_dict
+      ~IntervenableConfig.to_json_file
+      ~IntervenableConfig.to_json_string
+      ~IntervenableConfig.update
+      ~IntervenableConfig.update_from_string
+      ~IntervenableConfig.validate_rope
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~IntervenableConfig.attribute_map
+      ~IntervenableConfig.base_config_key
+      ~IntervenableConfig.base_model_ep_plan
+      ~IntervenableConfig.base_model_pp_plan
+      ~IntervenableConfig.base_model_tp_plan
+      ~IntervenableConfig.default_theta
+      ~IntervenableConfig.has_no_defaults_at_init
+      ~IntervenableConfig.model_type
+      ~IntervenableConfig.name_or_path
+      ~IntervenableConfig.num_labels
+      ~IntervenableConfig.output_attentions
+      ~IntervenableConfig.rope_scaling
+      ~IntervenableConfig.sub_configs
+      ~IntervenableConfig.torch_dtype
+      ~IntervenableConfig.use_return_dict
+   
+   
