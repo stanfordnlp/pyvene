@@ -49,7 +49,7 @@ gemma_type_to_dimension_mapping = {
     "value_output": ("num_key_value_heads*hidden_size/num_attention_heads",),
     "head_query_output": ("head_dim",),
     "head_key_output": ("head_dim",),
-    "head_value_output": ("hhead_dim",),
+    "head_value_output": ("head_dim",),
 }
 
 
