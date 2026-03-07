@@ -43,14 +43,23 @@ def create_directory(path):
 
 def embed_to_distrib(model, embed, log=False, logits=False):
     """Convert an embedding to a distribution over the vocabulary"""
-    if "gpt2" in model.config.architectures[0].lower():
+    arch = (model.config.architectures or [None])[0]
+    if arch is None:
+        arch = type(model).__name__
+    arch_lower = (arch or "").lower()
+    if "gpt2" in arch_lower:
         with torch.inference_mode():
-            vocab = torch.matmul(embed, model.wte.weight.t())
+            wte = model.wte if hasattr(model, "wte") else model.transformer.wte
+            vocab = torch.matmul(embed, wte.weight.t())
             if logits:
                 return vocab
             return lsm(vocab) if log else sm(vocab)
-    elif "llama" in model.config.architectures[0].lower():
-        assert False, "Support for LLaMA is not here yet"
+    elif "llama" in arch_lower:
+        with torch.inference_mode():
+            vocab = model.lm_head(embed)
+            if logits:
+                return vocab
+            return lsm(vocab) if log else sm(vocab)
 
 
 def set_seed(seed: int):
