@@ -40,6 +40,7 @@ from .models.interventions import InterventionOutput
 
 # Utils
 from .models.basic_utils import *
+from .models.data_collator import DataCollatorForIntervention
 from .models.intervention_utils import _do_intervention_by_swap
 from .models.intervenable_modelcard import (
     type_to_module_mapping,
