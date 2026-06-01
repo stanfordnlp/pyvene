@@ -113,13 +113,23 @@ class DataCollatorForIntervention:
         )
 
         if labels is not None:
-            max_label_length = max(len(label) for label in labels)
-            if self.pad_to_multiple_of is not None:
-                max_label_length = (
-                    (max_label_length + self.pad_to_multiple_of - 1)
-                    // self.pad_to_multiple_of
-                    * self.pad_to_multiple_of
-                )
+            # When the caller requests ``padding="max_length"`` with a
+            # ``max_length``, ``tokenizer.pad`` pads ``input_ids`` out to that
+            # length, so the labels have to match it. Otherwise pad to the
+            # longest label in the batch, mirroring ``DataCollatorForSeq2Seq``.
+            if (
+                self.padding in ("max_length", PaddingStrategy.MAX_LENGTH)
+                and self.max_length is not None
+            ):
+                max_label_length = self.max_length
+            else:
+                max_label_length = max(len(label) for label in labels)
+                if self.pad_to_multiple_of is not None:
+                    max_label_length = (
+                        (max_label_length + self.pad_to_multiple_of - 1)
+                        // self.pad_to_multiple_of
+                        * self.pad_to_multiple_of
+                    )
 
             padding_side = self.tokenizer.padding_side
             padded_labels = []
