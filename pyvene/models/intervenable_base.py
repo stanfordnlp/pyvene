@@ -1172,12 +1172,16 @@ class IntervenableModel(BaseModel):
             entry[1].extend(keys)
 
         for source, keys in grouped_keys.values():
-            with self._trace(source):
+            with self._trace(source) as tracer:
                 for key in keys:
                     self._capture_activation(
                         key,
                         unit_locations_sources[self.sorted_keys.index(key)],
                     )
+                # source collection only reads activations — once the deepest
+                # intervened module has fired we can halt the forward and skip
+                # every layer below it.
+                tracer.stop()
 
     def _intervene_parallel(
         self, base, sources, unit_locations, activations_sources,
