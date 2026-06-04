@@ -116,20 +116,8 @@ class BaseModel(nn.Module):
         self.intervention_hooks = {}
         self._key_collision_counter = {}
         self.return_collect_activations = False
-        # Flags and counters below are for interventions in the model.generate
-        # call. We can intervene on the prompt tokens only, on each generated
-        # token, or on a combination of both.
-        self._is_generation = False
-        self._intervene_on_prompt = None
-        self._key_getter_call_counter = {}
-        self._key_setter_call_counter = {}
         self._intervention_pointers = {}
         self._intervention_reverse_link = {}
-
-        # hooks are stateful internally, meaning that it's aware of how many times
-        # it is called during the execution.
-        # TODO: this could be merged with call counter above later.
-        self._intervention_state = {}
 
         # We want to associate interventions with a group to do group-wise interventions.
         self._intervention_group = {}
@@ -192,13 +180,6 @@ class BaseModel(nn.Module):
             else:
                 self.interventions[_key] = intervention
             self.intervention_hooks[_key] = module_hook
-            self._key_getter_call_counter[
-                _key
-            ] = 0  # we memo how many the hook is called,
-            # usually, it's a one time call per
-            # hook unless model generates.
-            self._key_setter_call_counter[_key] = 0
-            self._intervention_state[_key] = InterventionState(_key)
             _original_key_order += [_key]
             if representation.group_key is not None:
                 _any_group_key = True
@@ -259,9 +240,6 @@ class BaseModel(nn.Module):
         self.hot_activations = {}
 
         self.full_intervention_outputs = []
-        
-        # temp fields should not be accessed outside
-        self._batched_setter_activation_select = {}
         """
         Activations in the future list is ALWAYS causally before
         the vanilla activation list. This field becomes crucial
@@ -730,29 +708,16 @@ class IntervenableModel(BaseModel):
     def __init__(self, config, model, **kwargs):
         super().__init__(config, model, "nnsight", **kwargs)
 
-    def _reset_hook_count(self):
-        """
-        Reset the per-call intervention state counters.
-        """
-        self._key_getter_call_counter = dict.fromkeys(self._key_getter_call_counter, 0)
-        self._key_setter_call_counter = dict.fromkeys(self._key_setter_call_counter, 0)
-        for k, _ in self._intervention_state.items():
-            self._intervention_state[k].reset()
-
     def _cleanup_states(self, skip_activation_gc=False):
         """
-        Clean up all old in-memory states of interventions.
+        Clear cached activations between calls.
         """
-        self._is_generation = False
-        self._reset_hook_count()
         if not skip_activation_gc:
             self.activations.clear()
             self.hot_activations.clear()
-            self._batched_setter_activation_select.clear()
         else:
             self.activations = {}
             self.hot_activations = {}
-            self._batched_setter_activation_select = {}
 
     def save(
         self, save_directory, save_to_hf_hub=False, hf_repo_name="my-awesome-model",
@@ -1009,19 +974,6 @@ class IntervenableModel(BaseModel):
             return envoy.input
         return envoy.output
 
-    def _reconcile_stateful_cached_activations(
-        self, key, intervening_activations, intervening_unit_locations
-    ):
-        """Return the cached source activation for ``key``.
-
-        For stateless models (transformers/MLPs) this is simply the saved source
-        activation. Stateful reconciliation (GRU) is only reachable for non
-        source-constant interventions, which the engine does not exercise.
-        """
-        if key not in self.activations:
-            return None
-        return self.activations[key]
-
     def _capture_activation(self, key, unit_locations):
         """Getter: gather the aligned activation at ``key`` and cache it.
 
@@ -1042,7 +994,6 @@ class IntervenableModel(BaseModel):
         )
         # persist past the trace so it can be swapped into the base run
         self.activations[key] = selected_output.save()
-        self._intervention_state[key].inc_getter_version()
 
     def _apply_intervention(
         self, key, unit_locations_base, subspace, intervention_additional_kwargs
@@ -1108,9 +1059,7 @@ class IntervenableModel(BaseModel):
         else:
             intervened_representation = do_intervention(
                 selected_output,
-                self._reconcile_stateful_cached_activations(
-                    key, selected_output, unit_locations_base
-                ),
+                self.activations.get(key),  # the cached source activation
                 intervention,
                 subspace,
                 **intervention_additional_kwargs,
@@ -1128,7 +1077,6 @@ class IntervenableModel(BaseModel):
         self._scatter_intervention_output(
             value, intervened_representation, key, unit_locations_base
         )
-        self._intervention_state[key].inc_setter_version()
 
     def _subspace_for(self, key, subspaces):
         """Pick the subspace entry aligned with ``key`` (or ``None``)."""
@@ -1271,16 +1219,6 @@ class IntervenableModel(BaseModel):
             counterfactual_outputs = self._ns.output.save()
         return counterfactual_outputs
 
-    def _output_validation(self):
-        """Safe guard: stateless interventions fire their getter/setter once."""
-        if self.is_model_stateless:
-            for k, v in self._intervention_state.items():
-                if v.getter_version() > 1 or v.setter_version() > 1:
-                    raise Exception(
-                        f"For stateless model, each getter and setter "
-                        f"should be called only once: {self._intervention_state}"
-                    )
-
     def forward(
         self,
         base,
@@ -1422,8 +1360,6 @@ class IntervenableModel(BaseModel):
                     model_kwargs,
                 )
 
-            self._output_validation()
-
             collected_activations = []
             if self.return_collect_activations:
                 for key in self.sorted_keys:
@@ -1505,9 +1441,6 @@ class IntervenableModel(BaseModel):
         self.full_intervention_outputs.clear()
         self._cleanup_states()
 
-        self._intervene_on_prompt = intervene_on_prompt
-        self._is_generation = True
-
         if not intervene_on_prompt and unit_locations is None:
             # that means, we intervene on every generated tokens!
             unit_locations = {"base": 0}
@@ -1565,7 +1498,6 @@ class IntervenableModel(BaseModel):
         except Exception as e:
             raise e
         finally:
-            self._is_generation = False
             self._cleanup_states(
                 skip_activation_gc = \
                     (sources is None and activations_sources is not None) or \

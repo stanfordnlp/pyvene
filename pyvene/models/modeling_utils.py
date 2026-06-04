@@ -75,42 +75,6 @@ def is_transformer(model):
     return False
 
 
-def print_forward_hooks(main_module):
-    """Function to print forward hooks of a module and its sub-modules."""
-    for name, submodule in main_module.named_modules():
-        if hasattr(submodule, "_forward_hooks") and submodule._forward_hooks:
-            print(f"Module: {name if name else 'Main Module'}")
-            for hook_id, hook in submodule._forward_hooks.items():
-                print(f"  ID: {hook_id}, Hook: {hook}")
-
-        if hasattr(submodule, "_forward_pre_hooks") and submodule._forward_hooks:
-            print(f"Module: {name if name else 'Main Module'}")
-            for hook_id, hook in submodule._forward_pre_hooks.items():
-                print(f"  ID: {hook_id}, Hook: {hook}")
-
-
-def remove_forward_hooks(main_module: nn.Module):
-    """Function to remove all forward and pre-forward hooks from a module and
-
-    its sub-modules.
-    """
-
-    # Remove forward hooks
-    for _, submodule in main_module.named_modules():
-        if hasattr(submodule, "_forward_hooks"):
-            hooks = list(submodule._forward_hooks.keys())  # Get a list of hook IDs
-            for hook_id in hooks:
-                submodule._forward_hooks.pop(hook_id)
-
-        # Remove pre-forward hooks
-        if hasattr(submodule, "_forward_pre_hooks"):
-            pre_hooks = list(
-                submodule._forward_pre_hooks.keys()
-            )  # Get a list of pre-hook IDs
-            for pre_hook_id in pre_hooks:
-                submodule._forward_pre_hooks.pop(pre_hook_id)
-
-
 def getattr_for_torch_module(model, parameter_name):
     """Recursively fetch the model based on the name."""
     current_module = model
@@ -204,24 +168,6 @@ def get_module_hook(model, representation, backend="nnsight"):
     module = getattr_for_torch_module(model, parameter_name)
     # the actual input-vs-output handling happens at trace time
     return (module, hook_type)
-
-
-class HandlerList:
-    """General class to set hooks and set off hooks."""
-
-    def __init__(self, handlers):
-        self.handlers = handlers
-
-    def __len__(self):
-        return len(self.handlers)
-
-    def remove(self):
-        for handler in self.handlers:
-            handler.remove()
-
-    def extend(self, new_handlers):
-        self.handlers.extend(new_handlers.handlers)
-        return self
 
 
 def bsd_to_b_sd(tensor):
