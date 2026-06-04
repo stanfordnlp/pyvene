@@ -21,9 +21,24 @@ class LambdaIntervention(torch.nn.Module):
         return self.func(*args, **kwargs)
 
 
+def unwrap_model(model):
+    """Return the underlying ``torch.nn.Module`` for an nnsight-wrapped model.
+
+    nnsight wraps a raw module as ``NNsight(module)`` / ``LanguageModel(...)`` and
+    exposes the original module via ``._model``. pyvene keys its
+    ``type_to_module_mapping`` / config lookups on the *raw* model class, so we
+    always unwrap before reading the type, config, or parameters. Plain modules
+    are returned unchanged.
+    """
+    inner = getattr(model, "_model", None)
+    if inner is not None and isinstance(inner, nn.Module) and hasattr(model, "trace"):
+        return inner
+    return model
+
+
 def get_internal_model_type(model):
-    """Return the model type."""
-    return type(model)
+    """Return the (raw) model type, transparently unwrapping nnsight wrappers."""
+    return type(unwrap_model(model))
 
 
 def is_stateless(model):
@@ -148,14 +163,24 @@ def get_dimension_by_component(model_type, model_config, component) -> int:
     assert False
 
 
-def get_module_hook(model, representation, backend="native") -> nn.Module:
-    """Render the intervening module with a hook."""
+def get_module_hook(model, representation, backend="nnsight"):
+    """Resolve an intervention anchor to its nnsight Envoy and hook type.
+
+    ``model`` is the nnsight-wrapped model. We map the abstract component name
+    (e.g. ``"mlp_output"``) to a concrete module path via
+    ``type_to_module_mapping`` (keyed on the raw model class), walk the Envoy
+    tree to that submodule, and return ``(envoy, hook_type)`` where ``hook_type``
+    is ``CONST_INPUT_HOOK`` (intervene on the module's input) or
+    ``CONST_OUTPUT_HOOK`` (intervene on its output). Reading/writing the captured
+    activation is then done through ``envoy.input`` / ``envoy.output`` inside an
+    nnsight trace, so no raw ``register_forward_hook`` is ever used.
+    """
+    model_type = get_internal_model_type(model)
     if (
-        get_internal_model_type(model) in type_to_module_mapping and
-        representation.component
-        in type_to_module_mapping[get_internal_model_type(model)]
+        model_type in type_to_module_mapping and
+        representation.component in type_to_module_mapping[model_type]
     ):
-        type_info = type_to_module_mapping[get_internal_model_type(model)][
+        type_info = type_to_module_mapping[model_type][
             representation.component
         ]
         parameter_name = type_info[0]
@@ -169,6 +194,7 @@ def get_module_hook(model, representation, backend="native") -> nn.Module:
                 int(representation.moe_key),
             )
     else:
+        # direct module reference such as "h[0].mlp.act.output"
         parameter_name = ".".join(representation.component.split(".")[:-1])
         if representation.component.split(".")[-1] == "input":
             hook_type = CONST_INPUT_HOOK
@@ -176,14 +202,8 @@ def get_module_hook(model, representation, backend="native") -> nn.Module:
             hook_type = CONST_OUTPUT_HOOK
 
     module = getattr_for_torch_module(model, parameter_name)
-    if backend == "native":
-        module_hook = getattr(module, hook_type)
-    elif backend == "ndif":
-        # we assume the input v.s. output is handled outside
-        module_hook = module
-        return (module_hook, hook_type)
-
-    return module_hook
+    # the actual input-vs-output handling happens at trace time
+    return (module, hook_type)
 
 
 class HandlerList:

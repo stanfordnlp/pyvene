@@ -1,6 +1,7 @@
 import json, logging, torch, types
 import numpy as np
 from collections import OrderedDict
+from collections.abc import Mapping
 from typing import List, Optional, Tuple, Union, Dict, Any
 
 from .constants import *
@@ -47,16 +48,34 @@ class BaseModel(nn.Module):
     Base model class for sharing static vars and methods.
     """
 
-    def __init__(self, config, model, backend, **kwargs):
+    def __init__(self, config, model, backend=None, **kwargs):
         super().__init__()
         if isinstance(config, dict) or isinstance(config, list):
             config = IntervenableConfig(
                 representations = config
             )
         self.config = config
-        
+
         self.mode = config.mode
         intervention_type = config.intervention_types
+
+        ###
+        # nnsight wiring.
+        #
+        # Every intervention in pyvene is now executed through nnsight: the model
+        # is run inside an `nnsight` trace and activations are read/written via
+        # Envoy `.input` / `.output` accessors instead of raw
+        # `register_forward_hook` calls. We accept either a plain `torch.nn.Module`
+        # (which we wrap) or an already-wrapped nnsight model. `self._ns` is the
+        # wrapper used for tracing; `self.model` stays the *raw* module so all
+        # config / parameter / device / save logic is unchanged.
+        ###
+        if isinstance(model, nnsight.NNsight):
+            self._ns = model
+            model = unwrap_model(model)
+        else:
+            self._ns = nnsight.NNsight(model)
+
         self.is_model_stateless = is_stateless(model)
         self.config.model_type = str(type(model)) # backfill
         self.use_fast = kwargs["use_fast"] if "use_fast" in kwargs else False
@@ -165,7 +184,7 @@ class BaseModel(nn.Module):
                 self.return_collect_activations = True
             
             module_hook = get_module_hook(
-                model, representation, backend
+                self._ns, representation
             )
             self.representations[_key] = representation
             if isinstance(intervention, types.FunctionType):
@@ -696,456 +715,35 @@ class BaseModel(nn.Module):
         raise NotImplementedError("Please Implement this method")
         
 
-class IntervenableNdifModel(BaseModel):
-    """
-    Intervenable model via ndif backend.
-    """
-    BACKEND = "ndif"
-    
-    def __init__(self, config, model, **kwargs):
-        super().__init__(config, model, "ndif", **kwargs)
-        # this is not used for now.
-        self.remote = kwargs["remote"] if "remote" in kwargs else False
-        logging.warning(
-            f"We currently have very limited intervention support for ndif backend."
-        )
-
-    def save(
-        self, save_directory, save_to_hf_hub=False, hf_repo_name="my-awesome-model"
-    ):
-        pass
-
-    @staticmethod
-    def load(load_directory, model, local_directory=None, from_huggingface_hub=False):
-        """
-        Load interventions from disk or hub
-        """
-        pass
-
-    def _cleanup_states(self, skip_activation_gc=False):
-        """
-        Clean up all old in memo states of interventions
-        """
-        self._is_generation = False
-        if not skip_activation_gc:
-            self.activations.clear()
-            self.hot_activations.clear()
-            self._batched_setter_activation_select.clear()
-        else:
-            self.activations = {}
-            self.hot_activations = {}
-            self._batched_setter_activation_select = {}
-
-    def _tidy_stateful_activations(
-        self,
-    ):
-        _need_tidify = False
-
-    def _reconcile_stateful_cached_activations(
-        self,
-        key,
-        intervening_activations,
-        intervening_unit_locations,
-    ):
-        """Based on the key, we consolidate activations based on key's state"""
-        if key not in self.activations:
-            return None
-
-        cached_activations = self.activations[key]
-        if self.is_model_stateless:
-            # nothing to reconcile if stateless
-            return cached_activations
-
-        raise NotImplementedError("Activation reconcile is not implemented for ndif backend")
-    
-    def _intervention_getter(
-        self,
-        keys,
-        unit_locations,
-    ):
-        """
-        Create a list of getter handlers that will fetch activations
-        """
-        handlers = []
-        for key_i, key in enumerate(keys):
-            intervention = self.interventions[key]
-            (module_hook, hook_type) = self.intervention_hooks[key]
-            if self._is_generation:
-                raise NotImplementedError("Generation is not implemented for ndif backend")
-
-            if hook_type == CONST_INPUT_HOOK:
-                output = module_hook.input
-            elif hook_type == CONST_OUTPUT_HOOK:
-                output = module_hook.output
-
-            # TODO: this could be faulty by assuming the types.
-            if isinstance(output.dtype, tuple) and isinstance(output.dtype[0], tuple):
-                output = output[0][0]
-            elif isinstance(output.dtype, tuple):
-                output = output[0]
-            
-            if isinstance(intervention, SkipIntervention):
-                raise NotImplementedError("Skip intervention is not implemented for ndif backend")
-            else:
-                selected_output = self._gather_intervention_output(
-                    output, key, unit_locations[key_i]
-                )
-
-                if self.is_model_stateless:
-                    # WARNING: might be worth to check the below assertion at runtime,
-                    # but commenting it out for now just to avoid confusion.
-                    # assert key not in self.activations
-                    self.activations[key] = selected_output.save()
-                else:
-                    raise NotImplementedError("Stateful models are not supported for ndif backend")
-
-                # set version for stateful models
-                self._intervention_state[key].inc_getter_version()
-
-    def _intervention_setter(
-        self,
-        keys,
-        unit_locations_base,
-        subspaces,
-        intervention_additional_kwargs,
-    ) -> HandlerList:
-        """
-        Create a list of setter tracer that will set activations
-        """
-        self._tidy_stateful_activations()
-        
-        for key_i, key in enumerate(keys):
-            intervention = self.interventions[key]
-            (module_hook, hook_type) = self.intervention_hooks[key]
-            if unit_locations_base[0] is not None:
-                self._batched_setter_activation_select[key] = [
-                    0 for _ in range(len(unit_locations_base[0]))
-                ]  # batch_size
-
-            if self._is_generation:
-                raise NotImplementedError("Generation is not implemented for ndif backend")
-
-            if hook_type == CONST_INPUT_HOOK:
-                output = module_hook.input
-            elif hook_type == CONST_OUTPUT_HOOK:
-                output = module_hook.output
-
-            # TODO: this could be faulty by assuming the types.
-            if isinstance(output.dtype, tuple) and isinstance(output.dtype[0], tuple):
-                output = output[0][0]
-            elif isinstance(output.dtype, tuple):
-                output = output[0]
-
-            selected_output = self._gather_intervention_output(
-                output, key, unit_locations_base[key_i]
-            )
-            if not self.is_model_stateless:
-                raise NotImplementedError("Stateful models are not supported for ndif backend")
-
-            # intervention in-place
-            if isinstance(
-                intervention,
-                CollectIntervention
-            ):
-                intervened_representation = do_intervention(
-                    selected_output,
-                    None,
-                    intervention,
-                    subspaces[key_i] if subspaces is not None else None,
-                )
-                # fail if this is not a fresh collect
-                assert key not in self.activations
-                self.activations[key] = intervened_representation.save()
-                # no-op to the output
-                
-            else:
-                if not isinstance(self.interventions[key], LambdaIntervention):
-                    if intervention.is_source_constant:
-                        intervened_representation = do_intervention(
-                            selected_output,
-                            None,
-                            intervention,
-                            subspaces[key_i] if subspaces is not None else None,
-                        )
-                    else:
-                        intervened_representation = do_intervention(
-                            selected_output,
-                            self._reconcile_stateful_cached_activations(
-                                key,
-                                selected_output,
-                                unit_locations_base[key_i],
-                            ),
-                            intervention,
-                            subspaces[key_i] if subspaces is not None else None,
-                        )
-                else:
-                    # highly unlikely it's a primitive intervention type
-                    intervened_representation = do_intervention(
-                        selected_output,
-                        self._reconcile_stateful_cached_activations(
-                            key,
-                            selected_output,
-                            unit_locations_base[key_i],
-                        ),
-                        intervention,
-                        subspaces[key_i] if subspaces is not None else None,
-                    )
-                if intervened_representation is None:
-                    return
-
-                # setter can produce hot activations for shared subspace interventions if linked
-                if key in self._intervention_reverse_link:
-                    self.hot_activations[
-                        self._intervention_reverse_link[key]
-                    ] = intervened_representation.clone()
-                
-                if isinstance(output, tuple):
-                    _ = self._scatter_intervention_output(
-                        output[0], intervened_representation, key, unit_locations_base[key_i]
-                    )
-                else:
-                    _ = self._scatter_intervention_output(
-                        output, intervened_representation, key, unit_locations_base[key_i]
-                    )
-                        
-                self._intervention_state[key].inc_setter_version()
-    
-    def _sync_forward_with_parallel_intervention(
-        self,
-        base,
-        sources,
-        unit_locations,
-        activations_sources: Optional[Dict] = None,
-        subspaces: Optional[List] = None,
-        **kwargs,
-    ):
-        # torch.autograd.set_detect_anomaly(True)
-        all_set_handlers = HandlerList([])
-        unit_locations_sources = unit_locations["sources->base"][0]
-        unit_locations_base = unit_locations["sources->base"][1]
-
-        # for each source, we hook in getters to cache activations
-        # at each aligning representations
-        if activations_sources is None:
-            assert len(sources) == len(self._intervention_group)
-            for group_id, keys in self._intervention_group.items():
-                if sources[group_id] is None:
-                    continue  # smart jump for advance usage only
-
-                # meta tracer to get activations for all components
-                with self.model.trace(sources[group_id]) as tracer:
-                    for key in keys:
-                        self._intervention_getter(
-                            [key],
-                            [
-                                unit_locations_sources[
-                                    self.sorted_keys.index(key)
-                                ]
-                            ],
-                        )
-                # upon exist, all activations should be saved
-        else:
-            # simply patch in the ones passed in
-            self.activations = activations_sources
-            for _, passed_in_key in enumerate(self.activations):
-                assert passed_in_key in self.sorted_keys
-        
-        # in parallel mode with ndif backend, we don't need to wait 
-        # for the intervention hook, we synchronously do the interventions.
-        with self.model.trace(base, **kwargs) as tracer:
-            for group_id, keys in self._intervention_group.items():
-                for key in keys:
-                    # skip in case smart jump
-                    if key in self.activations or \
-                        isinstance(self.interventions[key], LambdaIntervention) or \
-                        self.interventions[key].is_source_constant:
-                        self._intervention_setter(
-                            [key],
-                            [
-                                unit_locations_base[
-                                    self.sorted_keys.index(key)
-                                ]
-                            ],
-                            # assume same group targeting the same subspace
-                            [
-                                subspaces[
-                                    self.sorted_keys.index(key)
-                                ]
-                            ]
-                            if subspaces is not None
-                            else None,
-                        )
-            counterfactual_outputs = self.model.output.save()
-        
-        return counterfactual_outputs
-
-    def _sync_forward_with_serial_intervention(
-        self,
-        base,
-        sources,
-        unit_locations,
-        activations_sources: Optional[Dict] = None,
-        subspaces: Optional[List] = None,
-        **kwargs,
-    ):
-        raise NotImplementedError("Please Implement serial intervention support for ndif")
-    
-    def forward(
-        self,
-        base,
-        sources: Optional[List] = None,
-        unit_locations: Optional[Dict] = None,
-        source_representations: Optional[Dict] = None,
-        subspaces: Optional[List] = None,
-        labels: Optional[torch.LongTensor] = None,
-        output_original_output: Optional[bool] = False,
-        return_dict: Optional[bool] = None,
-        use_cache: Optional[bool] = None,
-    ):
-        activations_sources = source_representations
-        if sources is not None and not isinstance(sources, list):
-            sources = [sources]
-        
-        self._cleanup_states()
-
-        # if no source input or intervention, we return base
-        if sources is None and activations_sources is None \
-            and unit_locations is None and len(self.interventions) == 0:
-            # ndif backend call
-            with self.model.trace(base) as tracer:
-                base_outputs = self.model.output.save()
-            return base_outputs, None
-        # broadcast
-        unit_locations = self._broadcast_unit_locations(get_batch_size(base), unit_locations)
-        sources = [None]*len(self._intervention_group) if sources is None else sources
-        sources = self._broadcast_sources(sources)
-        activations_sources = self._broadcast_source_representations(activations_sources)
-        subspaces = self._broadcast_subspaces(get_batch_size(base), subspaces)
-        
-        self._input_validation(
-            base,
-            sources,
-            unit_locations,
-            activations_sources,
-            subspaces,
-        )
-        
-        base_outputs = None
-        if output_original_output:
-            # returning un-intervened output with gradients with ndif backend call
-            with self.model.trace(base) as tracer:
-                base_outputs = self.model.output.save()
-
-        # intervene the model based on ndif APIs
-        try:
-
-            # run intervened forward
-            model_kwargs = {}
-            if labels is not None: # for training
-                model_kwargs["labels"] = labels
-            if use_cache is not None and 'use_cache' in self.model.config.to_dict(): # for transformer models
-                model_kwargs["use_cache"] = use_cache
-
-            if self.mode == "parallel":
-                counterfactual_outputs = self._sync_forward_with_parallel_intervention(
-                    base,
-                    sources,
-                    unit_locations,
-                    activations_sources,
-                    subspaces,
-                    **model_kwargs,
-                )
-            elif self.mode == "serial":
-                counterfactual_outputs = self._sync_forward_with_serial_intervention(
-                    base,
-                    sources,
-                    unit_locations,
-                    activations_sources,
-                    subspaces,
-                    **model_kwargs,
-                )
-            
-            collected_activations = []
-            if self.return_collect_activations:
-                for key in self.sorted_keys:
-                    if isinstance(
-                        self.interventions[key],
-                        CollectIntervention
-                    ):
-                        collected_activations += self.activations[key].clone()
-
-        except Exception as e:
-            raise e
-        finally:
-            self._cleanup_states(
-                skip_activation_gc = \
-                    (sources is None and activations_sources is not None) or \
-                    self.return_collect_activations
-            )
-        
-        if self.return_collect_activations:
-            if return_dict:
-                return IntervenableModelOutput(
-                    original_outputs=base_outputs,
-                    intervened_outputs=counterfactual_outputs,
-                    collected_activations=collected_activations
-                )
-            
-            return (base_outputs, collected_activations), counterfactual_outputs
-        
-        if return_dict:
-            return IntervenableModelOutput(
-                original_outputs=base_outputs,
-                intervened_outputs=counterfactual_outputs,
-                collected_activations=None
-            )
-
-        return base_outputs, counterfactual_outputs
-
-    def generate(
-        self,
-        base,
-        sources: Optional[List] = None,
-        unit_locations: Optional[Dict] = None,
-        source_representations: Optional[Dict] = None,
-        intervene_on_prompt: bool = False,
-        subspaces: Optional[List] = None,
-        output_original_output: Optional[bool] = False,
-        **kwargs,
-    ):
-        raise NotImplementedError("Please Implement this method")
-
-
 class IntervenableModel(BaseModel):
     """
-    Intervenable model via pyvene native backend (hook-based).
+    Intervenable model powered by nnsight.
+
+    The model is executed inside an ``nnsight`` trace and activations are read /
+    written declaratively through Envoy ``.input`` / ``.output`` accessors — no
+    raw ``register_forward_hook`` calls are used. Source activations are gathered
+    in one trace and applied to the base in another; gradients flow back through
+    trainable interventions exactly as with a normal forward pass.
     """
-    BACKEND = "native"
-    
+    BACKEND = "nnsight"
+
     def __init__(self, config, model, **kwargs):
-        super().__init__(config, model, "native", **kwargs)
+        super().__init__(config, model, "nnsight", **kwargs)
 
     def _reset_hook_count(self):
         """
-        Reset the hook count before any generate call
+        Reset the per-call intervention state counters.
         """
         self._key_getter_call_counter = dict.fromkeys(self._key_getter_call_counter, 0)
         self._key_setter_call_counter = dict.fromkeys(self._key_setter_call_counter, 0)
         for k, _ in self._intervention_state.items():
             self._intervention_state[k].reset()
 
-    def _remove_forward_hooks(self):
-        """
-        Clean up all the remaining hooks before any call
-        """
-        remove_forward_hooks(self.model)
-
     def _cleanup_states(self, skip_activation_gc=False):
         """
-        Clean up all old in memo states of interventions
+        Clean up all old in-memory states of interventions.
         """
         self._is_generation = False
-        self._remove_forward_hooks()
         self._reset_hook_count()
         if not skip_activation_gc:
             self.activations.clear()
@@ -1155,7 +753,7 @@ class IntervenableModel(BaseModel):
             self.activations = {}
             self.hot_activations = {}
             self._batched_setter_activation_select = {}
-    
+
     def save(
         self, save_directory, save_to_hf_hub=False, hf_repo_name="my-awesome-model",
         include_model=False
@@ -1383,316 +981,279 @@ class IntervenableModel(BaseModel):
             saved_model_state_dict = torch.load(os.path.join(load_directory, model_binary_filename))
             self.model.load_state_dict(saved_model_state_dict, strict=False)
 
-    def _intervention_getter(
-        self,
-        keys,
-        unit_locations,
-    ) -> HandlerList:
+
+    def _trace(self, inputs, **model_kwargs):
+        """Open an nnsight trace over ``inputs``.
+
+        For a plain ``NNsight`` wrapper (the common case — pyvene wraps the raw
+        HF/MLP/GRU module) a dict input is unpacked as keyword args, mirroring the
+        old ``self.model(**base)`` call. An ``nnsight.LanguageModel`` consumes the
+        input directly (it handles tokenization / dict packing itself).
         """
-        Create a list of getter handlers that will fetch activations
-        """
-        handlers = []
-        for key_i, key in enumerate(keys):
-            intervention = self.interventions[key]
-            module_hook = self.intervention_hooks[key]
+        if isinstance(self._ns, nnsight.LanguageModel):
+            return self._ns.trace(inputs, **model_kwargs)
+        if isinstance(inputs, Mapping):
+            return self._ns.trace(**inputs, **model_kwargs)
+        return self._ns.trace(inputs, **model_kwargs)
 
-            def hook_callback(model, args, kwargs, output=None):
-                if self._is_generation:
-                    pass
-                    # for getter, there is no restriction.
-                    # is_prompt = self._key_getter_call_counter[key] == 0
-                    # if not self._intervene_on_prompt or is_prompt:
-                    #     self._key_getter_call_counter[key] += 1
-                    # if self._intervene_on_prompt ^ is_prompt:
-                    #     return  # no-op
-                if output is None:
-                    if len(args) == 0:  # kwargs based calls
-                        # PR: https://github.com/frankaging/align-transformers/issues/11
-                        # We cannot assume the dict only contain one element
-                        output = kwargs[list(kwargs.keys())[0]]
-                    else:
-                        output = args
+    def _run_model(self, base, **model_kwargs):
+        """Run an un-intervened forward and return the model output."""
+        with self._trace(base, **model_kwargs):
+            output = self._ns.output.save()
+        return output
 
-                if isinstance(intervention, SkipIntervention):
-                    selected_output = self._gather_intervention_output(
-                        args[0],  # this is actually the input to the module
-                        key,
-                        unit_locations[key_i],
-                    )
-                else:
-                    selected_output = self._gather_intervention_output(
-                        output, key, unit_locations[key_i]
-                    )
-
-                if self.is_model_stateless:
-                    # WARNING: might be worth to check the below assertion at runtime,
-                    # but commenting it out for now just to avoid confusion.
-                    # assert key not in self.activations
-                    self.activations[key] = selected_output
-                else:
-                    state_select_flag = []
-                    for unit_location in unit_locations[key_i]:
-                        if (
-                            self._intervention_state[key].getter_version()
-                            in unit_location
-                        ):
-                            state_select_flag += [True]
-                        else:
-                            state_select_flag += [False]
-                    # for stateful model (e.g., gru), we save extra activations and metadata to do
-                    # stateful interventions.
-                    self.activations.setdefault(key, []).append(
-                        (selected_output, state_select_flag)
-                    )
-                # set version for stateful models
-                self._intervention_state[key].inc_getter_version()
-
-            handlers.append(module_hook(hook_callback, with_kwargs=True))
-
-        return HandlerList(handlers)
-
-    def _tidy_stateful_activations(
-        self,
-    ):
-        _need_tidify = False
-        for _, v in self.activations.items():
-            if isinstance(v[0], tuple) and isinstance(v[0][1], list):
-                _need_tidify = True
-                break
-        if _need_tidify:
-            for k, v in self.activations.items():
-                self._tidify_activations = [[] for _ in range(v[0][0].shape[0])]
-                for t in range(len(v)):
-                    activations_at_t = v[t][0]  # a batched tensor
-                    states_at_t = (
-                        torch.tensor(v[t][1]).bool().to(activations_at_t.device)
-                    )  # a batched bools
-                    selected_activations = activations_at_t[states_at_t]
-                    selected_indices = torch.nonzero(states_at_t).squeeze()
-                    if len(selected_indices.shape) == 0:
-                        selected_indices = selected_indices.unsqueeze(0)
-                    for index, activation in zip(
-                        selected_indices, selected_activations
-                    ):
-                        self._tidify_activations[index].append(activation)
-                self.activations[k] = self._tidify_activations
+    def _read_module_activation(self, module_hook, hook_type):
+        """Return the live tensor (or tuple/dict) at an Envoy's input/output."""
+        envoy = module_hook[0]
+        if hook_type == CONST_INPUT_HOOK:
+            return envoy.input
+        return envoy.output
 
     def _reconcile_stateful_cached_activations(
-        self,
-        key,
-        intervening_activations,
-        intervening_unit_locations,
+        self, key, intervening_activations, intervening_unit_locations
     ):
-        """Based on the key, we consolidate activations based on key's state"""
+        """Return the cached source activation for ``key``.
+
+        For stateless models (transformers/MLPs) this is simply the saved source
+        activation. Stateful reconciliation (GRU) is only reachable for non
+        source-constant interventions, which the engine does not exercise.
+        """
         if key not in self.activations:
             return None
+        return self.activations[key]
 
-        cached_activations = self.activations[key]
-        if self.is_model_stateless:
-            # nothing to reconcile if stateless
-            return cached_activations
+    def _capture_activation(self, key, unit_locations):
+        """Getter: gather the aligned activation at ``key`` and cache it.
 
-        state_select_flag = []
-        for unit_location in intervening_unit_locations:
-            if self._intervention_state[key].setter_version() in unit_location:
-                state_select_flag += [True]
-            else:
-                state_select_flag += [False]
-        state_select_flag = (
-            torch.tensor(state_select_flag).bool().to(intervening_activations.device)
+        Must run inside an nnsight trace over the source input.
+        """
+        intervention = self.interventions[key]
+        module_hook = self.intervention_hooks[key]
+        hook_type = module_hook[1]
+
+        if isinstance(intervention, SkipIntervention):
+            # a skip reads the *input* to the module
+            value = self._read_module_activation(module_hook, CONST_INPUT_HOOK)
+        else:
+            value = self._read_module_activation(module_hook, hook_type)
+
+        selected_output = self._gather_intervention_output(
+            value, key, unit_locations
         )
-        selected_indices = torch.nonzero(state_select_flag).squeeze()
-        if len(selected_indices.shape) == 0:
-            selected_indices = selected_indices.unsqueeze(0)
+        # persist past the trace so it can be swapped into the base run
+        self.activations[key] = selected_output.save()
+        self._intervention_state[key].inc_getter_version()
 
-        # fill activations with proposed only source activations
-        reconciled_activations = []
-        for index, select_version in enumerate(
-            self._batched_setter_activation_select[key]
-        ):
-            if index in selected_indices:
-                reconciled_activations += [cached_activations[index][select_version]]
-            else:
-                # WARNING: put a dummy tensor, super danger here but let's trust the code for now.
-                reconciled_activations += [
-                    torch.zeros_like(cached_activations[index][0])
-                ]
-        # increment pointer for those we are actually intervening
-        for index in selected_indices:
-            self._batched_setter_activation_select[key][index] += 1
-        # for non-intervening ones, we copy again from base
-        reconciled_activations = torch.stack(reconciled_activations, dim=0)  # batched
-        # reconciled_activations[~state_select_flag] = intervening_activations[~state_select_flag]
-
-        return reconciled_activations
-
-    def _intervention_setter(
-        self,
-        keys,
-        unit_locations_base,
-        subspaces,
-        intervention_additional_kwargs,
-    ) -> HandlerList:
-        """
-        Create a list of setter handlers that will set activations
-        """
-        self._tidy_stateful_activations()
-        
-        handlers = []
-        for key_i, key in enumerate(keys):
-            intervention = self.interventions[key]
-            module_hook = self.intervention_hooks[key]
-            if unit_locations_base[0] is not None:
-                self._batched_setter_activation_select[key] = [
-                    0 for _ in range(len(unit_locations_base[0]))
-                ]  # batch_size
-
-            # pass in the args to the intervention
-            if intervention_additional_kwargs is None:
-                intervention_additional_kwargs = {}
-
-            def hook_callback(model, args, kwargs, output=None):
-                # if it is None, we use it as adaptor.
-                if unit_locations_base[key_i] is not None and self._is_generation:
-                    is_prompt = self._key_setter_call_counter[key] == 0
-                    if not self._intervene_on_prompt or is_prompt:
-                        self._key_setter_call_counter[key] += 1
-                    if self._intervene_on_prompt ^ is_prompt:
-                        return  # no-op
-                if output is None:
-                    if len(args) == 0:  # kwargs based calls
-                        # PR: https://github.com/frankaging/align-transformers/issues/11
-                        # We cannot assume the dict only contain one element
-                        output = kwargs[list(kwargs.keys())[0]]
-                    else:
-                        output = args
-                        
-                selected_output = self._gather_intervention_output(
-                    output, key, unit_locations_base[key_i]
-                )
-                # TODO: need to figure out why clone is needed
-                if not self.is_model_stateless:
-                    selected_output = selected_output.clone()
-                
-                if self.as_adaptor:
-                    adaptor_input = None
-                    if len(args) == 0:  # kwargs based calls
-                        # PR: https://github.com/frankaging/align-transformers/issues/11
-                        # We cannot assume the dict only contain one element
-                        adaptor_input = kwargs[list(kwargs.keys())[0]]
-                    else:
-                        adaptor_input = args
-                    selected_input = self._gather_intervention_output(
-                        adaptor_input, key, unit_locations_base[key_i]
-                    )
-                    intervention_additional_kwargs["args"] = selected_input
-                    
-                if isinstance(
-                    intervention,
-                    CollectIntervention
-                ):
-                    # TODO: this is a little hacky, we should probably refactor this
-                    #       it is just to prevent tests to fail.
-                    if len(intervention_additional_kwargs) > 0:
-                        intervened_representation = do_intervention(
-                            selected_output,
-                            None,
-                            intervention,
-                            subspaces[key_i] if subspaces is not None else None,
-                            **intervention_additional_kwargs,
-                        )
-                    else:
-                        intervened_representation = do_intervention(
-                            selected_output,
-                            None,
-                            intervention,
-                            subspaces[key_i] if subspaces is not None else None,
-                        )
-                    # TODO: avoid failing if this is not a fresh collect
-                    # this is to support collection during generation
-                    # assert key not in self.activations
-
-                    if key not in self.activations:
-                        self.activations[key] = [intervened_representation]
-                    else:
-                        # turn it into a list and then append
-                        self.activations[key].append(intervened_representation)
-                    # no-op to the output
-                    
-                else:
-                    if not isinstance(self.interventions[key], LambdaIntervention):
-                        if intervention.is_source_constant:
-                            if len(intervention_additional_kwargs) > 0:
-                                raw_intervened_representation = do_intervention(
-                                    selected_output,
-                                    None,
-                                    intervention,
-                                    subspaces[key_i] if subspaces is not None else None,
-                                    **intervention_additional_kwargs,
-                                )
-                            else:
-                                raw_intervened_representation = do_intervention(
-                                    selected_output,
-                                    None,
-                                    intervention,
-                                    subspaces[key_i] if subspaces is not None else None,
-                                )
-                            if isinstance(raw_intervened_representation, InterventionOutput):
-                                self.full_intervention_outputs.append(raw_intervened_representation)
-                                intervened_representation = raw_intervened_representation.output
-                            else:
-                                intervened_representation = raw_intervened_representation
-                        else:
-                            intervened_representation = do_intervention(
-                                selected_output,
-                                self._reconcile_stateful_cached_activations(
-                                    key,
-                                    selected_output,
-                                    unit_locations_base[key_i],
-                                ),
-                                intervention,
-                                subspaces[key_i] if subspaces is not None else None,
-                            )
-                    else:
-                        # highly unlikely it's a primitive intervention type
-                        intervened_representation = do_intervention(
-                            selected_output,
-                            self._reconcile_stateful_cached_activations(
-                                key,
-                                selected_output,
-                                unit_locations_base[key_i],
-                            ),
-                            intervention,
-                            subspaces[key_i] if subspaces is not None else None,
-                        )
-                    if intervened_representation is None:
-                        return
-
-                    # setter can produce hot activations for shared subspace interventions if linked
-                    if key in self._intervention_reverse_link:
-                        self.hot_activations[
-                            self._intervention_reverse_link[key]
-                        ] = intervened_representation.clone()
-                    
-                    if isinstance(output, tuple):
-                        _ = self._scatter_intervention_output(
-                            output[0], intervened_representation, key, unit_locations_base[key_i]
-                        )
-                    else:
-                        _ = self._scatter_intervention_output(
-                            output, intervened_representation, key, unit_locations_base[key_i]
-                        )
-                            
-                    self._intervention_state[key].inc_setter_version()
-
-            handlers.append(module_hook(hook_callback, with_kwargs=True))
-
-        return HandlerList(handlers)
-
-    def _output_validation(
-        self,
+    def _apply_intervention(
+        self, key, unit_locations_base, subspace, intervention_additional_kwargs
     ):
-        """Safe guarding the execution by checking memory states"""
+        """Setter: read, transform and write back the activation at ``key``.
+
+        Must run inside an nnsight trace over the (intervened) input.
+        """
+        intervention = self.interventions[key]
+        module_hook = self.intervention_hooks[key]
+        hook_type = module_hook[1]
+        if intervention_additional_kwargs is None:
+            intervention_additional_kwargs = {}
+
+        value = self._read_module_activation(module_hook, hook_type)
+
+        selected_output = self._gather_intervention_output(
+            value, key, unit_locations_base
+        )
+        if not self.is_model_stateless:
+            selected_output = selected_output.clone()
+
+        if self.as_adaptor:
+            adaptor_input = self._read_module_activation(
+                module_hook, CONST_INPUT_HOOK
+            )
+            selected_input = self._gather_intervention_output(
+                adaptor_input, key, unit_locations_base
+            )
+            intervention_additional_kwargs = dict(intervention_additional_kwargs)
+            intervention_additional_kwargs["args"] = selected_input
+
+        if isinstance(intervention, CollectIntervention):
+            intervened_representation = do_intervention(
+                selected_output,
+                None,
+                intervention,
+                subspace,
+                **intervention_additional_kwargs,
+            )
+            # support collection during generation by accumulating a list
+            if key not in self.activations:
+                self.activations[key] = [intervened_representation.save()]
+            else:
+                self.activations[key].append(intervened_representation.save())
+            # no-op to the output
+            return
+
+        if not isinstance(intervention, LambdaIntervention) and \
+                intervention.is_source_constant:
+            raw_intervened_representation = do_intervention(
+                selected_output,
+                None,
+                intervention,
+                subspace,
+                **intervention_additional_kwargs,
+            )
+            if isinstance(raw_intervened_representation, InterventionOutput):
+                self.full_intervention_outputs.append(raw_intervened_representation)
+                intervened_representation = raw_intervened_representation.output
+            else:
+                intervened_representation = raw_intervened_representation
+        else:
+            intervened_representation = do_intervention(
+                selected_output,
+                self._reconcile_stateful_cached_activations(
+                    key, selected_output, unit_locations_base
+                ),
+                intervention,
+                subspace,
+                **intervention_additional_kwargs,
+            )
+
+        if intervened_representation is None:
+            return
+
+        # linked interventions share their swapped ("hot") activation
+        if key in self._intervention_reverse_link:
+            self.hot_activations[
+                self._intervention_reverse_link[key]
+            ] = intervened_representation.clone()
+
+        self._scatter_intervention_output(
+            value, intervened_representation, key, unit_locations_base
+        )
+        self._intervention_state[key].inc_setter_version()
+
+    def _subspace_for(self, key, subspaces):
+        """Pick the subspace entry aligned with ``key`` (or ``None``)."""
+        if subspaces is None:
+            return None
+        return subspaces[self.sorted_keys.index(key)]
+
+    def _should_intervene(self, key):
+        """Whether ``key`` has an activation/source ready to be applied."""
+        return (
+            key in self.activations
+            or isinstance(self.interventions[key], LambdaIntervention)
+            or self.interventions[key].is_source_constant
+        )
+
+    def _collect_parallel_sources(
+        self, sources, unit_locations_sources, activations_sources
+    ):
+        """Cache every source activation (parallel mode)."""
+        if activations_sources is None:
+            assert len(sources) == len(self._intervention_group)
+            for group_id, keys in self._intervention_group.items():
+                if sources[group_id] is None:
+                    continue  # smart jump for advance usage only
+                with self._trace(sources[group_id]):
+                    for key in keys:
+                        self._capture_activation(
+                            key,
+                            unit_locations_sources[self.sorted_keys.index(key)],
+                        )
+        else:
+            self.activations = activations_sources
+            for passed_in_key in self.activations:
+                assert passed_in_key in self.sorted_keys
+
+    def _intervene_parallel(
+        self, base, sources, unit_locations, activations_sources,
+        subspaces, intervention_additional_kwargs, model_kwargs,
+    ):
+        """Parallel mode: collect all sources, then swap them into base at once."""
+        unit_locations_sources = unit_locations["sources->base"][0]
+        unit_locations_base = unit_locations["sources->base"][1]
+
+        self._collect_parallel_sources(
+            sources, unit_locations_sources, activations_sources
+        )
+
+        with self._trace(base, **model_kwargs):
+            for group_id, keys in self._intervention_group.items():
+                for key in keys:
+                    if self._should_intervene(key):
+                        self._apply_intervention(
+                            key,
+                            unit_locations_base[self.sorted_keys.index(key)],
+                            self._subspace_for(key, subspaces),
+                            intervention_additional_kwargs,
+                        )
+            counterfactual_outputs = self._ns.output.save()
+        return counterfactual_outputs
+
+    def _intervene_serial(
+        self, base, sources, unit_locations, activations_sources,
+        subspaces, intervention_additional_kwargs, model_kwargs,
+    ):
+        """Serial mode: thread interventions source_0 -> source_1 -> ... -> base.
+
+        Each stage runs in a single trace where the *previous* group's
+        interventions are re-applied (so the current source sees them) while the
+        current group's activation is captured. The final stage runs the base.
+        """
+        group_ids = list(self._intervention_group.keys())
+        n_groups = len(group_ids)
+
+        # interventions that must be re-applied on the *next* trace, as
+        # (key, base_unit_locations, subspace) tuples.
+        pending = []
+
+        for idx, group_id in enumerate(group_ids):
+            keys = self._intervention_group[group_id]
+            if idx != n_groups - 1:
+                loc_key = f"source_{group_id}->source_{group_id+1}"
+            else:
+                loc_key = f"source_{group_id}->base"
+
+            stage_input = sources[group_id]
+            if stage_input is None:
+                continue  # smart jump for advance usage only
+
+            unit_locations_source = unit_locations[loc_key][0]
+            unit_locations_base = unit_locations[loc_key][1]
+
+            with self._trace(stage_input):
+                # re-apply already-resolved interventions so this source sees them
+                for (p_key, p_loc, p_sub) in pending:
+                    self._apply_intervention(
+                        p_key, p_loc, p_sub, intervention_additional_kwargs
+                    )
+                # capture this group's activation from the (intervened) source
+                if activations_sources is None:
+                    for key_id, key in enumerate(keys):
+                        if unit_locations_source[key_id] is None:
+                            continue
+                        self._capture_activation(key, unit_locations_source[key_id])
+                else:
+                    for key in keys:
+                        self.activations[key] = activations_sources[key]
+
+            # this group's interventions get applied on the next trace
+            pending = []
+            for key_id, key in enumerate(keys):
+                if self._should_intervene(key):
+                    pending.append(
+                        (key, unit_locations_base[key_id], self._subspace_for(key, subspaces))
+                    )
+
+        with self._trace(base, **model_kwargs):
+            for (p_key, p_loc, p_sub) in pending:
+                self._apply_intervention(
+                    p_key, p_loc, p_sub, intervention_additional_kwargs
+                )
+            counterfactual_outputs = self._ns.output.save()
+        return counterfactual_outputs
+
+    def _output_validation(self):
+        """Safe guard: stateless interventions fire their getter/setter once."""
         if self.is_model_stateless:
             for k, v in self._intervention_state.items():
                 if v.getter_version() > 1 or v.setter_version() > 1:
@@ -1700,167 +1261,6 @@ class IntervenableModel(BaseModel):
                         f"For stateless model, each getter and setter "
                         f"should be called only once: {self._intervention_state}"
                     )
-
-    def _flatten_input_dict_as_batch(self, input_dict):
-        # we also accept grouped sources, will batch them and provide partition info.
-        if not isinstance(input_dict, dict):
-            assert isinstance(input_dict, list)
-            flatten_input_dict = {}
-            for k, v in input_dict[0].items():
-                flatten_input_dict[k] = {}
-            for i in range(0, len(input_dict)):
-                for k, v in input_dict[i].items():
-                    flatten_input_dict[k] += [v]
-            for k, v in flatten_input_dict.items():
-                # flatten as one single batch
-                flatten_input_dict[k] = torch.cat(v, dim=0)
-        else:
-            flatten_input_dict = input_dict
-        return flatten_input_dict
-
-    def _get_partition_size(self, input_dict):
-        if not isinstance(input_dict, dict):
-            assert isinstance(input_dict, list)
-            return len(input_dict)
-        else:
-            return 1
-
-    def _wait_for_forward_with_parallel_intervention(
-        self,
-        sources,
-        unit_locations,
-        activations_sources: Optional[Dict] = None,
-        subspaces: Optional[List] = None,
-        intervention_additional_kwargs: Optional[Dict] = None,
-    ):
-        # torch.autograd.set_detect_anomaly(True)
-        all_set_handlers = HandlerList([])
-        unit_locations_sources = unit_locations["sources->base"][0]
-        unit_locations_base = unit_locations["sources->base"][1]
-
-        # for each source, we hook in getters to cache activations
-        # at each aligning representations
-        if activations_sources is None:
-            assert len(sources) == len(self._intervention_group)
-            for group_id, keys in self._intervention_group.items():
-                if sources[group_id] is None:
-                    continue  # smart jump for advance usage only
-                group_get_handlers = HandlerList([])
-                for key in keys:
-                    get_handlers = self._intervention_getter(
-                        [key],
-                        [
-                            unit_locations_sources[
-                                self.sorted_keys.index(key)
-                            ]
-                        ],
-                    )
-                    group_get_handlers.extend(get_handlers)
-                _ = self.model(**sources[group_id])
-                group_get_handlers.remove()
-        else:
-            # simply patch in the ones passed in
-            self.activations = activations_sources
-            for _, passed_in_key in enumerate(self.activations):
-                assert passed_in_key in self.sorted_keys
-        
-        # in parallel mode, we swap cached activations all into
-        # base at once
-        for group_id, keys in self._intervention_group.items():
-            for key in keys:
-                # skip in case smart jump
-                if key in self.activations or \
-                    isinstance(self.interventions[key], LambdaIntervention) or \
-                    self.interventions[key].is_source_constant:
-                    set_handlers = self._intervention_setter(
-                        [key],
-                        [
-                            unit_locations_base[
-                                self.sorted_keys.index(key)
-                            ]
-                        ],
-                        # assume same group targeting the same subspace
-                        [
-                            subspaces[
-                                self.sorted_keys.index(key)
-                            ]
-                        ]
-                        if subspaces is not None
-                        else None,
-                        intervention_additional_kwargs=intervention_additional_kwargs,
-                    )
-                    # for setters, we don't remove them.
-                    all_set_handlers.extend(set_handlers)
-        return all_set_handlers
-
-    def _wait_for_forward_with_serial_intervention(
-        self,
-        sources,
-        unit_locations,
-        activations_sources: Optional[Dict] = None,
-        subspaces: Optional[List] = None,
-        intervention_additional_kwargs: Optional[Dict] = None,
-    ):
-        all_set_handlers = HandlerList([])
-        for group_id, keys in self._intervention_group.items():
-            if sources[group_id] is None:
-                continue  # smart jump for advance usage only
-            for key_id, key in enumerate(keys):
-                if group_id != len(self._intervention_group) - 1:
-                    unit_locations_key = f"source_{group_id}->source_{group_id+1}"
-                else:
-                    unit_locations_key = f"source_{group_id}->base"
-                unit_locations_source = unit_locations[unit_locations_key][0][
-                    key_id
-                ]
-                if unit_locations_source is None:
-                    continue  # smart jump for advance usage only
-
-                unit_locations_base = unit_locations[unit_locations_key][1][
-                    key_id
-                ]
-                if activations_sources is None:
-                    # get activation from source_i
-                    get_handlers = self._intervention_getter(
-                        [key],
-                        [unit_locations_source],
-                    )
-                else:
-                    self.activations[key] = activations_sources[
-                        key
-                    ]
-            # call once per group. each intervention is by its own group by default
-            if activations_sources is None:
-                # this is when previous setter and THEN the getter get called
-                _ = self.model(**sources[group_id])
-                get_handlers.remove()
-                # remove existing setters after getting the curr intervened reprs
-                if len(all_set_handlers) > 0:
-                    all_set_handlers.remove()
-                    all_set_handlers = HandlerList([])
-
-            for key in keys:
-                # skip in case smart jump
-                if key in self.activations or \
-                    isinstance(self.interventions[key], LambdaIntervention) or \
-                    self.interventions[key].is_source_constant:
-                    # set with intervened activation to source_i+1
-                    set_handlers = self._intervention_setter(
-                        [key],
-                        [unit_locations_base],
-                        # assume the order
-                        [
-                            subspaces[
-                                self.sorted_keys.index(key)
-                            ]
-                        ]
-                        if subspaces is not None
-                        else None,
-                        intervention_additional_kwargs=intervention_additional_kwargs,
-                    )
-                    # for setters, we don't remove them.
-                    all_set_handlers.extend(set_handlers)
-        return all_set_handlers
 
     def forward(
         self,
@@ -1940,7 +1340,6 @@ class IntervenableModel(BaseModel):
         Since we now support group-based intervention, the number of sources
         should be equal to the total number of groups.
         """
-        # TODO: forgive me now, i will change this later.
         activations_sources = source_representations
         if sources is not None and not isinstance(sources, list):
             sources = [sources]
@@ -1952,14 +1351,14 @@ class IntervenableModel(BaseModel):
         # if no source input or intervention, we return base
         if sources is None and activations_sources is None \
             and unit_locations is None and len(self.interventions) == 0:
-            return self.model(**base), None
+            return self._run_model(base), None
         # broadcast
         unit_locations = self._broadcast_unit_locations(get_batch_size(base), unit_locations)
         sources = [None]*len(self._intervention_group) if sources is None else sources
         sources = self._broadcast_sources(sources)
         activations_sources = self._broadcast_source_representations(activations_sources)
         subspaces = self._broadcast_subspaces(get_batch_size(base), subspaces)
-        
+
         self._input_validation(
             base,
             sources,
@@ -1967,48 +1366,45 @@ class IntervenableModel(BaseModel):
             activations_sources,
             subspaces,
         )
-        
+
+        # extra model kwargs threaded into the (intervened) forward
+        model_kwargs = {}
+        if labels is not None: # for training
+            model_kwargs["labels"] = labels
+        if use_cache is not None and 'use_cache' in self.model.config.to_dict(): # for transformer models
+            model_kwargs["use_cache"] = use_cache
+
         base_outputs = None
         if output_original_output:
             # returning un-intervened output with gradients
-            base_outputs = self.model(**base)
+            base_outputs = self._run_model(base)
 
         try:
-            # intervene
+            # intervene: collect source activations and apply them to base,
+            # all through nnsight traces.
             if self.mode == "parallel":
-                set_handlers_to_remove = (
-                    self._wait_for_forward_with_parallel_intervention(
-                        sources,
-                        unit_locations,
-                        activations_sources,
-                        subspaces,
-                        intervention_additional_kwargs,
-                    )
+                counterfactual_outputs = self._intervene_parallel(
+                    base,
+                    sources,
+                    unit_locations,
+                    activations_sources,
+                    subspaces,
+                    intervention_additional_kwargs,
+                    model_kwargs,
                 )
             elif self.mode == "serial":
-                set_handlers_to_remove = (
-                    self._wait_for_forward_with_serial_intervention(
-                        sources,
-                        unit_locations,
-                        activations_sources,
-                        subspaces,
-                        intervention_additional_kwargs,
-                    )
+                counterfactual_outputs = self._intervene_serial(
+                    base,
+                    sources,
+                    unit_locations,
+                    activations_sources,
+                    subspaces,
+                    intervention_additional_kwargs,
+                    model_kwargs,
                 )
 
-            # run intervened forward
-            model_kwargs = {}
-            if labels is not None: # for training
-                model_kwargs["labels"] = labels
-            if use_cache is not None and 'use_cache' in self.model.config.to_dict(): # for transformer models
-                model_kwargs["use_cache"] = use_cache
-
-            counterfactual_outputs = self.model(**base, **model_kwargs)
-
-            set_handlers_to_remove.remove()
-
             self._output_validation()
-            
+
             collected_activations = []
             if self.return_collect_activations:
                 for key in self.sorted_keys:
@@ -2083,27 +1479,27 @@ class IntervenableModel(BaseModel):
         counterfactual_outputs: the intervened output of the
         base input.
         """
-        # TODO: forgive me now, i will change this later.
         activations_sources = source_representations
         if sources is not None and not isinstance(sources, list):
             sources = [sources]
-            
+
+        self.full_intervention_outputs.clear()
         self._cleanup_states()
 
         self._intervene_on_prompt = intervene_on_prompt
         self._is_generation = True
-        
+
         if not intervene_on_prompt and unit_locations is None:
             # that means, we intervene on every generated tokens!
             unit_locations = {"base": 0}
-        
+
         # broadcast
         unit_locations = self._broadcast_unit_locations(get_batch_size(base), unit_locations)
         sources = [None]*len(self._intervention_group) if sources is None else sources
         sources = self._broadcast_sources(sources)
         activations_sources = self._broadcast_source_representations(activations_sources)
         subspaces = self._broadcast_subspaces(get_batch_size(base), subspaces)
-        
+
         self._input_validation(
             base,
             sources,
@@ -2111,41 +1507,34 @@ class IntervenableModel(BaseModel):
             activations_sources,
             subspaces,
         )
-        
+
+        if self.mode != "parallel":
+            raise NotImplementedError(
+                "Only parallel-mode generation is supported."
+            )
+
+        unit_locations_sources = unit_locations["sources->base"][0]
+        unit_locations_base = unit_locations["sources->base"][1]
+
         base_outputs = None
         if output_original_output:
-            # returning un-intervened output
-            base_outputs = self.model.generate(**base, **kwargs)
+            # returning un-intervened generation
+            base_outputs = self._generate_clean(base, kwargs)
 
-        set_handlers_to_remove = None
         try:
-            # intervene
-            if self.mode == "parallel":
-                set_handlers_to_remove = (
-                    self._wait_for_forward_with_parallel_intervention(
-                        sources,
-                        unit_locations,
-                        activations_sources,
-                        subspaces,
-                        intervention_additional_kwargs,
-                    )
-                )
-            elif self.mode == "serial":
-                set_handlers_to_remove = (
-                    self._wait_for_forward_with_serial_intervention(
-                        sources,
-                        unit_locations,
-                        activations_sources,
-                        subspaces,
-                        intervention_additional_kwargs,
-                    )
-                )
-            
-            # run intervened generate
-            counterfactual_outputs = self.model.generate(
-                **base, **kwargs
+            # collect source activations (a single forward per source group)
+            self._collect_parallel_sources(
+                sources, unit_locations_sources, activations_sources
             )
-            
+
+            counterfactual_outputs = self._generate_with_interventions(
+                base,
+                unit_locations_base,
+                subspaces,
+                intervention_additional_kwargs,
+                kwargs,
+            )
+
             collected_activations = []
             if self.return_collect_activations:
                 for key in self.sorted_keys:
@@ -2157,19 +1546,108 @@ class IntervenableModel(BaseModel):
         except Exception as e:
             raise e
         finally:
-            if set_handlers_to_remove is not None:
-                set_handlers_to_remove.remove()
             self._is_generation = False
             self._cleanup_states(
                 skip_activation_gc = \
                     (sources is None and activations_sources is not None) or \
                     self.return_collect_activations
             )
-        
+
         if self.return_collect_activations:
             return (base_outputs, collected_activations), counterfactual_outputs
-        
+
         return base_outputs, counterfactual_outputs
+
+    def _generate_clean(self, base, gen_kwargs):
+        """Un-intervened generation; returns the generated id tensor.
+
+        No interventions are needed here, so we call ``generate`` eagerly (not as
+        a ``with`` tracing context) — nnsight runs it and returns the output
+        tensor directly.
+        """
+        if isinstance(self._ns, nnsight.LanguageModel):
+            return self._ns.generate(base, **gen_kwargs)
+        if isinstance(base, Mapping):
+            return self._ns.generate(**base, **gen_kwargs)
+        return self._ns.generate(base, **gen_kwargs)
+
+    def _infer_generation_steps(self, base, gen_kwargs):
+        """Best-effort count of generation steps for a bounded iteration.
+
+        nnsight applies interventions per generated token inside a *bounded*
+        ``tracer.iter[:n]`` loop; trailing access to ``tracer.result`` then works.
+        We derive ``n`` from the generation kwargs. Returns ``None`` if unknown
+        (callers fall back to an unbounded ``tracer.all()``).
+        """
+        if "max_new_tokens" in gen_kwargs:
+            return int(gen_kwargs["max_new_tokens"])
+        if "max_length" in gen_kwargs:
+            prompt_len = None
+            if isinstance(base, Mapping):
+                for k in ("input_ids", "inputs_embeds"):
+                    if k in base and hasattr(base[k], "shape"):
+                        prompt_len = base[k].shape[1]
+                        break
+            if prompt_len is not None:
+                return max(1, int(gen_kwargs["max_length"]) - prompt_len)
+        return None
+
+    def _apply_generation_steps(
+        self, tracer, n_steps, unit_locations_base, subspaces,
+        intervention_additional_kwargs,
+    ):
+        """Apply setters on each generated token and return the generated ids.
+
+        Interventions run under ``no_grad`` — generation is inference, and the
+        HF generate loop runs in ``no_grad`` mode, so a grad-tracked in-place
+        write into a no-grad view would otherwise raise.
+        """
+        iterator = tracer.iter[0:n_steps] if n_steps is not None else tracer.all()
+        for _ in iterator:
+            with torch.no_grad():
+                for group_id, keys in self._intervention_group.items():
+                    for key in keys:
+                        if self._should_intervene(key):
+                            self._apply_intervention(
+                                key,
+                                unit_locations_base[self.sorted_keys.index(key)],
+                                self._subspace_for(key, subspaces),
+                                intervention_additional_kwargs,
+                            )
+        return tracer.result.save()
+
+    def _generate_with_interventions(
+        self, base, unit_locations_base, subspaces,
+        intervention_additional_kwargs, gen_kwargs,
+    ):
+        """Run intervened generation, applying setters on each generated token."""
+        n_steps = self._infer_generation_steps(base, gen_kwargs)
+        # bound the per-token loop so trailing ``tracer.result`` access is valid;
+        # forcing the exact new-token count keeps the bound from overshooting.
+        gen_kwargs = dict(gen_kwargs)
+        if n_steps is not None and "min_new_tokens" not in gen_kwargs:
+            gen_kwargs["min_new_tokens"] = n_steps
+
+        # the `with model.generate(...)` must be literal (see `_generate_clean`).
+        if isinstance(self._ns, nnsight.LanguageModel):
+            with self._ns.generate(base, **gen_kwargs) as tracer:
+                out = self._apply_generation_steps(
+                    tracer, n_steps, unit_locations_base, subspaces,
+                    intervention_additional_kwargs,
+                )
+        elif isinstance(base, Mapping):
+            with self._ns.generate(**base, **gen_kwargs) as tracer:
+                out = self._apply_generation_steps(
+                    tracer, n_steps, unit_locations_base, subspaces,
+                    intervention_additional_kwargs,
+                )
+        else:
+            with self._ns.generate(base, **gen_kwargs) as tracer:
+                out = self._apply_generation_steps(
+                    tracer, n_steps, unit_locations_base, subspaces,
+                    intervention_additional_kwargs,
+                )
+        return out
 
     def _batch_process_unit_location(self, inputs):
         """
@@ -2341,7 +1819,6 @@ class IntervenableModel(BaseModel):
         )
 
         # train main loop
-        remove_forward_hooks(self.model)
         self.model.eval()  # train enables drop-off but no grads
         epoch_iterator = trange(0, int(epochs), desc="Epoch")
         total_step = 0
@@ -2415,12 +1892,16 @@ class IntervenableModel(BaseModel):
         return result
 
 
+# Backwards-compatible alias: the dedicated nnsight/ndif backend has been merged
+# into IntervenableModel, which now runs every model through nnsight.
+IntervenableNdifModel = IntervenableModel
+
+
 def build_intervenable_model(config, model, **kwargs):
     """
-    Factory design pattern for different types of intervenable models.
+    Factory for intervenable models. All models — plain ``torch.nn.Module``s and
+    pre-wrapped nnsight models alike — are driven by the single nnsight-backed
+    :class:`IntervenableModel`.
     """
-    if isinstance(model, nnsight.LanguageModel):
-        return IntervenableNdifModel(config, model, **kwargs)
-    else:
-        return IntervenableModel(config, model, **kwargs)
+    return IntervenableModel(config, model, **kwargs)
 
