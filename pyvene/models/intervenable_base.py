@@ -1147,22 +1147,37 @@ class IntervenableModel(BaseModel):
     def _collect_parallel_sources(
         self, sources, unit_locations_sources, activations_sources
     ):
-        """Cache every source activation (parallel mode)."""
-        if activations_sources is None:
-            assert len(sources) == len(self._intervention_group)
-            for group_id, keys in self._intervention_group.items():
-                if sources[group_id] is None:
-                    continue  # smart jump for advance usage only
-                with self._trace(sources[group_id]):
-                    for key in keys:
-                        self._capture_activation(
-                            key,
-                            unit_locations_sources[self.sorted_keys.index(key)],
-                        )
-        else:
+        """Cache every source activation (parallel mode).
+
+        Groups that share the *same* source input (the common case — patching
+        many layers from one counterfactual broadcasts a single source) are
+        collected in a single trace instead of one forward per group, so the
+        source model runs once rather than N times.
+        """
+        if activations_sources is not None:
             self.activations = activations_sources
             for passed_in_key in self.activations:
                 assert passed_in_key in self.sorted_keys
+            return
+
+        assert len(sources) == len(self._intervention_group)
+        # dedup by source-object identity (broadcast yields the same object);
+        # distinct-but-equal sources keep separate traces, which is still correct.
+        grouped_keys = OrderedDict()
+        for group_id, keys in self._intervention_group.items():
+            source = sources[group_id]
+            if source is None:
+                continue  # smart jump for advance usage only
+            entry = grouped_keys.setdefault(id(source), [source, []])
+            entry[1].extend(keys)
+
+        for source, keys in grouped_keys.values():
+            with self._trace(source):
+                for key in keys:
+                    self._capture_activation(
+                        key,
+                        unit_locations_sources[self.sorted_keys.index(key)],
+                    )
 
     def _intervene_parallel(
         self, base, sources, unit_locations, activations_sources,
@@ -1371,7 +1386,7 @@ class IntervenableModel(BaseModel):
         model_kwargs = {}
         if labels is not None: # for training
             model_kwargs["labels"] = labels
-        if use_cache is not None and 'use_cache' in self.model.config.to_dict(): # for transformer models
+        if use_cache is not None and hasattr(self.model.config, 'use_cache'): # for transformer models
             model_kwargs["use_cache"] = use_cache
 
         base_outputs = None
