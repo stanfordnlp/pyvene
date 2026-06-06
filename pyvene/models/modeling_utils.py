@@ -127,47 +127,35 @@ def get_dimension_by_component(model_type, model_config, component) -> int:
     assert False
 
 
-def get_module_hook(model, representation, backend="nnsight"):
+def get_module_hook(model, representation):
     """Resolve an intervention anchor to its nnsight Envoy and hook type.
 
-    ``model`` is the nnsight-wrapped model. We map the abstract component name
-    (e.g. ``"mlp_output"``) to a concrete module path via
-    ``type_to_module_mapping`` (keyed on the raw model class), walk the Envoy
-    tree to that submodule, and return ``(envoy, hook_type)`` where ``hook_type``
-    is ``CONST_INPUT_HOOK`` (intervene on the module's input) or
-    ``CONST_OUTPUT_HOOK`` (intervene on its output). Reading/writing the captured
-    activation is then done through ``envoy.input`` / ``envoy.output`` inside an
-    nnsight trace, so no raw ``register_forward_hook`` is ever used.
+    ``model`` is the nnsight-wrapped model. The abstract component name (e.g.
+    ``"mlp_output"``) is mapped to a concrete module path via
+    ``type_to_module_mapping`` (keyed on the raw model class), or — for a direct
+    reference like ``"h[0].mlp.act.output"`` — read straight off the component.
+    Returns ``(envoy, hook_type)``, where ``hook_type`` is ``CONST_INPUT_HOOK``
+    or ``CONST_OUTPUT_HOOK``; the read/write itself happens through
+    ``envoy.input`` / ``envoy.output`` inside a trace (no raw forward hooks).
     """
     model_type = get_internal_model_type(model)
-    if (
-        model_type in type_to_module_mapping and
-        representation.component in type_to_module_mapping[model_type]
-    ):
-        type_info = type_to_module_mapping[model_type][
-            representation.component
-        ]
-        parameter_name = type_info[0]
-        hook_type = type_info[1]
-        if "%s" in parameter_name and representation.moe_key is None:
-            # we assume it is for the layer.
-            parameter_name = parameter_name % (representation.layer)
-        elif "%s" in parameter_name and representation.moe_key is not None:
-            parameter_name = parameter_name % (
-                int(representation.layer),
-                int(representation.moe_key),
-            )
+    mapping = type_to_module_mapping.get(model_type, {})
+
+    if representation.component in mapping:
+        parameter_name, hook_type = mapping[representation.component][:2]
+        if "%s" in parameter_name:
+            if representation.moe_key is None:
+                parameter_name = parameter_name % representation.layer
+            else:
+                parameter_name = parameter_name % (
+                    int(representation.layer), int(representation.moe_key)
+                )
     else:
         # direct module reference such as "h[0].mlp.act.output"
-        parameter_name = ".".join(representation.component.split(".")[:-1])
-        if representation.component.split(".")[-1] == "input":
-            hook_type = CONST_INPUT_HOOK
-        elif representation.component.split(".")[-1] == "output":
-            hook_type = CONST_OUTPUT_HOOK
+        parameter_name, _, accessor = representation.component.rpartition(".")
+        hook_type = CONST_INPUT_HOOK if accessor == "input" else CONST_OUTPUT_HOOK
 
-    module = getattr_for_torch_module(model, parameter_name)
-    # the actual input-vs-output handling happens at trace time
-    return (module, hook_type)
+    return getattr_for_torch_module(model, parameter_name), hook_type
 
 
 def bsd_to_b_sd(tensor):
