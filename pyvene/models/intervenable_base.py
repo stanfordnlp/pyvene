@@ -48,7 +48,7 @@ class BaseModel(nn.Module):
     Base model class for sharing static vars and methods.
     """
 
-    def __init__(self, config, model, backend=None, **kwargs):
+    def __init__(self, config, model, **kwargs):
         super().__init__()
         if isinstance(config, dict) or isinstance(config, list):
             config = IntervenableConfig(
@@ -703,10 +703,8 @@ class IntervenableModel(BaseModel):
     in one trace and applied to the base in another; gradients flow back through
     trainable interventions exactly as with a normal forward pass.
     """
-    BACKEND = "nnsight"
-
     def __init__(self, config, model, **kwargs):
-        super().__init__(config, model, "nnsight", **kwargs)
+        super().__init__(config, model, **kwargs)
 
     def _cleanup_states(self, skip_activation_gc=False):
         """
@@ -947,25 +945,18 @@ class IntervenableModel(BaseModel):
             self.model.load_state_dict(saved_model_state_dict, strict=False)
 
 
-    def _trace(self, inputs, **model_kwargs):
-        """Open an nnsight trace over ``inputs``.
+    def _trace(self, inputs, trace=True, **model_kwargs):
+        """Run ``inputs`` through nnsight, as a trace context or eagerly.
 
-        For a plain ``NNsight`` wrapper (the common case — pyvene wraps the raw
-        HF/MLP/GRU module) a dict input is unpacked as keyword args, mirroring the
-        old ``self.model(**base)`` call. An ``nnsight.LanguageModel`` consumes the
-        input directly (it handles tokenization / dict packing itself).
+        pyvene passes already-tokenized inputs, so a mapping is unpacked as
+        keyword args (a plain ``NNsight`` wrapper would otherwise receive the
+        whole dict as a single positional argument); anything else (a tensor, a
+        raw prompt) is passed positionally. ``trace=False`` bypasses tracing and
+        returns the model output directly — used for un-intervened forwards.
         """
-        if isinstance(self._ns, nnsight.LanguageModel):
-            return self._ns.trace(inputs, **model_kwargs)
         if isinstance(inputs, Mapping):
-            return self._ns.trace(**inputs, **model_kwargs)
-        return self._ns.trace(inputs, **model_kwargs)
-
-    def _run_model(self, base, **model_kwargs):
-        """Run an un-intervened forward and return the model output."""
-        with self._trace(base, **model_kwargs):
-            output = self._ns.output.save()
-        return output
+            return self._ns.trace(**inputs, trace=trace, **model_kwargs)
+        return self._ns.trace(inputs, trace=trace, **model_kwargs)
 
     def _read_module_activation(self, module_hook, hook_type):
         """Return the live tensor (or tuple/dict) at an Envoy's input/output."""
@@ -1308,7 +1299,7 @@ class IntervenableModel(BaseModel):
         # if no source input or intervention, we return base
         if sources is None and activations_sources is None \
             and unit_locations is None and len(self.interventions) == 0:
-            return self._run_model(base), None
+            return self._trace(base, trace=False), None
         # broadcast
         unit_locations = self._broadcast_unit_locations(get_batch_size(base), unit_locations)
         sources = [None]*len(self._intervention_group) if sources is None else sources
@@ -1334,7 +1325,7 @@ class IntervenableModel(BaseModel):
         base_outputs = None
         if output_original_output:
             # returning un-intervened output with gradients
-            base_outputs = self._run_model(base)
+            base_outputs = self._trace(base, trace=False)
 
         try:
             # intervene: collect source activations and apply them to base,
@@ -1516,8 +1507,6 @@ class IntervenableModel(BaseModel):
         a ``with`` tracing context) — nnsight runs it and returns the output
         tensor directly.
         """
-        if isinstance(self._ns, nnsight.LanguageModel):
-            return self._ns.generate(base, **gen_kwargs)
         if isinstance(base, Mapping):
             return self._ns.generate(**base, **gen_kwargs)
         return self._ns.generate(base, **gen_kwargs)
@@ -1579,14 +1568,9 @@ class IntervenableModel(BaseModel):
         if n_steps is not None and "min_new_tokens" not in gen_kwargs:
             gen_kwargs["min_new_tokens"] = n_steps
 
-        # the `with model.generate(...)` must be literal (see `_generate_clean`).
-        if isinstance(self._ns, nnsight.LanguageModel):
-            with self._ns.generate(base, **gen_kwargs) as tracer:
-                out = self._apply_generation_steps(
-                    tracer, n_steps, unit_locations_base, subspaces,
-                    intervention_additional_kwargs,
-                )
-        elif isinstance(base, Mapping):
+        # the `with model.generate(...)` must be literal — nnsight detects the
+        # tracing context by inspecting the call's frame.
+        if isinstance(base, Mapping):
             with self._ns.generate(**base, **gen_kwargs) as tracer:
                 out = self._apply_generation_steps(
                     tracer, n_steps, unit_locations_base, subspaces,
