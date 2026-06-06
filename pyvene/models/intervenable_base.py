@@ -1,7 +1,6 @@
 import json, logging, torch, types
 import numpy as np
 from collections import OrderedDict
-from collections.abc import Mapping
 from typing import List, Optional, Tuple, Union, Dict, Any
 
 from .constants import *
@@ -948,15 +947,13 @@ class IntervenableModel(BaseModel):
     def _trace(self, inputs, trace=True, **model_kwargs):
         """Run ``inputs`` through nnsight, as a trace context or eagerly.
 
-        pyvene passes already-tokenized inputs, so a mapping is unpacked as
-        keyword args (a plain ``NNsight`` wrapper would otherwise receive the
-        whole dict as a single positional argument); anything else (a tensor, a
-        raw prompt) is passed positionally. ``trace=False`` bypasses tracing and
-        returns the model output directly — used for un-intervened forwards.
+        pyvene always passes a mapping of (already-tokenized) inputs — the same
+        contract as the old ``self.model(**inputs)`` — which we unpack as keyword
+        args so a plain ``NNsight`` wrapper receives them as kwargs rather than
+        the whole dict as one positional argument. ``trace=False`` bypasses
+        tracing and returns the model output directly, for un-intervened forwards.
         """
-        if isinstance(inputs, Mapping):
-            return self._ns.trace(**inputs, trace=trace, **model_kwargs)
-        return self._ns.trace(inputs, trace=trace, **model_kwargs)
+        return self._ns.trace(**inputs, trace=trace, **model_kwargs)
 
     def _read_module_activation(self, module_hook, hook_type):
         """Return the live tensor (or tuple/dict) at an Envoy's input/output."""
@@ -1507,9 +1504,7 @@ class IntervenableModel(BaseModel):
         a ``with`` tracing context) — nnsight runs it and returns the output
         tensor directly.
         """
-        if isinstance(base, Mapping):
-            return self._ns.generate(**base, **gen_kwargs)
-        return self._ns.generate(base, **gen_kwargs)
+        return self._ns.generate(**base, **gen_kwargs)
 
     def _infer_generation_steps(self, base, gen_kwargs):
         """Best-effort count of generation steps for a bounded iteration.
@@ -1522,14 +1517,9 @@ class IntervenableModel(BaseModel):
         if "max_new_tokens" in gen_kwargs:
             return int(gen_kwargs["max_new_tokens"])
         if "max_length" in gen_kwargs:
-            prompt_len = None
-            if isinstance(base, Mapping):
-                for k in ("input_ids", "inputs_embeds"):
-                    if k in base and hasattr(base[k], "shape"):
-                        prompt_len = base[k].shape[1]
-                        break
-            if prompt_len is not None:
-                return max(1, int(gen_kwargs["max_length"]) - prompt_len)
+            for k in ("input_ids", "inputs_embeds"):
+                if k in base and hasattr(base[k], "shape"):
+                    return max(1, int(gen_kwargs["max_length"]) - base[k].shape[1])
         return None
 
     def _apply_generation_steps(
@@ -1570,18 +1560,11 @@ class IntervenableModel(BaseModel):
 
         # the `with model.generate(...)` must be literal — nnsight detects the
         # tracing context by inspecting the call's frame.
-        if isinstance(base, Mapping):
-            with self._ns.generate(**base, **gen_kwargs) as tracer:
-                out = self._apply_generation_steps(
-                    tracer, n_steps, unit_locations_base, subspaces,
-                    intervention_additional_kwargs,
-                )
-        else:
-            with self._ns.generate(base, **gen_kwargs) as tracer:
-                out = self._apply_generation_steps(
-                    tracer, n_steps, unit_locations_base, subspaces,
-                    intervention_additional_kwargs,
-                )
+        with self._ns.generate(**base, **gen_kwargs) as tracer:
+            out = self._apply_generation_steps(
+                tracer, n_steps, unit_locations_base, subspaces,
+                intervention_additional_kwargs,
+            )
         return out
 
     def _batch_process_unit_location(self, inputs):
