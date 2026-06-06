@@ -284,9 +284,36 @@ class IntervenableBasicTestCase(unittest.TestCase):
             max_length=32
         )
         print(tokenizer.decode(
-            intervened_story[0], 
+            intervened_story[0],
             skip_special_tokens=True
         ))
+
+    def test_serial_generation(self):
+        # serial-mode interventions during generation: source_0 -> source_1 -> base
+        from transformers import GPT2LMHeadModel
+        gpt2 = GPT2LMHeadModel(
+            GPT2Config(n_embd=32, n_head=4, n_layer=4, vocab_size=200, n_positions=64)
+        )
+
+        config = pv.IntervenableConfig(
+            [{"layer": 0, "component": "mlp_output"},
+             {"layer": 2, "component": "mlp_output"}],
+            intervention_types=pv.VanillaIntervention,
+            mode="serial",
+        )
+        pv_gpt2 = pv.IntervenableModel(config, model=gpt2)
+
+        base = {"input_ids": torch.randint(0, 200, (1, 5))}
+        sources = [{"input_ids": torch.randint(0, 200, (1, 5))},
+                   {"input_ids": torch.randint(0, 200, (1, 5))}]
+
+        _, intervened = pv_gpt2.generate(
+            base, sources,
+            unit_locations={"source_0->source_1": 3, "source_1->base": 4},
+            intervene_on_prompt=True,
+            max_new_tokens=6,
+        )
+        assert intervened.shape[-1] == 5 + 6
 
     def test_save_and_load(self):
 

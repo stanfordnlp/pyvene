@@ -21,9 +21,24 @@ class LambdaIntervention(torch.nn.Module):
         return self.func(*args, **kwargs)
 
 
+def unwrap_model(model):
+    """Return the underlying ``torch.nn.Module`` for an nnsight-wrapped model.
+
+    nnsight wraps a raw module as ``NNsight(module)`` / ``LanguageModel(...)`` and
+    exposes the original module via ``._model``. pyvene keys its
+    ``type_to_module_mapping`` / config lookups on the *raw* model class, so we
+    always unwrap before reading the type, config, or parameters. Plain modules
+    are returned unchanged.
+    """
+    inner = getattr(model, "_model", None)
+    if inner is not None and isinstance(inner, nn.Module) and hasattr(model, "trace"):
+        return inner
+    return model
+
+
 def get_internal_model_type(model):
-    """Return the model type."""
-    return type(model)
+    """Return the (raw) model type, transparently unwrapping nnsight wrappers."""
+    return type(unwrap_model(model))
 
 
 def is_stateless(model):
@@ -58,42 +73,6 @@ def is_transformer(model):
     if not is_gru(model) and not is_mlp(model):
         return True
     return False
-
-
-def print_forward_hooks(main_module):
-    """Function to print forward hooks of a module and its sub-modules."""
-    for name, submodule in main_module.named_modules():
-        if hasattr(submodule, "_forward_hooks") and submodule._forward_hooks:
-            print(f"Module: {name if name else 'Main Module'}")
-            for hook_id, hook in submodule._forward_hooks.items():
-                print(f"  ID: {hook_id}, Hook: {hook}")
-
-        if hasattr(submodule, "_forward_pre_hooks") and submodule._forward_hooks:
-            print(f"Module: {name if name else 'Main Module'}")
-            for hook_id, hook in submodule._forward_pre_hooks.items():
-                print(f"  ID: {hook_id}, Hook: {hook}")
-
-
-def remove_forward_hooks(main_module: nn.Module):
-    """Function to remove all forward and pre-forward hooks from a module and
-
-    its sub-modules.
-    """
-
-    # Remove forward hooks
-    for _, submodule in main_module.named_modules():
-        if hasattr(submodule, "_forward_hooks"):
-            hooks = list(submodule._forward_hooks.keys())  # Get a list of hook IDs
-            for hook_id in hooks:
-                submodule._forward_hooks.pop(hook_id)
-
-        # Remove pre-forward hooks
-        if hasattr(submodule, "_forward_pre_hooks"):
-            pre_hooks = list(
-                submodule._forward_pre_hooks.keys()
-            )  # Get a list of pre-hook IDs
-            for pre_hook_id in pre_hooks:
-                submodule._forward_pre_hooks.pop(pre_hook_id)
 
 
 def getattr_for_torch_module(model, parameter_name):
@@ -148,60 +127,35 @@ def get_dimension_by_component(model_type, model_config, component) -> int:
     assert False
 
 
-def get_module_hook(model, representation, backend="native") -> nn.Module:
-    """Render the intervening module with a hook."""
-    if (
-        get_internal_model_type(model) in type_to_module_mapping and
-        representation.component
-        in type_to_module_mapping[get_internal_model_type(model)]
-    ):
-        type_info = type_to_module_mapping[get_internal_model_type(model)][
-            representation.component
-        ]
-        parameter_name = type_info[0]
-        hook_type = type_info[1]
-        if "%s" in parameter_name and representation.moe_key is None:
-            # we assume it is for the layer.
-            parameter_name = parameter_name % (representation.layer)
-        elif "%s" in parameter_name and representation.moe_key is not None:
-            parameter_name = parameter_name % (
-                int(representation.layer),
-                int(representation.moe_key),
-            )
+def get_module_hook(model, representation):
+    """Resolve an intervention anchor to its nnsight Envoy and hook type.
+
+    ``model`` is the nnsight-wrapped model. The abstract component name (e.g.
+    ``"mlp_output"``) is mapped to a concrete module path via
+    ``type_to_module_mapping`` (keyed on the raw model class), or — for a direct
+    reference like ``"h[0].mlp.act.output"`` — read straight off the component.
+    Returns ``(envoy, hook_type)``, where ``hook_type`` is ``CONST_INPUT_HOOK``
+    or ``CONST_OUTPUT_HOOK``; the read/write itself happens through
+    ``envoy.input`` / ``envoy.output`` inside a trace (no raw forward hooks).
+    """
+    model_type = get_internal_model_type(model)
+    mapping = type_to_module_mapping.get(model_type, {})
+
+    if representation.component in mapping:
+        parameter_name, hook_type = mapping[representation.component][:2]
+        if "%s" in parameter_name:
+            if representation.moe_key is None:
+                parameter_name = parameter_name % representation.layer
+            else:
+                parameter_name = parameter_name % (
+                    int(representation.layer), int(representation.moe_key)
+                )
     else:
-        parameter_name = ".".join(representation.component.split(".")[:-1])
-        if representation.component.split(".")[-1] == "input":
-            hook_type = CONST_INPUT_HOOK
-        elif representation.component.split(".")[-1] == "output":
-            hook_type = CONST_OUTPUT_HOOK
+        # direct module reference such as "h[0].mlp.act.output"
+        parameter_name, _, accessor = representation.component.rpartition(".")
+        hook_type = CONST_INPUT_HOOK if accessor == "input" else CONST_OUTPUT_HOOK
 
-    module = getattr_for_torch_module(model, parameter_name)
-    if backend == "native":
-        module_hook = getattr(module, hook_type)
-    elif backend == "ndif":
-        # we assume the input v.s. output is handled outside
-        module_hook = module
-        return (module_hook, hook_type)
-
-    return module_hook
-
-
-class HandlerList:
-    """General class to set hooks and set off hooks."""
-
-    def __init__(self, handlers):
-        self.handlers = handlers
-
-    def __len__(self):
-        return len(self.handlers)
-
-    def remove(self):
-        for handler in self.handlers:
-            handler.remove()
-
-    def extend(self, new_handlers):
-        self.handlers.extend(new_handlers.handlers)
-        return self
+    return getattr_for_torch_module(model, parameter_name), hook_type
 
 
 def bsd_to_b_sd(tensor):

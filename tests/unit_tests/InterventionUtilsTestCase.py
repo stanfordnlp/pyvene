@@ -64,11 +64,8 @@ class InterventionUtilsTestCase(unittest.TestCase):
             assert "block_output" in k
 
         assert len(intervenable._intervention_group) == 2
-        assert len(intervenable._key_getter_call_counter) == 2
-        assert len(intervenable._key_setter_call_counter) == 2
         assert len(intervenable.activations) == 0
         assert len(intervenable.hot_activations) == 0
-        assert len(intervenable._batched_setter_activation_select) == 0
 
     def test_local_non_trainable_save_positive(self):
         config = IntervenableConfig(
