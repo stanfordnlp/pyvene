@@ -1119,47 +1119,52 @@ class IntervenableModel(BaseModel):
                 # every layer below it.
                 tracer.stop()
 
-    def _intervene_parallel(
-        self, base, sources, unit_locations, activations_sources,
-        subspaces, intervention_additional_kwargs, model_kwargs,
+    def _collect_base_setters(
+        self, sources, unit_locations, activations_sources, subspaces,
+        intervention_additional_kwargs,
     ):
-        """Parallel mode: collect all sources, then swap them into base at once."""
-        unit_locations_sources = unit_locations["sources->base"][0]
-        unit_locations_base = unit_locations["sources->base"][1]
+        """Run the collection phase and return the setters to apply to the base.
 
-        self._collect_parallel_sources(
-            sources, unit_locations_sources, activations_sources
+        Each setter is ``(key, base_unit_locations, subspace)``. This is the only
+        place parallel and serial differ — the base run that consumes the setters
+        is identical for both, which is what lets `forward` and `generate` share
+        the apply step.
+
+        Parallel: every source is read independently, and every intervention is
+        applied to the base. Serial: the sources are chained
+        ``source_0 -> source_1 -> ... -> base`` (each stage's edit threaded into
+        the next), and the setters returned are the final stage's.
+        """
+        if self.mode == "parallel":
+            unit_locations_sources, unit_locations_base = unit_locations["sources->base"]
+            self._collect_parallel_sources(
+                sources, unit_locations_sources, activations_sources
+            )
+            return [
+                (key, unit_locations_base[self.sorted_keys.index(key)],
+                 self._subspace_for(key, subspaces))
+                for keys in self._intervention_group.values()
+                for key in keys if self._should_intervene(key)
+            ]
+        return self._collect_serial_sources(
+            sources, unit_locations, activations_sources, subspaces,
+            intervention_additional_kwargs,
         )
 
-        with self._trace(base, **model_kwargs):
-            for group_id, keys in self._intervention_group.items():
-                for key in keys:
-                    if self._should_intervene(key):
-                        self._apply_intervention(
-                            key,
-                            unit_locations_base[self.sorted_keys.index(key)],
-                            self._subspace_for(key, subspaces),
-                            intervention_additional_kwargs,
-                        )
-            counterfactual_outputs = self._ns.output.save()
-        return counterfactual_outputs
-
-    def _intervene_serial(
-        self, base, sources, unit_locations, activations_sources,
-        subspaces, intervention_additional_kwargs, model_kwargs,
+    def _collect_serial_sources(
+        self, sources, unit_locations, activations_sources, subspaces,
+        intervention_additional_kwargs,
     ):
-        """Serial mode: thread interventions source_0 -> source_1 -> ... -> base.
+        """Chain interventions source_0 -> source_1 -> ... and return the final
+        stage's setters (those targeting the base).
 
-        Each stage runs in a single trace where the *previous* group's
-        interventions are re-applied (so the current source sees them) while the
-        current group's activation is captured. The final stage runs the base.
+        Each stage runs in one trace where the previous group's interventions are
+        re-applied (so this source sees them) while this group's activation is
+        captured.
         """
         group_ids = list(self._intervention_group.keys())
         n_groups = len(group_ids)
-
-        # interventions that must be re-applied on the *next* trace, as
-        # (key, base_unit_locations, subspace) tuples.
-        pending = []
+        pending = []  # setters carried into the next stage
 
         for idx, group_id in enumerate(group_ids):
             keys = self._intervention_group[group_id]
@@ -1176,12 +1181,7 @@ class IntervenableModel(BaseModel):
             unit_locations_base = unit_locations[loc_key][1]
 
             with self._trace(stage_input):
-                # re-apply already-resolved interventions so this source sees them
-                for (p_key, p_loc, p_sub) in pending:
-                    self._apply_intervention(
-                        p_key, p_loc, p_sub, intervention_additional_kwargs
-                    )
-                # capture this group's activation from the (intervened) source
+                self._apply_setters(pending, intervention_additional_kwargs)
                 if activations_sources is None:
                     for key_id, key in enumerate(keys):
                         if unit_locations_source[key_id] is None:
@@ -1191,19 +1191,33 @@ class IntervenableModel(BaseModel):
                     for key in keys:
                         self.activations[key] = activations_sources[key]
 
-            # this group's interventions get applied on the next trace
-            pending = []
-            for key_id, key in enumerate(keys):
-                if self._should_intervene(key):
-                    pending.append(
-                        (key, unit_locations_base[key_id], self._subspace_for(key, subspaces))
-                    )
+            pending = [
+                (key, unit_locations_base[key_id], self._subspace_for(key, subspaces))
+                for key_id, key in enumerate(keys) if self._should_intervene(key)
+            ]
+        return pending
 
+    def _apply_setters(self, setters, intervention_additional_kwargs):
+        """Apply ``(key, base_unit_locations, subspace)`` setters in place.
+
+        Must run inside an nnsight trace over the (intervened) input.
+        """
+        for key, unit_locations_base, subspace in setters:
+            self._apply_intervention(
+                key, unit_locations_base, subspace, intervention_additional_kwargs
+            )
+
+    def _intervene(
+        self, base, sources, unit_locations, activations_sources,
+        subspaces, intervention_additional_kwargs, model_kwargs,
+    ):
+        """Collect source activations and apply them to a single base forward."""
+        setters = self._collect_base_setters(
+            sources, unit_locations, activations_sources, subspaces,
+            intervention_additional_kwargs,
+        )
         with self._trace(base, **model_kwargs):
-            for (p_key, p_loc, p_sub) in pending:
-                self._apply_intervention(
-                    p_key, p_loc, p_sub, intervention_additional_kwargs
-                )
+            self._apply_setters(setters, intervention_additional_kwargs)
             counterfactual_outputs = self._ns.output.save()
         return counterfactual_outputs
 
@@ -1325,28 +1339,17 @@ class IntervenableModel(BaseModel):
             base_outputs = self._trace(base, trace=False)
 
         try:
-            # intervene: collect source activations and apply them to base,
+            # collect source activations and apply them to the base forward,
             # all through nnsight traces.
-            if self.mode == "parallel":
-                counterfactual_outputs = self._intervene_parallel(
-                    base,
-                    sources,
-                    unit_locations,
-                    activations_sources,
-                    subspaces,
-                    intervention_additional_kwargs,
-                    model_kwargs,
-                )
-            elif self.mode == "serial":
-                counterfactual_outputs = self._intervene_serial(
-                    base,
-                    sources,
-                    unit_locations,
-                    activations_sources,
-                    subspaces,
-                    intervention_additional_kwargs,
-                    model_kwargs,
-                )
+            counterfactual_outputs = self._intervene(
+                base,
+                sources,
+                unit_locations,
+                activations_sources,
+                subspaces,
+                intervention_additional_kwargs,
+                model_kwargs,
+            )
 
             collected_activations = []
             if self.return_collect_activations:
@@ -1448,31 +1451,23 @@ class IntervenableModel(BaseModel):
             subspaces,
         )
 
-        if self.mode != "parallel":
-            raise NotImplementedError(
-                "Only parallel-mode generation is supported."
-            )
-
-        unit_locations_sources = unit_locations["sources->base"][0]
-        unit_locations_base = unit_locations["sources->base"][1]
-
         base_outputs = None
         if output_original_output:
             # returning un-intervened generation
             base_outputs = self._generate_clean(base, kwargs)
 
         try:
-            # collect source activations (a single forward per source group)
-            self._collect_parallel_sources(
-                sources, unit_locations_sources, activations_sources
+            # the collection phase is shared with forward (parallel or serial);
+            # only the base run differs — here it re-applies the setters on every
+            # generated token rather than in a single forward.
+            setters = self._collect_base_setters(
+                sources, unit_locations, activations_sources, subspaces,
+                intervention_additional_kwargs,
             )
 
             counterfactual_outputs = self._generate_with_interventions(
-                base,
-                unit_locations_base,
-                subspaces,
-                intervention_additional_kwargs,
-                kwargs,
+                base, setters, intervention_additional_kwargs, kwargs,
+                intervene_on_prompt,
             )
 
             collected_activations = []
@@ -1523,34 +1518,34 @@ class IntervenableModel(BaseModel):
         return None
 
     def _apply_generation_steps(
-        self, tracer, n_steps, unit_locations_base, subspaces,
-        intervention_additional_kwargs,
+        self, tracer, n_steps, setters, intervention_additional_kwargs,
+        intervene_on_prompt,
     ):
-        """Apply setters on each generated token and return the generated ids.
+        """Re-apply the base setters on the chosen generation steps; return ids.
 
-        Interventions run under ``no_grad`` — generation is inference, and the
-        HF generate loop runs in ``no_grad`` mode, so a grad-tracked in-place
-        write into a no-grad view would otherwise raise.
+        Step 0 is the prefill (prompt) forward; later steps each emit one token.
+        ``intervene_on_prompt`` selects which to touch — the prompt forward (where
+        prompt-position locations are valid) or the generated tokens (each a
+        length-1 forward). Interventions run under ``no_grad``: generation is
+        inference and the HF generate loop runs in no-grad, so a grad-tracked
+        in-place write into a no-grad view would otherwise raise.
         """
-        iterator = tracer.iter[0:n_steps] if n_steps is not None else tracer.all()
+        if intervene_on_prompt:
+            iterator = tracer.iter[0:1]            # prefill step only
+        elif n_steps is not None:
+            iterator = tracer.iter[1:n_steps]      # generated tokens only
+        else:
+            iterator = tracer.all()
         for _ in iterator:
             with torch.no_grad():
-                for group_id, keys in self._intervention_group.items():
-                    for key in keys:
-                        if self._should_intervene(key):
-                            self._apply_intervention(
-                                key,
-                                unit_locations_base[self.sorted_keys.index(key)],
-                                self._subspace_for(key, subspaces),
-                                intervention_additional_kwargs,
-                            )
+                self._apply_setters(setters, intervention_additional_kwargs)
         return tracer.result.save()
 
     def _generate_with_interventions(
-        self, base, unit_locations_base, subspaces,
-        intervention_additional_kwargs, gen_kwargs,
+        self, base, setters, intervention_additional_kwargs, gen_kwargs,
+        intervene_on_prompt,
     ):
-        """Run intervened generation, applying setters on each generated token."""
+        """Run intervened generation, applying the base setters per step."""
         n_steps = self._infer_generation_steps(base, gen_kwargs)
         # bound the per-token loop so trailing ``tracer.result`` access is valid;
         # forcing the exact new-token count keeps the bound from overshooting.
@@ -1562,8 +1557,8 @@ class IntervenableModel(BaseModel):
         # tracing context by inspecting the call's frame.
         with self._ns.generate(**base, **gen_kwargs) as tracer:
             out = self._apply_generation_steps(
-                tracer, n_steps, unit_locations_base, subspaces,
-                intervention_additional_kwargs,
+                tracer, n_steps, setters, intervention_additional_kwargs,
+                intervene_on_prompt,
             )
         return out
 
