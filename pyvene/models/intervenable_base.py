@@ -980,8 +980,9 @@ class IntervenableModel(BaseModel):
         selected_output = self._gather_intervention_output(
             value, key, unit_locations
         )
-        # persist past the trace so it can be swapped into the base run
-        self.activations[key] = selected_output.save()
+        # self.activations predates the trace, so the captured value resolves to
+        # a real tensor on exit and can be swapped into the base run.
+        self.activations[key] = selected_output
 
     def _apply_intervention(
         self, key, unit_locations_base, subspace, intervention_additional_kwargs
@@ -1022,11 +1023,10 @@ class IntervenableModel(BaseModel):
                 subspace,
                 **intervention_additional_kwargs,
             )
-            # support collection during generation by accumulating a list
-            if key not in self.activations:
-                self.activations[key] = [intervened_representation.save()]
-            else:
-                self.activations[key].append(intervened_representation.save())
+            # accumulate (a list, in case we collect across generation steps).
+            # self.activations predates the trace, so nnsight resolves the
+            # appended values without an explicit .save().
+            self.activations.setdefault(key, []).append(intervened_representation)
             # no-op to the output
             return
 
@@ -1453,8 +1453,8 @@ class IntervenableModel(BaseModel):
 
         base_outputs = None
         if output_original_output:
-            # returning un-intervened generation
-            base_outputs = self._generate_clean(base, kwargs)
+            # un-intervened generation — run it eagerly (no trace needed)
+            base_outputs = self._ns.generate(**base, **kwargs)
 
         try:
             # the collection phase is shared with forward (parallel or serial);
@@ -1491,15 +1491,6 @@ class IntervenableModel(BaseModel):
             return (base_outputs, collected_activations), counterfactual_outputs
 
         return base_outputs, counterfactual_outputs
-
-    def _generate_clean(self, base, gen_kwargs):
-        """Un-intervened generation; returns the generated id tensor.
-
-        No interventions are needed here, so we call ``generate`` eagerly (not as
-        a ``with`` tracing context) — nnsight runs it and returns the output
-        tensor directly.
-        """
-        return self._ns.generate(**base, **gen_kwargs)
 
     def _infer_generation_steps(self, base, gen_kwargs):
         """Best-effort count of generation steps for a bounded iteration.
