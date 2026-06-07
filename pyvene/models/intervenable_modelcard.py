@@ -17,6 +17,7 @@ from .olmo.modelings_intervenable_olmo import *
 from .olmo2.modelings_intervenable_olmo2 import *
 from .qwen3.modelings_intervenable_qwen3 import *
 from .esm.modelings_intervenable_esm import *
+from .electra.modelings_intervenable_electra import *
 from .mllama.modelings_intervenable_mllama import *
 from .gpt_oss.modelings_intervenable_gpt_oss import *
 from .whisper.modelings_intervenable_whisper import *
@@ -77,6 +78,9 @@ type_to_module_mapping = {
     hf_models.qwen3.modeling_qwen3.Qwen3ForCausalLM: qwen3_lm_type_to_module_mapping,
     hf_models.esm.modeling_esm.EsmModel: esm_type_to_module_mapping,
     hf_models.esm.modeling_esm.EsmForMaskedLM: esm_mlm_type_to_module_mapping,
+    hf_models.electra.modeling_electra.ElectraModel: electra_type_to_module_mapping,
+    hf_models.electra.modeling_electra.ElectraForMaskedLM: electra_mlm_type_to_module_mapping,
+    hf_models.electra.modeling_electra.ElectraForSequenceClassification: electra_classifier_type_to_module_mapping,
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_module_mapping,
     hf_models.blip.modeling_blip.BlipForImageTextRetrieval: blip_itm_type_to_module_mapping,
     MLPModel: mlp_type_to_module_mapping,
@@ -126,6 +130,9 @@ type_to_dimension_mapping = {
     hf_models.qwen3.modeling_qwen3.Qwen3ForCausalLM: qwen3_lm_type_to_dimension_mapping,
     hf_models.esm.modeling_esm.EsmModel: esm_type_to_dimension_mapping,
     hf_models.esm.modeling_esm.EsmForMaskedLM: esm_mlm_type_to_dimension_mapping,
+    hf_models.electra.modeling_electra.ElectraModel: electra_type_to_dimension_mapping,
+    hf_models.electra.modeling_electra.ElectraForMaskedLM: electra_mlm_type_to_dimension_mapping,
+    hf_models.electra.modeling_electra.ElectraForSequenceClassification: electra_classifier_type_to_dimension_mapping,
     hf_models.blip.modeling_blip.BlipForQuestionAnswering: blip_type_to_dimension_mapping,
     hf_models.blip.modeling_blip.BlipForImageTextRetrieval: blip_itm_type_to_dimension_mapping,
     MLPModel: mlp_type_to_dimension_mapping,
