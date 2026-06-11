@@ -145,12 +145,78 @@ class InterventionWithT5TestCase(unittest.TestCase):
                 )
                 IntervenableModel(config, self.t5_lm)
 
+    def test_mlp_input_resolves_on_gated_gelu_variant(self):
+        """T5 v1.1 / FLAN-T5 / mT5 use ``feed_forward_proj='gated-gelu'``,
+        which swaps ``T5DenseActDense`` (with ``wi``) for
+        ``T5DenseGatedActDense`` (with ``wi_0`` and ``wi_1`` and no
+        ``wi``). The ``mlp_input`` anchor must resolve and intervene on
+        that variant — pointing the path at ``DenseReluDense.wi`` would
+        AttributeError here."""
+        _, _, gated_encoder = create_t5_encoder(
+            config=T5Config(
+                d_model=24,
+                d_ff=48,
+                d_kv=6,
+                num_layers=4,
+                num_decoder_layers=4,
+                num_heads=4,
+                vocab_size=20,
+                pad_token_id=0,
+                eos_token_id=1,
+                decoder_start_token_id=0,
+                dropout_rate=0.0,
+                feed_forward_proj="gated-gelu",
+            )
+        )
+        gated_encoder.eval().to(self.device)
+
+        # Sanity-check the assumption this test exists to lock in: the
+        # FF sublayer really is the gated variant with no `wi`.
+        ff = gated_encoder.encoder.block[0].layer[1].DenseReluDense
+        self.assertEqual(type(ff).__name__, "T5DenseGatedActDense")
+        self.assertFalse(hasattr(ff, "wi"))
+        self.assertTrue(hasattr(ff, "wi_0") and hasattr(ff, "wi_1"))
+
+        b_s, seq_len = 2, 6
+        base_ids = torch.randint(2, 20, (b_s, seq_len)).to(self.device)
+        src_ids = torch.randint(2, 20, (b_s, seq_len)).to(self.device)
+        base_mask = torch.ones_like(base_ids).to(self.device)
+        src_mask = torch.ones_like(src_ids).to(self.device)
+
+        config = IntervenableConfig(
+            model_type=type(gated_encoder),
+            representations=[
+                RepresentationConfig(0, "mlp_input", "pos", 1),
+            ],
+            intervention_types=VanillaIntervention,
+        )
+        intervenable = IntervenableModel(config, gated_encoder)
+
+        with torch.no_grad():
+            base_out = gated_encoder(
+                input_ids=base_ids, attention_mask=base_mask
+            ).last_hidden_state
+            _, intervened = intervenable(
+                base={"input_ids": base_ids, "attention_mask": base_mask},
+                sources=[
+                    {"input_ids": src_ids, "attention_mask": src_mask}
+                ],
+                unit_locations={"sources->base": ([[[2]] * b_s], [[[2]] * b_s])},
+            )
+        self.assertFalse(
+            torch.allclose(base_out, intervened.last_hidden_state),
+            "mlp_input intervention on gated-gelu T5 did not change output.",
+        )
+
 
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(InterventionWithT5TestCase("test_nonhead_streams_encoder"))
     suite.addTest(InterventionWithT5TestCase("test_head_streams_encoder"))
     suite.addTest(InterventionWithT5TestCase("test_lm_encoder_anchors_resolve"))
+    suite.addTest(
+        InterventionWithT5TestCase("test_mlp_input_resolves_on_gated_gelu_variant")
+    )
     return suite
 
 

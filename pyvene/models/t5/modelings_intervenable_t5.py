@@ -25,13 +25,24 @@ Note on dimensions: T5 attention uses an inner dimension of
 ``num_heads * d_kv`` (which can differ from ``d_model``), so the q/k/v/o
 projections are sized by ``inner_dim``, not by ``d_model``. We therefore
 expose ``inner_dim = num_heads*d_kv`` via the dimension mapping.
+
+Note on the feed-forward sublayer: HF instantiates one of two modules at
+``layer[1].DenseReluDense`` depending on ``config.feed_forward_proj``.
+Vanilla T5 (``relu``) uses ``T5DenseActDense`` which exposes a single
+``wi`` linear; T5 v1.1 / FLAN-T5 / mT5 (``gated-gelu``) use
+``T5DenseGatedActDense`` which exposes ``wi_0`` and ``wi_1`` and has no
+``wi`` attribute. We therefore anchor ``mlp_input`` on the
+``DenseReluDense`` module itself — its INPUT_HOOK sees the same tensor
+that flows into ``wi`` (or ``wi_0``/``wi_1``) and works for both
+variants. ``mlp_activation`` and ``mlp_output`` are unaffected because
+both classes expose ``.act`` and ``.wo``.
 """
 t5_type_to_module_mapping = {
     "block_input": ("encoder.block[%s]", CONST_INPUT_HOOK),
     "block_output": ("encoder.block[%s]", CONST_OUTPUT_HOOK),
     "mlp_activation": ("encoder.block[%s].layer[1].DenseReluDense.act", CONST_OUTPUT_HOOK),
     "mlp_output": ("encoder.block[%s].layer[1].DenseReluDense.wo", CONST_OUTPUT_HOOK),
-    "mlp_input": ("encoder.block[%s].layer[1].DenseReluDense.wi", CONST_INPUT_HOOK),
+    "mlp_input": ("encoder.block[%s].layer[1].DenseReluDense", CONST_INPUT_HOOK),
     "attention_value_output": ("encoder.block[%s].layer[0].SelfAttention.o", CONST_INPUT_HOOK),
     "head_attention_value_output": ("encoder.block[%s].layer[0].SelfAttention.o", CONST_INPUT_HOOK, (split_head_and_permute, "num_heads")),
     "attention_output": ("encoder.block[%s].layer[0].SelfAttention", CONST_OUTPUT_HOOK),
