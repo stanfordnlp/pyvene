@@ -32,6 +32,12 @@ dependencies = [
     "sentencepiece>=0.2.0",
 ]
 
+[project.optional-dependencies]
+# The ndif backend targets remote execution, which needs nnsight >= 0.7
+# (Python >= 3.10). Installing this extra on Python 3.9 will fail to resolve
+# by design, rather than silently shipping a local-only build that can't go remote.
+ndif = ["nnsight>=0.7.0"]
+
 [dependency-groups]
 dev = [
     "flake8>=7.1.1",
