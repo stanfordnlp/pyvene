@@ -1155,7 +1155,80 @@ class IntervenableModel(BaseModel):
             self.activations = {}
             self.hot_activations = {}
             self._batched_setter_activation_select = {}
-    
+
+    @staticmethod
+    def _iter_output_tensors(outputs):
+        """Yield the top-level tensors held by a model output.
+
+        Handles a bare tensor, a tuple/list, or a ``ModelOutput``/dict (e.g.
+        ``CausalLMOutputWithPast`` with ``loss`` and ``logits``). Nested
+        containers such as ``past_key_values`` are intentionally not recursed
+        into -- only the outputs a caller would call ``.backward()`` through.
+        """
+        if isinstance(outputs, torch.Tensor):
+            yield outputs
+        elif isinstance(outputs, dict):
+            for value in outputs.values():
+                if isinstance(value, torch.Tensor):
+                    yield value
+        elif isinstance(outputs, (tuple, list)):
+            for value in outputs:
+                if isinstance(value, torch.Tensor):
+                    yield value
+
+    def _defer_intervention_teardown_until_backward(
+        self, counterfactual_outputs, set_handlers_to_remove, skip_activation_gc
+    ):
+        """Keep intervention hooks (and their cached state) alive until the
+        backward pass finishes, then tear them down.
+
+        Gradient checkpointing with ``use_reentrant=False`` recomputes each
+        module's forward during ``.backward()``. The intervention hooks must
+        still be registered during that recomputation, otherwise a different
+        number of tensors is saved on the original forward versus the recompute
+        and PyTorch raises ``CheckpointError`` (see issue #231). We therefore
+        defer removing the hooks and clearing state to a callback that fires
+        once the whole backward graph -- including every recomputation -- has
+        run.
+
+        Returns ``True`` if teardown was deferred to a post-backward callback,
+        or ``False`` if there is nothing to back-propagate through and the
+        caller should tear the intervention down immediately (the prior
+        behavior).
+        """
+        if set_handlers_to_remove is None or not torch.is_grad_enabled():
+            return False
+
+        grad_tensors = [
+            tensor
+            for tensor in self._iter_output_tensors(counterfactual_outputs)
+            if tensor.requires_grad and tensor.grad_fn is not None
+        ]
+        if len(grad_tensors) == 0:
+            return False
+
+        teardown_state = {"done": False}
+
+        def _teardown():
+            if teardown_state["done"]:
+                return
+            teardown_state["done"] = True
+            set_handlers_to_remove.remove()
+            self._cleanup_states(skip_activation_gc=skip_activation_gc)
+
+        def _schedule_teardown(grad):
+            # Runs when a gradient first reaches an output tensor, i.e. at the
+            # start of the backward pass. Queue the real teardown so it runs
+            # only after the entire backward graph (all recomputations) has
+            # executed.
+            torch.autograd.Variable._execution_engine.queue_callback(_teardown)
+            return grad
+
+        for tensor in grad_tensors:
+            tensor.register_hook(_schedule_teardown)
+
+        return True
+
     def save(
         self, save_directory, save_to_hf_hub=False, hf_repo_name="my-awesome-model",
         include_model=False
@@ -1973,6 +2046,12 @@ class IntervenableModel(BaseModel):
             # returning un-intervened output with gradients
             base_outputs = self.model(**base)
 
+        set_handlers_to_remove = None
+        teardown_deferred = False
+        skip_activation_gc = (
+            (sources is None and activations_sources is not None)
+            or self.return_collect_activations
+        )
         try:
             # intervene
             if self.mode == "parallel":
@@ -2005,10 +2084,17 @@ class IntervenableModel(BaseModel):
 
             counterfactual_outputs = self.model(**base, **model_kwargs)
 
-            set_handlers_to_remove.remove()
+            # Defer hook teardown until after the backward pass when gradients
+            # are tracked, so gradient-checkpointing recomputation still sees
+            # the intervention hooks (issue #231). Otherwise tear down now.
+            teardown_deferred = self._defer_intervention_teardown_until_backward(
+                counterfactual_outputs, set_handlers_to_remove, skip_activation_gc
+            )
+            if not teardown_deferred and set_handlers_to_remove is not None:
+                set_handlers_to_remove.remove()
 
             self._output_validation()
-            
+
             collected_activations = []
             if self.return_collect_activations:
                 for key in self.sorted_keys:
@@ -2021,11 +2107,8 @@ class IntervenableModel(BaseModel):
         except Exception as e:
             raise e
         finally:
-            self._cleanup_states(
-                skip_activation_gc = \
-                    (sources is None and activations_sources is not None) or \
-                    self.return_collect_activations
-            )
+            if not teardown_deferred:
+                self._cleanup_states(skip_activation_gc=skip_activation_gc)
         
         if self.return_collect_activations:
             if return_dict:
