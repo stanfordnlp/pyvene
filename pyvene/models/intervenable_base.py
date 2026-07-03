@@ -1195,6 +1195,12 @@ class IntervenableModel(BaseModel):
         or ``False`` if there is nothing to back-propagate through and the
         caller should tear the intervention down immediately (the prior
         behavior).
+
+        The caller must not defer when it also returns the un-intervened
+        ``base_outputs`` (``output_original_output=True``): that graph is built
+        without intervention hooks, and leaving the hooks attached across a
+        backward through it would let checkpointing recompute a hook-free
+        forward with hooks present. See the call site in ``forward``.
         """
         if set_handlers_to_remove is None or not torch.is_grad_enabled():
             return False
@@ -2087,9 +2093,18 @@ class IntervenableModel(BaseModel):
             # Defer hook teardown until after the backward pass when gradients
             # are tracked, so gradient-checkpointing recomputation still sees
             # the intervention hooks (issue #231). Otherwise tear down now.
-            teardown_deferred = self._defer_intervention_teardown_until_backward(
-                counterfactual_outputs, set_handlers_to_remove, skip_activation_gc
-            )
+            #
+            # Never defer when we also returned the un-intervened output:
+            # ``base_outputs`` was computed *before* the hooks were installed,
+            # so its graph is hook-free. Leaving the counterfactual hooks
+            # attached across a backward through ``base_outputs`` would let
+            # gradient-checkpointing recompute that hook-free forward *with*
+            # hooks present, re-triggering the tensor mismatch or corrupting the
+            # original gradients. In that case fall back to eager teardown.
+            if not output_original_output:
+                teardown_deferred = self._defer_intervention_teardown_until_backward(
+                    counterfactual_outputs, set_handlers_to_remove, skip_activation_gc
+                )
             if not teardown_deferred and set_handlers_to_remove is not None:
                 set_handlers_to_remove.remove()
 

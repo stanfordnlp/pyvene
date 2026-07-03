@@ -108,6 +108,51 @@ class GradientCheckpointingTestCase(unittest.TestCase):
         self.assertTrue(torch.allclose(loss_ck, loss_ref, atol=1e-5))
         self.assertTrue(torch.allclose(grad_ck, grad_ref, atol=1e-5))
 
+    def test_original_output_backward_is_hook_free(self):
+        """Backprop through the un-intervened ``original_outputs`` must be safe
+        under checkpointing (issue #231 review): that graph was built without
+        intervention hooks, so its recomputation must not see them. The
+        gradient must match a run with no interventions at all.
+        """
+        input_ids = torch.randint(0, 64, (2, 6))
+
+        # Reference: a plain checkpointed GPT2, no interventions.
+        torch.manual_seed(0)
+        ref = GPT2LMHeadModel(
+            GPT2Config(
+                n_embd=24, n_layer=4, n_head=4, n_positions=128, vocab_size=64,
+                resid_pdrop=0.0, embd_pdrop=0.0, attn_pdrop=0.0,
+            )
+        )
+        ref.gradient_checkpointing_enable(
+            gradient_checkpointing_kwargs={"use_reentrant": False}
+        )
+        ref.train()
+        ref_out = ref(input_ids=input_ids, labels=input_ids.clone())
+        ref_out.loss.backward()
+        ref_grad = ref.transformer.wte.weight.grad.clone()
+
+        # Wrapped model, same base weights: backprop through original_outputs
+        # (which is hook-free) must not crash and must match the reference.
+        # Re-enable base gradients -- pyvene freezes them when wrapping, but the
+        # reviewer's scenario is a trainable base whose original_outputs carry
+        # gradients.
+        pv_model, gpt2 = self._build(gradient_checkpointing=True, seed=0)
+        gpt2.requires_grad_(True)
+        original, _ = pv_model(
+            {"input_ids": input_ids, "labels": input_ids.clone()},
+            unit_locations={"base": [[[0]] * input_ids.shape[0]]},
+            output_original_output=True,
+        )
+        original.loss.backward()
+        wrapped_grad = gpt2.transformer.wte.weight.grad.clone()
+
+        self.assertTrue(torch.isfinite(original.loss))
+        self.assertTrue(torch.allclose(wrapped_grad, ref_grad, atol=1e-5))
+        # eager teardown on this path: nothing left attached.
+        self.assertEqual(self._count_forward_hooks(gpt2), 0)
+        self.assertEqual(len(pv_model.activations), 0)
+
     def test_hooks_removed_after_backward(self):
         """Deferred teardown must still fully remove hooks and clear cached state
         once backward completes, so nothing leaks across training steps."""
