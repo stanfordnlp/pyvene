@@ -374,7 +374,6 @@ Star History
 
    guides/contributing
    guides/causal_abstraction
-   guides/ndif
 
 
 .. toctree::
@@ -387,6 +386,7 @@ Star History
    tutorials/basic_tutorials/Nested_Intervention
    tutorials/basic_tutorials/Subspace_Partition_with_Intervention
    tutorials/basic_tutorials/Intervention_Training
+   tutorials/basic_tutorials/ndif_backend_101
 
 .. toctree::
    :hidden:

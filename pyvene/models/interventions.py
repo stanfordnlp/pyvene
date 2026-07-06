@@ -105,9 +105,13 @@ class TrainableIntervention(Intervention):
         super().__init__(**kwargs)
         self.trainable = True
         self.is_source_constant = False
-        
+
     def tie_weight(self, linked_intervention):
         pass
+
+    def get_remote_weights(self):
+        """Extract weights for remote NDIF execution. Override in subclasses."""
+        return {}
 
 
 class ConstantSourceIntervention(Intervention):
@@ -306,6 +310,16 @@ class RotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationI
         output = torch.matmul(rotated_base, self.rotate_layer.weight.T)
         return output.to(base.dtype)
 
+    def get_remote_weights(self):
+        """Extract weights for remote NDIF execution."""
+        return {
+            'rotate_layer_weight': self.rotate_layer.weight.detach().clone(),
+            'embed_dim': int(self.embed_dim),
+            'intervention_type': 'rotated_space',
+            'subspace_partition': self.subspace_partition,
+            'use_fast': self.use_fast,
+        }
+
     def __str__(self):
         return f"RotatedSpaceIntervention()"
 
@@ -364,6 +378,17 @@ class BoundlessRotatedSpaceIntervention(TrainableIntervention, DistributedRepres
         output = torch.matmul(rotated_output, self.rotate_layer.weight.T)
         return output.to(base.dtype)
 
+    def get_remote_weights(self):
+        """Extract weights for remote NDIF execution."""
+        return {
+            'rotate_layer_weight': self.rotate_layer.weight.detach().clone(),
+            'intervention_boundaries': self.intervention_boundaries.detach().clone(),
+            'temperature': self.temperature.detach().clone(),
+            'intervention_population': self.intervention_population.detach().clone(),
+            'embed_dim': int(self.embed_dim),
+            'intervention_type': 'boundless_rotated_space',
+        }
+
     def __str__(self):
         return f"BoundlessRotatedSpaceIntervention()"
 
@@ -410,6 +435,16 @@ class SigmoidMaskRotatedSpaceIntervention(TrainableIntervention, DistributedRepr
         output = torch.matmul(rotated_output, self.rotate_layer.weight.T)
         return output.to(base.dtype)
 
+    def get_remote_weights(self):
+        """Extract weights for remote NDIF execution."""
+        return {
+            'rotate_layer_weight': self.rotate_layer.weight.detach().clone(),
+            'masks': self.masks.detach().clone(),
+            'temperature': self.temperature.detach().clone(),
+            'embed_dim': int(self.embed_dim),
+            'intervention_type': 'sigmoid_mask_rotated_space',
+        }
+
     def __str__(self):
         return f"SigmoidMaskRotatedSpaceIntervention()"
 
@@ -434,8 +469,8 @@ class SigmoidMaskIntervention(TrainableIntervention, LocalistRepresentationInter
     def forward(self, base, source, subspaces=None, **kwargs):
         batch_size = base.shape[0]
         # get boundary mask between 0 and 1 from sigmoid
-        mask_sigmoid = torch.sigmoid(self.mask / torch.tensor(self.temperature)) 
-        
+        mask_sigmoid = torch.sigmoid(self.mask / torch.tensor(self.temperature))
+
         # interchange
         intervened_output = (
             1.0 - mask_sigmoid
@@ -443,9 +478,18 @@ class SigmoidMaskIntervention(TrainableIntervention, LocalistRepresentationInter
 
         return intervened_output
 
+    def get_remote_weights(self):
+        """Extract weights for remote NDIF execution."""
+        return {
+            'mask': self.mask.detach().clone(),
+            'temperature': self.temperature.detach().clone(),
+            'embed_dim': int(self.embed_dim),
+            'intervention_type': 'sigmoid_mask',
+        }
+
     def __str__(self):
         return f"SigmoidMaskIntervention()"
-    
+
 
 class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresentationIntervention):
 
@@ -506,6 +550,17 @@ class LowRankRotatedSpaceIntervention(TrainableIntervention, DistributedRepresen
             )
         return output.to(base.dtype)
 
+    def get_remote_weights(self):
+        """Extract weights for remote NDIF execution."""
+        return {
+            'rotate_layer_weight': self.rotate_layer.weight.detach().clone(),
+            'embed_dim': int(self.embed_dim),
+            'low_rank_dimension': self.rotate_layer.weight.shape[1],
+            'intervention_type': 'low_rank_rotated_space',
+            'subspace_partition': self.subspace_partition,
+            'use_fast': self.use_fast,
+        }
+
     def __str__(self):
         return f"LowRankRotatedSpaceIntervention()"
 
@@ -548,6 +603,17 @@ class PCARotatedSpaceIntervention(BasisAgnosticIntervention, DistributedRepresen
         output = torch.matmul(rotated_base, self.pca_components)  # B * D
         output = (output * self.pca_std) + self.pca_mean
         return output
+
+    def get_remote_weights(self):
+        """Extract weights for remote NDIF execution."""
+        return {
+            'intervention_type': 'pca_rotated_space',
+            'pca_components': self.pca_components.detach().clone(),
+            'pca_mean': self.pca_mean.detach().clone(),
+            'pca_std': self.pca_std.detach().clone(),
+            'interchange_dim': int(self.interchange_dim) if self.interchange_dim is not None else None,
+            'subspace_partition': self.subspace_partition,
+        }
 
     def __str__(self):
         return f"PCARotatedSpaceIntervention()"
@@ -594,6 +660,19 @@ class AutoencoderIntervention(TrainableIntervention):
         inv_output = self.autoencoder.decode(base_latent)
         return inv_output.to(base_dtype)
 
+    def get_remote_weights(self):
+        """Extract weights for remote NDIF execution."""
+        enc_sd = self.autoencoder.encoder[0].state_dict()
+        dec_sd = self.autoencoder.decoder[0].state_dict()
+        return {
+            'intervention_type': 'autoencoder',
+            'encoder_weight': enc_sd['weight'].detach().clone(),
+            'encoder_bias': enc_sd['bias'].detach().clone(),
+            'decoder_weight': dec_sd['weight'].detach().clone(),
+            'decoder_bias': dec_sd['bias'].detach().clone(),
+            'interchange_dim': int(self.interchange_dim) if self.interchange_dim is not None else None,
+        }
+
     def __str__(self):
         return f"AutoencoderIntervention()"
 
@@ -636,6 +715,18 @@ class JumpReLUAutoencoderIntervention(TrainableIntervention):
         # decode intervened latent.
         recon = self.decode(intervened_latent)
         return recon
+
+    def get_remote_weights(self):
+        """Extract weights for remote NDIF execution."""
+        return {
+            'intervention_type': 'jumprelu_autoencoder',
+            'W_enc': self.W_enc.detach().clone(),
+            'W_dec': self.W_dec.detach().clone(),
+            'threshold': self.threshold.detach().clone(),
+            'b_enc': self.b_enc.detach().clone(),
+            'b_dec': self.b_dec.detach().clone(),
+            'interchange_dim': int(self.interchange_dim) if self.interchange_dim is not None else None,
+        }
 
     def __str__(self):
         return f"JumpReLUAutoencoderIntervention()"

@@ -141,6 +141,12 @@ def get_batch_size(model_input):
     """
     if isinstance(model_input, torch.Tensor):
         batch_size = model_input.shape[0]
+    elif isinstance(model_input, str):
+        # Single string input (for remote execution with nnsight)
+        batch_size = 1
+    elif isinstance(model_input, list):
+        # List of strings (for remote execution with nnsight)
+        batch_size = len(model_input)
     else:
         for _, v in model_input.items():
             batch_size = v.shape[0]
