@@ -68,6 +68,14 @@ for k, v in electra_type_to_module_mapping.items():
 electra_classifier_type_to_dimension_mapping = electra_type_to_dimension_mapping
 
 
+"""electra model with the replaced-token-detection (discriminator) head"""
+electra_pretraining_type_to_module_mapping = {}
+for k, v in electra_type_to_module_mapping.items():
+    electra_pretraining_type_to_module_mapping[k] = (f"electra.{v[0]}", ) + v[1:]
+
+electra_pretraining_type_to_dimension_mapping = electra_type_to_dimension_mapping
+
+
 def create_electra(name="google/electra-base-discriminator", cache_dir=None):
     """Creates an ELECTRA base model, config, and tokenizer from the given name"""
     from transformers import ElectraModel, ElectraTokenizer, ElectraConfig
@@ -90,6 +98,21 @@ def create_electra_mlm(name="google/electra-base-generator", config=None, cache_
     else:
         tokenizer = None
         electra = ElectraForMaskedLM(config=config)
+    print("loaded model")
+    return config, tokenizer, electra
+
+
+def create_electra_pretraining(name="google/electra-base-discriminator", config=None, cache_dir=None):
+    """Creates an ElectraForPreTraining (discriminator head), config, and tokenizer from the given name"""
+    from transformers import ElectraForPreTraining, ElectraTokenizer, ElectraConfig
+
+    if config is None:
+        config = ElectraConfig.from_pretrained(name)
+        tokenizer = ElectraTokenizer.from_pretrained(name)
+        electra = ElectraForPreTraining.from_pretrained(name, config=config, cache_dir=cache_dir)
+    else:
+        tokenizer = None
+        electra = ElectraForPreTraining(config=config)
     print("loaded model")
     return config, tokenizer, electra
 
