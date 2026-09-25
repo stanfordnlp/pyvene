@@ -93,9 +93,19 @@ internal activations you specified to collect. For example:
 
 
    # 2. Wrap the model with an intervention config
+   #
+   # IntervenableModel takes a config dict with:
+   #   - "component": dotted-string path to where in the model to intervene
+   #     (e.g., "model.layers[15].mlp.output" means the MLP output in layer 15)
+   #   - "intervention": an Intervention instance that defines how to modify activations
+   #
+   # The intervention receives two representations:
+   #   - base: the original model activations at the intervention site
+   #   - source: alternative activations to use (for interchange interventions)
+   # ZeroIntervention replaces activations with zeros at the specified location.
    pv_model = pv.IntervenableModel({
-      "component": "model.layers[15].mlp.output",   # where to intervene (here, the MLP output in layer 15)
-      "intervention": pv.ZeroIntervention           # what intervention to apply (here, zeroing out the activation)
+      "component": "model.layers[15].mlp.output",   # where to intervene (MLP output in layer 15)
+      "intervention": pv.ZeroIntervention           # replaces activations with zeros
    }, model=model)
 
 
