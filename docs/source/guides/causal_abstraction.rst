@@ -93,7 +93,7 @@ first **rotate** them, and then do the swap followed by un-rotating the
 intervened representation. Additionally, we try to use SGD to **learn a
 rotation** that lets us produce expected counterfactual behavior. If we
 can find such rotation, we claim there is an alignment.
-``If the cost is between X and Y.ipynb`` tutorial covers this with an
+The ``Boundless_DAS.ipynb`` tutorial covers this with an
 advanced version of distributed alignment search, `Boundless
 DAS <https://arxiv.org/abs/2305.08809>`__. There are `recent
 works <https://www.lesswrong.com/posts/RFtkRXHebkwxygDe2/an-interpretability-illusion-for-activation-patching-of>`__
